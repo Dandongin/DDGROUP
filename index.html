@@ -57,6 +57,25 @@ th{background:#f1f4f7}
 
 .in-team-chip{display:inline-flex; align-items:center; gap:6px; background:#e8f5e9; border:1px solid #c8e6c9; color:#2e7d32; padding:6px 12px; border-radius:20px; font-size:13px; font-weight:bold; margin:4px;}
 
+/* 접기/펼치기 스타일 */
+.collapsible-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  background: #f0f4f8;
+  border: 1px solid #dcdfe6;
+  padding: 10px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  color: #17324d;
+  transition: background 0.2s;
+}
+.collapsible-toggle:hover {
+  background: #e2e8f0;
+}
+
 @media (max-width: 768px) {
   header{padding:12px 16px;}
   header h1{font-size:16px;}
@@ -145,9 +164,9 @@ th{background:#f1f4f7}
       </div>
       <div id="captureArea" style="background:#f4f6f9; padding:10px; border-radius:12px; margin-bottom: 16px;">
         <div class="card">
-          <h2>1. 선택 날짜 실제 승선(출국/입국) 합산 요약</h2>
+          <h2>1. 선택 날짜 출국 승선 요약</h2>
           <div class="stats" id="simStats"></div>
-          <h3 style="margin-top:20px; margin-bottom:10px; font-size:14px;">보유 객실 대비 사용 비중 (선택 날짜 실제 승선 기준)</h3>
+          <h3 style="margin-top:20px; margin-bottom:10px; font-size:14px;">보유 객실 대비 사용 비중 (출국 승선 기준)</h3>
           <div class="table-responsive">
             <table id="totalTypeTable"></table>
           </div>
@@ -169,10 +188,18 @@ th{background:#f1f4f7}
 
     <!-- 입력 및 설정 영역 -->
     <div class="card">
-      <h2>4. 선박 전체 보유 객실 및 일반 여객 설정</h2>
-      <div class="master-grid" id="masterRoomsContainer"></div>
+      <!-- 4. 보유 객실 설정 (접기/펼치기 적용) -->
+      <div style="margin-bottom:16px;">
+        <button type="button" class="collapsible-toggle" onclick="toggleMasterArea()">
+          <span>⚙️ 4. 선박 전체 보유 객실 및 일반 여객 설정</span>
+          <span id="masterToggleIcon">▼ 열기</span>
+        </button>
+        <div id="masterAreaContent" class="hidden" style="margin-top:10px;">
+          <div class="master-grid" id="masterRoomsContainer"></div>
+        </div>
+      </div>
 
-      <h2 style="margin-top:20px;">5. [신규 등록] 출발 단체 및 여정 설정</h2>
+      <h2>5. [신규 등록] 출발 단체 및 여정 설정</h2>
       <div id="teamsContainer"></div>
       <button class="secondary" style="margin-top:8px" onclick="addTeam()">+ 단체 추가</button>
 
@@ -207,7 +234,7 @@ let selectedDate = "";
 let calendar = null;
 let teamSeq = 0;
 let linkedReturnTeams = []; // 과거 날짜에서 건너온 오늘 승선 단체들
-let allInboundTeams = [];   // 오늘 입국하는 모든 단체 (신규 + 과거 복귀)
+let allInboundTeams = [];   // 오늘 입국하는 모든 단체
 
 let masterRooms = {
   "6": { label: "6인실", totalRooms: 143, defaultCapPerRoom: 4, generalPeople: 100, generalCap: 3 },
@@ -228,6 +255,19 @@ function addDays(dateStr, days) {
 function formatShortDate(dateStr) {
   if (!dateStr || dateStr.length < 10) return dateStr;
   return dateStr.substring(5);
+}
+
+// 보유 객실 영역 접기/펼치기
+function toggleMasterArea(){
+  const content = document.getElementById("masterAreaContent");
+  const icon = document.getElementById("masterToggleIcon");
+  if(content.classList.contains("hidden")){
+    content.classList.remove("hidden");
+    icon.innerText = "▲ 접기";
+  } else {
+    content.classList.add("hidden");
+    icon.innerText = "▼ 열기";
+  }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -386,7 +426,7 @@ function deleteCustomEvent(){
   }
 }
 
-// 선택 날짜 오픈 및 과거 날짜 연동 단체 검색
+// 선택 날짜 오픈
 async function openDateSim(dateStr){
   selectedDate = dateStr;
   document.getElementById("selectedDateText").innerText = dateStr;
@@ -398,27 +438,24 @@ async function openDateSim(dateStr){
   linkedReturnTeams = [];
   allInboundTeams = [];
 
-  // 과거에 등록되어 오늘 복귀 승선하는 단체 탐색
   if (db) {
     try {
       const allDocs = await db.collection("schedules").get();
       allDocs.forEach(doc => {
         const regDate = doc.id;
-        if (regDate !== dateStr) { // 오늘 등록건 제외
+        if (regDate !== dateStr) {
           const data = doc.data();
           if (data.teams && data.teams.length > 0) {
             data.teams.forEach(t => {
               const nights = parseInt(t.nights || 4, 10);
               const retDate = addDays(regDate, nights);
               if (retDate === dateStr) {
-                // 오늘 복귀하는 단체
                 linkedReturnTeams.push({
                   ...t,
                   regDate: regDate,
                   isReturnOnTarget: true
                 });
 
-                // 한국발 왕복 단체의 복귀일 = 입국일
                 if (t.pattern === 'KR_ROUND') {
                   allInboundTeams.push({ name: t.name, people: t.totalPeople, type: "🇰🇷 복귀 입국" });
                 }
@@ -755,17 +792,14 @@ function extractAllocations(typeDivs) {
   return { totalPeople, allocations };
 }
 
-// 계산 로직: 오늘 승선 단체 + 오늘 입국 단체 간략 요약
+// 계산 로직 (출국 기준으로 요약)
 function runSimulation(shouldSave = true){
   const teamCards = [...document.querySelectorAll("#teamsContainer .team-card")];
 
   let todayTeams = [];
   let groupRoomUsed = { "6": 0, "4": 0, "2": 0, "dadami24": 0, "dadami36": 0 };
-  
-  // 오늘 입국 단체 목록 초기화 (과거 복귀 목록 유지)
   let currentInboundTeams = [...allInboundTeams];
 
-  // 1. 오늘 날짜 신규 단체 처리
   for (let idx = 0; idx < teamCards.length; idx++) {
     const card = teamCards[idx];
     const name = card.querySelector(".teamName").value.trim() || `단체 ${idx+1}`;
@@ -843,7 +877,7 @@ function runSimulation(shouldSave = true){
     });
   }
 
-  // 2. 과거 날짜 복귀 단체 합산
+  // 과거 날짜 복귀 단체 처리
   linkedReturnTeams.forEach(t => {
     let targetAlloc = [];
     if (!t.isSplitRoom) {
@@ -881,10 +915,11 @@ function runSimulation(shouldSave = true){
 
   const grandTotalPeople = generalTotalPeople + groupTotalPeople;
 
+  // 요약 영역 출국 기준 반영
   document.getElementById("simStats").innerHTML = `
-    <div class="stat">오늘 승선 인원<b>${grandTotalPeople}명</b><span>일반 ${generalTotalPeople}명 + 단체 ${groupTotalPeople}명</span></div>
+    <div class="stat">출국 승선 인원<b>${grandTotalPeople}명</b><span>일반 ${generalTotalPeople}명 + 단체 ${groupTotalPeople}명</span></div>
     <div class="stat">승선 단체 수<b>${allBoardingTeams.length}개 단체</b><span>신규 ${todayTeams.length} + 복귀 ${linkedReturnTeams.length}</span></div>
-    <div class="stat">오늘 승선 객실<b>${groupTotalRooms}개</b><span>단체 승선 객실 합계</span></div>
+    <div class="stat">출국 승선 객실<b>${groupTotalRooms}개</b><span>단체 승선 객실 합계</span></div>
   `;
 
   let totalTypeHtml = `<thead><tr><th>객실 종류</th><th>전체 보유 수</th><th>일반 여객</th><th>단체 승선</th><th>총 사용 객실</th><th>보유 대비 비중</th></tr></thead><tbody>`;
@@ -919,7 +954,7 @@ function runSimulation(shouldSave = true){
 
   document.getElementById("simWarn").innerHTML = overLimit ? `<div class="warn-box"><span class="bad">⚠ 초과 경고:</span> 총 객실 신청량이 보유 객실 수를 초과했습니다.</div>` : "";
 
-  // 3. 단체별 상세 내역 (요청사항: '신규 출발' 제거, '복귀' -> '리턴' 변경)
+  // 단체별 상세 내역
   let teamResultsHtml = "";
   allBoardingTeams.forEach(team => {
     const priceText = team.price ? ` | 💵 ${esc(team.price)}` : '';
@@ -929,10 +964,9 @@ function runSimulation(shouldSave = true){
     if(team.pattern === 'ONEWAY_IN') patternLabel = "⬅️ 입국 편도";
 
     const isReturn = team.isReturnOnTarget;
-    // 태그 간소화 적용
     const statusTag = isReturn 
       ? `<span class="tag-linked">🔄 리턴 (${formatShortDate(team.regDate)} 등록)</span>`
-      : ''; // 오늘 신규 출발 태그는 제거함
+      : '';
 
     teamResultsHtml += `<div style="margin-bottom:16px; border-bottom:1px solid #e1e7ef; padding-bottom:12px;">
       <h3 style="margin-bottom:4px; color:#1769aa;">🚩 ${esc(team.name)} (${team.totalPeople}명) <span class="tag-pattern">${patternLabel}</span> ${statusTag}${priceText}</h3>
@@ -971,7 +1005,7 @@ function runSimulation(shouldSave = true){
 
   document.getElementById("teamResultsContainer").innerHTML = teamResultsHtml;
 
-  // 4. [신규 기능] 오늘 입국 단체 간략 요약 표시
+  // 오늘 입국 단체 간략 요약
   let inTeamSumHtml = "";
   let inTeamTotalP = 0;
   if (currentInboundTeams.length > 0) {
