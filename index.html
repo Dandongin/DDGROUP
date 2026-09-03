@@ -81,7 +81,6 @@
       color: white !important;
     }
     
-    /* FullCalendar 이벤트 손가락 커서 표시 */
     .fc-event {
       cursor: pointer;
     }
@@ -102,7 +101,7 @@
       </div>
       <div class="form-group">
         <label for="peopleCount">인원 수 (명)</label>
-        <input type="number" id="peopleCount" required min="1" value="10" style="width: 80px;">
+        <input type="number" id="peopleCount" required min="1" value="321" style="width: 90px;">
       </div>
       <div class="form-group">
         <label for="startDate">출국일 (출발일)</label>
@@ -121,18 +120,24 @@
 </div>
 
 <script>
-  // 오늘 날짜를 YYYY-MM-DD 형식으로 구하기
+  // 오늘 날짜 구하기 (YYYY-MM-DD)
   const todayStr = new Date().toISOString().split('T')[0];
 
-  // 샘플 데이터 (테스트를 위해 오늘 날짜 기반 데이터 추가)
+  // 샘플 데이터 (월요일 출발 예시 테스트)
   let groupDataList = [
-    { id: 1, name: '샘플 A투어', peopleCount: 15, startDate: todayStr, nights: 4, returnDepartureDate: calculateReturnDepartureDate(todayStr, 4) }
+    { 
+      id: 1, 
+      name: '샘플 A투어', 
+      peopleCount: 321, 
+      startDate: '2026-09-07', // 월요일
+      nights: 4, 
+      returnDepartureDate: calculateReturnDepartureDate('2026-09-07', 4) // 목요일 (2026-09-10)
+    }
   ];
 
   let calendar = null;
 
   document.addEventListener('DOMContentLoaded', function() {
-    // 폼 출발일 초기값을 오늘로 설정
     document.getElementById('startDate').value = todayStr;
 
     const calendarEl = document.getElementById('calendar');
@@ -140,6 +145,7 @@
     calendar = new FullCalendar.Calendar(calendarEl, {
       initialView: 'dayGridMonth',
       locale: 'ko',
+      initialDate: '2026-09-01', // 샘플 데이터를 바로 확인하실 수 있도록 2026년 9월로 기본 설정
       headerToolbar: {
         left: 'prev,next today excelBtn',
         center: 'title',
@@ -154,9 +160,8 @@
         }
       },
       events: getCalendarEvents(),
-      // 이벤트 클릭 시 상세 정보 및 삭제 처리 추가
       eventClick: function(info) {
-        const groupId = parseInt(info.event.id);
+        const groupId = info.event.extendedProps.groupId;
         const group = groupDataList.find(g => g.id === groupId);
         
         if (group) {
@@ -166,7 +171,7 @@
             `- 인원: ${group.peopleCount}명\n` +
             `- 출발일: ${group.startDate}\n` +
             `- 일정: ${group.nights}박\n` +
-            `- 재출국 예정일: ${group.returnDepartureDate}\n\n` +
+            `- 재출국일: ${group.returnDepartureDate}\n\n` +
             `이 단체를 삭제하시겠습니까?`
           );
 
@@ -182,32 +187,48 @@
     calendar.render();
   });
 
-  // 달력 이벤트 포맷 변환
-  function getCalendarEvents() {
-    return groupDataList.map(group => ({
-      id: group.id,
-      title: `${group.name} (${group.peopleCount}명)`,
-      start: group.startDate,
-      backgroundColor: '#0d6efd',
-      borderColor: '#0d6efd'
-    }));
-  }
-
-  // 달력 새로고침 공통 함수
-  function refreshCalendar() {
-    calendar.removeAllEvents();
-    calendar.addEventSource(getCalendarEvents());
-  }
-
-  // 재출국일 계산 로직 (N박 기준: 출발일 + (N - 1)일)
+  // 재출국일 계산 로직 (월 출발 4박 -> 목요일 재출국 = 출발일 + 3일)
   function calculateReturnDepartureDate(startDateStr, nights) {
     const startDate = new Date(startDateStr);
-    const daysToAdd = parseInt(nights) - 1;
+    const daysToAdd = parseInt(nights) - 1; // 4박인 경우 +3일
     
     const returnDate = new Date(startDate);
     returnDate.setDate(startDate.getDate() + daysToAdd);
     
     return returnDate.toISOString().split('T')[0];
+  }
+
+  // 달력 이벤트 데이터 생성 (출발일 + 재출국일 이벤트 각각 생성)
+  function getCalendarEvents() {
+    const events = [];
+
+    groupDataList.forEach(group => {
+      // 1. 출발일 이벤트 (파란색)
+      events.push({
+        title: `${group.name} (${group.peopleCount}명)`,
+        start: group.startDate,
+        backgroundColor: '#0d6efd',
+        borderColor: '#0d6efd',
+        extendedProps: { groupId: group.id, type: 'start' }
+      });
+
+      // 2. 재출국일 이벤트 ("출321" 형식 - 주황/빨간색 계열)
+      events.push({
+        title: `출${group.peopleCount}`,
+        start: group.returnDepartureDate,
+        backgroundColor: '#fd7e14', // 재출국일 강조색 (주황색)
+        borderColor: '#fd7e14',
+        extendedProps: { groupId: group.id, type: 'return' }
+      });
+    });
+
+    return events;
+  }
+
+  // 달력 새로고침
+  function refreshCalendar() {
+    calendar.removeAllEvents();
+    calendar.addEventSource(getCalendarEvents());
   }
 
   // 폼 제출 이벤트
@@ -233,17 +254,15 @@
 
     groupDataList.push(newGroup);
     
-    // 달력 새로고침
     refreshCalendar();
 
-    alert(`단체가 등록되었습니다.\n재출국 예정일: ${returnDepartureDate}`);
+    alert(`단체가 등록되었습니다.\n- 출발일: ${startDate}\n- 재출국일: ${returnDepartureDate} (표시: 출${peopleCount})`);
     
-    // 폼 리셋 후 출발일은 다시 오늘로 복구
     this.reset();
     document.getElementById('startDate').value = todayStr;
   });
 
-  // 엑셀 다운로드 기능
+  // 한 달치 요약 엑셀 다운로드
   function exportMonthlySummaryToExcel() {
     const currentViewDate = calendar.getDate();
     const currentYear = currentViewDate.getFullYear();
@@ -264,7 +283,7 @@
 
     filteredGroups.forEach(group => {
       const departureDate = new Date(group.startDate);
-      const dayOfWeek = departureDate.getDay(); // 0:일, 1:월, 2:화, 3:수, 4:목, 5:금, 6:토
+      const dayOfWeek = departureDate.getDay(); 
 
       let category = '';
       if ([1, 3, 5].includes(dayOfWeek)) {
@@ -280,22 +299,22 @@
         '출발일': group.startDate,
         '단체 이름': group.name,
         '인원': group.peopleCount,
-        '재출국 예정일': group.returnDepartureDate
+        '재출국일': group.returnDepartureDate,
+        '재출국 표기': `출${group.peopleCount}`
       });
 
       totalPeople += group.peopleCount;
     });
 
-    // 총 합계 행 추가
     excelRows.push({
       '구분': '총 합계',
       '출발일': '-',
       '단체 이름': '-',
       '인원': totalPeople,
-      '재출국 예정일': '-'
+      '재출국일': '-',
+      '재출국 표기': '-'
     });
 
-    // SheetJS 엑셀 생성
     const worksheet = XLSX.utils.json_to_sheet(excelRows);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "월간 요약 통계");
