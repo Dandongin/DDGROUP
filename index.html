@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>단동훼리 단체 관리</title>
+<title>단동훼리 단체 관리 시스템</title>
 
 <!-- FullCalendar -->
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
@@ -23,7 +23,7 @@ header h1{margin:0;font-size:20px}
 #calendar{background:white;padding:20px;border-radius:12px;}
 .date-title{font-size:18px;font-weight:bold;color:#17324d;margin-bottom:15px;display:flex;align-items:center;gap:10px;}
 .team-card{border:1px solid #c3d1e0;background:#f8fafc;border-radius:10px;padding:16px;margin-bottom:16px}
-.team-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:2px solid #e1e7ef;padding-bottom:10px}
+.team-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:2px solid #e1e7ef;padding-bottom:10px;gap:8px;flex-wrap:wrap;}
 h2{font-size:16px;margin:0 0 12px}
 label{font-size:12px;color:#5c6673;display:block;margin-bottom:4px}
 input,select,button,textarea{font:inherit}
@@ -40,7 +40,6 @@ button{border:0;border-radius:7px;padding:8px 12px;cursor:pointer;font-weight:70
 .hidden{display:none!important}
 .warn-box{padding:10px 12px;background:#fff0f0;border:1px solid #f3c2c2;border-radius:8px;font-size:13px;margin-top:12px}
 
-/* 테이블 가로 스크롤 지원 */
 .table-responsive{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-top:8px;}
 table{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap;}
 th,td{padding:9px;border-bottom:1px solid #e4e8ed;text-align:left}
@@ -51,8 +50,9 @@ th{background:#f1f4f7}
 .master-grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:10px;background:#f0f4f8;padding:12px;border-radius:8px;}
 .master-card{background:white;padding:10px;border-radius:8px;border:1px solid #dcdfe6;}
 .memo-box{background:#fff; border:1px dashed #cbd5e1; padding:8px 10px; border-radius:6px; margin-top:8px; font-size:12px; color:#334155;}
+.tag-kr{background:#e3f2fd; color:#0d47a1; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:bold;}
+.tag-cn{background:#fbe9e7; color:#d84315; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:bold;}
 
-/* 모바일 가시성 개선 CSS */
 @media (max-width: 768px) {
   header{padding:12px 16px;}
   header h1{font-size:16px;}
@@ -61,10 +61,10 @@ th{background:#f1f4f7}
   #calendar{padding:10px;}
   .fc .fc-toolbar-title{font-size:16px;}
   .fc .fc-button{padding:4px 8px; font-size:12px;}
-  .stats{grid-template-columns:1fr;} /* 모바일에서 요약 카드를 세로 배치 */
+  .stats{grid-template-columns:1fr;}
   .stat{padding:10px;}
   .stat b{font-size:18px;}
-  .type-grid{grid-template-columns:1fr 1fr; gap:6px;} /* 객실 입력 단계를 2열로 정리 */
+  .type-grid{grid-template-columns:1fr 1fr; gap:6px;}
   .type-grid > div:last-child{grid-column: span 2; text-align:right;}
   .master-grid{grid-template-columns:1fr 1fr;}
   button{padding:7px 10px; font-size:12px;}
@@ -76,13 +76,13 @@ th{background:#f1f4f7}
 <header>
   <div>
     <h1 style="display:inline-block; margin-right:15px;">📅 단동훼리 단체 관리</h1>
-    <span style="font-size:12px; opacity:0.8; display:block;">원하는 날짜를 클릭하여 작성 및 조회하세요.</span>
+    <span style="font-size:12px; opacity:0.8; display:block;">출국/입국 일정 자동 계산 모드</span>
   </div>
   <button style="background:#d32f2f; color:white; padding:9px 15px; font-size:13px;" onclick="openEventModal()">🚫 휴항/메모 별도 등록</button>
 </header>
 
 <div class="wrap">
-  <!-- 달력 영역 -->
+  <!-- 달력 -->
   <div class="card">
     <div id="calendar"></div>
   </div>
@@ -103,71 +103,70 @@ th{background:#f1f4f7}
         <select id="eventType">
           <option value="⛔ 휴항">⛔ 휴항</option>
           <option value="🔧 정기점검">🔧 정기점검</option>
-          <option value="✏️ 메모">✏️ 일반 메모 (내용만 표시)</option>
+          <option value="✏️ 메모">✏️ 일반 메모</option>
         </select>
       </div>
       <div>
         <label style="font-weight:bold;">상세 메모/내용</label>
-        <input type="text" id="eventTitle" placeholder="예: 선박 정기점검으로 인한 휴항 / 메모 내용 입력">
+        <input type="text" id="eventTitle" placeholder="내용 입력">
       </div>
       <div>
         <label style="font-weight:bold;">배경 색상</label>
         <select id="eventColor">
-          <option value="#d32f2f">빨간색 (휴항/경고)</option>
-          <option value="#ed6c02">주황색 (점검/주의)</option>
-          <option value="#0288d1">파란색 (일반)</option>
-          <option value="#2e7d32">초록색 (정상)</option>
+          <option value="#d32f2f">빨간색 (휴항)</option>
+          <option value="#ed6c02">주황색 (점검)</option>
+          <option value="#0288d1">파란색 (메모)</option>
         </select>
       </div>
       <div style="display:flex; gap:10px; margin-top:10px;">
         <button class="primary" style="background:#d32f2f;" onclick="saveCustomEvent()">저장하기</button>
-        <button class="danger" onclick="deleteCustomEvent()">이 날짜 메모/휴항 삭제</button>
+        <button class="danger" onclick="deleteCustomEvent()">삭제</button>
       </div>
     </div>
   </div>
 
-  <!-- 2. 선택한 날짜 시뮬레이터 영역 -->
+  <!-- 2. 선택 날짜 시뮬레이터 -->
   <div id="simSection" class="hidden">
     <div class="card" style="border: 2px solid #1769aa; margin-bottom: 16px;">
       <div class="date-title" style="margin-bottom:0;">
-        <span>📌 선택된 날짜: <span id="selectedDateText" style="color:#1769aa;"></span></span>
+        <span>📌 선택 날짜: <span id="selectedDateText" style="color:#1769aa;"></span></span>
         <button class="secondary" style="font-size:12px; margin-left:auto;" onclick="closeSimSection()">닫기 ✕</button>
       </div>
     </div>
 
-    <!-- [상단] 시뮬레이션 결과 요약 영역 -->
+    <!-- 시뮬레이션 결과 요약 -->
     <div id="simResult" class="hidden">
       <div style="text-align:right; margin-bottom:10px;">
         <button class="success" onclick="downloadResultImage()">📸 결과 이미지 다운로드 (PNG)</button>
       </div>
       <div id="captureArea" style="background:#f4f6f9; padding:10px; border-radius:12px; margin-bottom: 16px;">
         <div class="card">
-          <h2>1. 전체 합산 비중 요약 (일반 여객 + 단체)</h2>
+          <h2>1. 전체 합산 요약 (당일 출국/입국 포함)</h2>
           <div class="stats" id="simStats"></div>
-          <h3 style="margin-top:20px; margin-bottom:10px; font-size:14px;">전체 보유 객실 대비 총 사용 비중</h3>
+          <h3 style="margin-top:20px; margin-bottom:10px; font-size:14px;">보유 객실 대비 총 사용 비중</h3>
           <div class="table-responsive">
             <table id="totalTypeTable"></table>
           </div>
           <div id="simWarn"></div>
         </div>
         <div class="card">
-          <h2>2. 단체별 배정 상세 및 비중</h2>
+          <h2>2. 단체별 상세 및 여정 안내</h2>
           <div id="teamResultsContainer"></div>
         </div>
       </div>
     </div>
 
-    <!-- [하단] 입력 및 설정 영역 -->
+    <!-- 입력 및 설정 영역 -->
     <div class="card">
       <h2>3. 선박 전체 보유 객실 및 일반 여객 설정</h2>
       <div class="master-grid" id="masterRoomsContainer"></div>
 
-      <h2 style="margin-top:20px;">4. 단체(팀) 및 객실별 인원 설정</h2>
+      <h2 style="margin-top:20px;">4. 출발 단체 및 여정 설정</h2>
       <div id="teamsContainer"></div>
-      <button class="secondary" style="margin-top:8px" onclick="addTeam()">+ 별도 단체 추가</button>
+      <button class="secondary" style="margin-top:8px" onclick="addTeam()">+ 단체 추가</button>
 
       <div style="margin-top:20px; border-top:1px solid #eee; padding-top:16px; display:flex; gap:10px;">
-        <button class="primary" style="font-size:15px;padding:12px 20px" onclick="runSimulation()">계산 및 서버 저장</button>
+        <button class="primary" style="font-size:15px;padding:12px 20px" onclick="runSimulation(true)">계산 및 서버 저장</button>
         <button class="danger" onclick="deleteDateData()">이 날짜 데이터 삭제</button>
       </div>
     </div>
@@ -175,15 +174,14 @@ th{background:#f1f4f7}
 </div>
 
 <script>
-// 1. 구글 Firebase 설정
+// Firebase 설정
 const firebaseConfig = {
   apiKey: "AIzaSyCxQ8kYN_VL6-_8oqhrUv3TjV-Yjpimo00",
   authDomain: "dd-group-2c8e8.firebaseapp.com",
   projectId: "dd-group-2c8e8",
   storageBucket: "dd-group-2c8e8.firebasestorage.app",
   messagingSenderId: "35622249443",
-  appId: "1:35622249443:web:ee7e139f1ca0e3792af6d6",
-  measurementId: "G-Y3GQZF3T59"
+  appId: "1:35622249443:web:ee7e139f1ca0e3792af6d6"
 };
 
 let db = null;
@@ -192,11 +190,8 @@ try {
     firebase.initializeApp(firebaseConfig);
     db = firebase.firestore();
   }
-} catch(e) {
-  console.log("Firebase 로드 오류:", e);
-}
+} catch(e) { console.log(e); }
 
-// 2. 변수 및 기본 객실 구조
 let selectedDate = "";
 let calendar = null;
 let teamSeq = 0;
@@ -211,62 +206,89 @@ let masterRooms = {
 
 function esc(s){ return String(s??"").replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m])); }
 
+// 날짜에 N일을 더하는 함수
+function addDays(dateStr, days) {
+  const result = new Date(dateStr);
+  result.setDate(result.getDate() + parseInt(days, 10));
+  return result.toISOString().split('T')[0];
+}
+
 // 3. 달력 초기화
 document.addEventListener('DOMContentLoaded', function() {
   const calendarEl = document.getElementById('calendar');
   calendar = new FullCalendar.Calendar(calendarEl, {
     initialView: 'dayGridMonth',
     locale: 'ko',
-    headerToolbar: {
-      left: 'prev,next today',
-      center: 'title',
-      right: ''
-    },
+    headerToolbar: { left: 'prev,next today', center: 'title', right: '' },
     dateClick: function(info) {
       closeEventSection();
       openDateSim(info.dateStr);
     },
     eventSources: [
-      // A) 한국 공휴일 API
+      // 공휴일
       {
         events: async function(fetchInfo, successCallback) {
           try {
             const year = fetchInfo.start.getFullYear();
             const res = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/KR`);
             const holidays = await res.json();
-            const holidayEvents = holidays.map(h => ({
-              title: `🔴 ${h.localName}`,
-              start: h.date,
-              allDay: true,
-              backgroundColor: '#fff0f0',
-              borderColor: '#f3c2c2',
-              textColor: '#d32f2f'
-            }));
-            successCallback(holidayEvents);
+            successCallback(holidays.map(h => ({
+              title: `🔴 ${h.localName}`, start: h.date, allDay: true,
+              backgroundColor: '#fff0f0', borderColor: '#f3c2c2', textColor: '#d32f2f'
+            })));
           } catch(e) { successCallback([]); }
         }
       },
-      // B) Firebase 단체 예약 데이터 (일반인 제외, 단체 인원만 표시)
+      // Firebase 단체 출국/입국 집계
       {
         events: function(fetchInfo, successCallback) {
           if(!db) { successCallback([]); return; }
           db.collection("schedules").get().then((querySnapshot) => {
-            let events = [];
+            let dailyOut = {}; // 날짜별 출국 인원
+            let dailyIn = {};  // 날짜별 입국 인원
+
             querySnapshot.forEach((doc) => {
+              const regDate = doc.id;
               const data = doc.data();
-              const groupPeople = data.groupTotalPeople || 0;
-              events.push({
-                id: doc.id,
-                title: `👥 단체 ${groupPeople}명 (${data.teamCount}팀)`,
-                start: doc.id,
-                color: '#1769aa'
-              });
+              if (data.teams && data.teams.length > 0) {
+                data.teams.forEach(t => {
+                  const p = t.totalPeople || 0;
+                  const nights = parseInt(t.nights || 4, 10);
+                  const nation = t.nation || 'KR';
+                  const returnDate = addDays(regDate, nights);
+
+                  if (nation === 'KR') {
+                    // 한국: 등록일 = 출국, returnDate = 입국
+                    dailyOut[regDate] = (dailyOut[regDate] || 0) + p;
+                    dailyIn[returnDate] = (dailyIn[returnDate] || 0) + p;
+                  } else {
+                    // 중국: 등록일 = 입국, returnDate = 출국
+                    dailyIn[regDate] = (dailyIn[regDate] || 0) + p;
+                    dailyOut[returnDate] = (dailyOut[returnDate] || 0) + p;
+                  }
+                });
+              }
             });
+
+            let events = [];
+            // 출국 이벤트 생성
+            Object.keys(dailyOut).forEach(d => {
+              if (dailyOut[d] > 0) {
+                events.push({ title: `🛫 출 ${dailyOut[d]}`, start: d, color: '#1769aa' });
+              }
+            });
+            // 입국 이벤트 생성
+            Object.keys(dailyIn).forEach(d => {
+              if (dailyIn[d] > 0) {
+                events.push({ title: `🛬 입 ${dailyIn[d]}`, start: d, color: '#2e7d32' });
+              }
+            });
+
             successCallback(events);
           }).catch(() => successCallback([]));
         }
       },
-      // C) Firebase 휴항/메모 데이터
+      // 별도 휴항/메모
       {
         events: function(fetchInfo, successCallback) {
           if(!db) { successCallback([]); return; }
@@ -274,17 +296,9 @@ document.addEventListener('DOMContentLoaded', function() {
             let events = [];
             querySnapshot.forEach((doc) => {
               const data = doc.data();
-              let displayTitle = "";
-              
-              if(data.type === "✏️ 메모") {
-                displayTitle = data.title ? `✏️ ${data.title}` : "✏️ 메모";
-              } else {
-                displayTitle = `${data.type} ${data.title ? '- ' + data.title : ''}`;
-              }
-
               events.push({
                 id: "ce_" + doc.id,
-                title: displayTitle,
+                title: data.type === "✏️ 메모" ? (data.title ? `✏️ ${data.title}` : "✏️ 메모") : `${data.type} ${data.title ? '- ' + data.title : ''}`,
                 start: doc.id,
                 color: data.color || '#d32f2f'
               });
@@ -298,16 +312,13 @@ document.addEventListener('DOMContentLoaded', function() {
   calendar.render();
 });
 
-// 4. 별도 버튼 클릭으로 휴항/메모 등록 화면 열기
 function openEventModal(){
   closeSimSection();
   const eventSection = document.getElementById("eventSection");
   eventSection.classList.remove("hidden");
-  
   const today = new Date().toISOString().split('T')[0];
   document.getElementById("eventDate").value = today;
   loadEventDataForDate(today);
-  
   eventSection.scrollIntoView({ behavior: 'smooth' });
 }
 
@@ -316,7 +327,6 @@ function loadEventDataForDate(dateStr){
   document.getElementById("eventType").value = "⛔ 휴항";
   document.getElementById("eventTitle").value = "";
   document.getElementById("eventColor").value = "#d32f2f";
-
   if(db){
     db.collection("custom_events").doc(dateStr).get().then(doc => {
       if(doc.exists){
@@ -329,23 +339,18 @@ function loadEventDataForDate(dateStr){
   }
 }
 
-function closeEventSection(){
-  document.getElementById("eventSection").classList.add("hidden");
-}
+function closeEventSection(){ document.getElementById("eventSection").classList.add("hidden"); }
 
 function saveCustomEvent(){
   const dateStr = document.getElementById("eventDate").value;
   if(!dateStr){ alert("날짜를 선택해주세요."); return; }
-
   const type = document.getElementById("eventType").value;
   const title = document.getElementById("eventTitle").value.trim();
   const color = document.getElementById("eventColor").value;
 
   if(db){
-    db.collection("custom_events").doc(dateStr).set({
-      type, title, color, updatedAt: new Date()
-    }).then(() => {
-      alert(`[${dateStr}] 일정/휴항 정보가 저장되었습니다.`);
+    db.collection("custom_events").doc(dateStr).set({ type, title, color, updatedAt: new Date() }).then(() => {
+      alert(`[${dateStr}] 일정이 저장되었습니다.`);
       closeEventSection();
       if(calendar) calendar.refetchEvents();
     });
@@ -355,8 +360,7 @@ function saveCustomEvent(){
 function deleteCustomEvent(){
   const dateStr = document.getElementById("eventDate").value;
   if(!dateStr) return;
-  
-  if(confirm(`정말로 ${dateStr} 날짜의 메모/휴항 일정을 삭제하시겠습니까?`)){
+  if(confirm(`정말로 ${dateStr} 일정을 삭제하시겠습니까?`)){
     if(db){
       db.collection("custom_events").doc(dateStr).delete().then(() => {
         alert("삭제되었습니다.");
@@ -367,7 +371,7 @@ function deleteCustomEvent(){
   }
 }
 
-// 5. 시뮬레이터 로직
+// 5. 시뮬레이터 로드
 function openDateSim(dateStr){
   selectedDate = dateStr;
   document.getElementById("selectedDateText").innerText = dateStr;
@@ -385,27 +389,25 @@ function openDateSim(dateStr){
         initMasterRoomsUI();
         if(data.teams && data.teams.length > 0){
           data.teams.forEach(t => restoreTeamUI(t));
-        } else { addTeam("팀명"); }
+        } else { addTeam(); }
         runSimulation(false);
       } else {
         initMasterRoomsUI();
-        addTeam("팀명");
+        addTeam();
       }
     }).catch(() => {
       initMasterRoomsUI();
-      addTeam("팀명");
+      addTeam();
     });
   } else {
     initMasterRoomsUI();
-    addTeam("팀명");
+    addTeam();
   }
 
   document.getElementById("simSection").scrollIntoView({ behavior: 'smooth' });
 }
 
-function closeSimSection(){
-  document.getElementById("simSection").classList.add("hidden");
-}
+function closeSimSection(){ document.getElementById("simSection").classList.add("hidden"); }
 
 function resetMasterData(){
   masterRooms = {
@@ -469,21 +471,27 @@ function updateMasterRoom(key){
   document.getElementById(`calc_remain_room_${key}`).innerText = remainRooms;
 }
 
-function addTeam(name="", price="", memo=""){
+function addTeam(name="", nation="KR", nights="4", price="", memo=""){
   const teamId = "team_" + (teamSeq++);
   const teamDiv = document.createElement("div");
   teamDiv.className = "team-card";
   teamDiv.id = teamId;
   teamDiv.innerHTML = `
     <div class="team-head">
-      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; flex:1;">
-        <input type="text" class="teamName" placeholder="단체명" value="${esc(name)}" style="max-width:180px; font-weight:bold;">
-        <input type="text" class="teamPrice" placeholder="금액 (예: 189)" value="${esc(price)}" style="max-width:140px;">
+      <input type="text" class="teamName" placeholder="단체명" value="${esc(name)}" style="max-width:160px; font-weight:bold;">
+      <select class="teamNation" style="max-width:130px;">
+        <option value="KR" ${nation==='KR'?'selected':''}>🇰🇷 한국 출발</option>
+        <option value="CN" ${nation==='CN'?'selected':''}>🇨🇳 중국 출발</option>
+      </select>
+      <div style="display:flex; align-items:center; gap:4px;">
+        <input type="number" class="teamNights" value="${nights}" style="width:60px;" min="1" placeholder="4">
+        <span style="font-size:12px; font-weight:bold;">박</span>
       </div>
+      <input type="text" class="teamPrice" placeholder="금액" value="${esc(price)}" style="max-width:100px;">
       <button class="danger" type="button" onclick="document.getElementById('${teamId}').remove()">삭제</button>
     </div>
     <div style="margin-bottom:10px;">
-      <textarea class="teamMemo" placeholder="단체 특이사항 메모 (선택 입력)" rows="2">${esc(memo)}</textarea>
+      <textarea class="teamMemo" placeholder="단체 메모" rows="2">${esc(memo)}</textarea>
     </div>
     <div class="roomTypesContainer"></div>
     <button class="secondary" type="button" style="font-size:12px; padding:4px 8px; margin-top:4px;" onclick="addRoomTypeToTeam('${teamId}')">+ 객실 종류 추가</button>
@@ -499,14 +507,20 @@ function restoreTeamUI(teamData){
   teamDiv.id = teamId;
   teamDiv.innerHTML = `
     <div class="team-head">
-      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; flex:1;">
-        <input type="text" class="teamName" placeholder="단체명" value="${esc(teamData.name)}" style="max-width:180px; font-weight:bold;">
-        <input type="text" class="teamPrice" placeholder="금액 (예: 189)" value="${esc(teamData.price || '')}" style="max-width:140px;">
+      <input type="text" class="teamName" placeholder="단체명" value="${esc(teamData.name)}" style="max-width:160px; font-weight:bold;">
+      <select class="teamNation" style="max-width:130px;">
+        <option value="KR" ${teamData.nation==='KR'?'selected':''}>🇰🇷 한국 출발</option>
+        <option value="CN" ${teamData.nation==='CN'?'selected':''}>🇨🇳 중국 출발</option>
+      </select>
+      <div style="display:flex; align-items:center; gap:4px;">
+        <input type="number" class="teamNights" value="${teamData.nights || 4}" style="width:60px;" min="1">
+        <span style="font-size:12px; font-weight:bold;">박</span>
       </div>
+      <input type="text" class="teamPrice" placeholder="금액" value="${esc(teamData.price || '')}" style="max-width:100px;">
       <button class="danger" type="button" onclick="document.getElementById('${teamId}').remove()">삭제</button>
     </div>
     <div style="margin-bottom:10px;">
-      <textarea class="teamMemo" placeholder="단체 특이사항 메모 (선택 입력)" rows="2">${esc(teamData.memo || '')}</textarea>
+      <textarea class="teamMemo" placeholder="단체 메모" rows="2">${esc(teamData.memo || '')}</textarea>
     </div>
     <div class="roomTypesContainer"></div>
     <button class="secondary" type="button" style="font-size:12px; padding:4px 8px; margin-top:4px;" onclick="addRoomTypeToTeam('${teamId}')">+ 객실 종류 추가</button>
@@ -567,6 +581,8 @@ function runSimulation(shouldSave = true){
 
   teamCards.forEach((card, idx) => {
     const name = card.querySelector(".teamName").value.trim() || `단체 ${idx+1}`;
+    const nation = card.querySelector(".teamNation").value;
+    const nights = parseInt(card.querySelector(".teamNights").value, 10) || 4;
     const price = card.querySelector(".teamPrice").value.trim();
     const memo = card.querySelector(".teamMemo").value.trim();
     const typeDivs = [...card.querySelectorAll(".type-card")];
@@ -588,7 +604,21 @@ function runSimulation(shouldSave = true){
     });
 
     if(teamTotalPeople > 0){
-      teams.push({ name, price, memo, totalPeople: teamTotalPeople, allocations });
+      const days = nights + 1;
+      const returnDate = addDays(selectedDate, nights);
+      let itineraryStr = "";
+      
+      if(nation === 'KR') {
+        itineraryStr = `🛫 출국: ${selectedDate} ➔ 🛬 입국: ${returnDate} (${nights}박 ${days}일)`;
+      } else {
+        itineraryStr = `🛬 입국: ${selectedDate} ➔ 🛫 출국: ${returnDate} (${nights}박 ${days}일)`;
+      }
+
+      teams.push({
+        name, nation, nights, price, memo,
+        totalPeople: teamTotalPeople,
+        allocations, itineraryStr, returnDate
+      });
     }
   });
 
@@ -610,8 +640,8 @@ function runSimulation(shouldSave = true){
   const grandTotalPeople = generalTotalPeople + groupTotalPeople;
 
   document.getElementById("simStats").innerHTML = `
-    <div class="stat">총 인원 (일반+단체)<b>${grandTotalPeople}명</b><span>일반 ${generalTotalPeople}명 + 단체 ${groupTotalPeople}명</span></div>
-    <div class="stat">단체 전체 인원<b>${groupTotalPeople}명</b><span>총 ${teams.length}개 단체</span></div>
+    <div class="stat">총 승선 인원<b>${grandTotalPeople}명</b><span>일반 ${generalTotalPeople}명 + 단체 ${groupTotalPeople}명</span></div>
+    <div class="stat">등록 단체 인원<b>${groupTotalPeople}명</b><span>총 ${teams.length}개 단체</span></div>
     <div class="stat">단체 필요 객실<b>${groupTotalRooms}개</b><span>단체 신청 객실 합계</span></div>
   `;
 
@@ -645,31 +675,22 @@ function runSimulation(shouldSave = true){
   totalTypeHtml += `</tbody>`;
   document.getElementById("totalTypeTable").innerHTML = totalTypeHtml;
 
-  if(overLimit){
-    document.getElementById("simWarn").innerHTML = `<div class="warn-box"><span class="bad">⚠ 초과 경고:</span> 총 객실 신청량이 보유 객실 수를 초과했습니다.</div>`;
-  } else {
-    document.getElementById("simWarn").innerHTML = "";
-  }
+  document.getElementById("simWarn").innerHTML = overLimit ? `<div class="warn-box"><span class="bad">⚠ 초과 경고:</span> 총 객실 신청량이 보유 객실 수를 초과했습니다.</div>` : "";
 
-  /* 2. 단체별 배정 상세 및 비중 영역 - '인원 비중' 삭제 반영 */
   let teamResultsHtml = "";
   teams.forEach(team => {
     const teamTotalRooms = team.allocations.reduce((s,a)=>s+a.roomsNeeded, 0);
     const priceText = team.price ? ` | 💵 ${esc(team.price)}` : '';
-    
+    const nationTag = team.nation === 'KR' ? `<span class="tag-kr">🇰🇷 한국출발</span>` : `<span class="tag-cn">🇨🇳 중국출발</span>`;
+
     teamResultsHtml += `<div style="margin-bottom:16px;">
-      <h3 style="margin-bottom:4px; color:#1769aa;">🚩 ${esc(team.name)} — 총 ${team.totalPeople}명 (${teamTotalRooms}실)${priceText}</h3>
-      ${team.memo ? `<div class="memo-box"><b>📌 단체 메모:</b> ${esc(team.memo)}</div>` : ''}
+      <h3 style="margin-bottom:4px; color:#1769aa;">🚩 ${esc(team.name)} (${team.totalPeople}명 / ${teamTotalRooms}실) ${nationTag}${priceText}</h3>
+      <div style="font-size:13px; font-weight:bold; color:#2e7d32; margin-bottom:6px;">🗓️ 여정: ${team.itineraryStr}</div>
+      ${team.memo ? `<div class="memo-box"><b>📌 메모:</b> ${esc(team.memo)}</div>` : ''}
       <div class="table-responsive">
         <table>
           <thead>
-            <tr>
-              <th>객실 종류</th>
-              <th>인원</th>
-              <th>수용 설정</th>
-              <th>필요 객실</th>
-              <th>보유 대비 비중</th>
-            </tr>
+            <tr><th>객실 종류</th><th>인원</th><th>수용 설정</th><th>필요 객실</th><th>보유 대비 비중</th></tr>
           </thead>
           <tbody>`;
     team.allocations.forEach(a => {
@@ -691,17 +712,15 @@ function runSimulation(shouldSave = true){
   if(shouldSave && db && selectedDate){
     db.collection("schedules").doc(selectedDate).set({
       totalPeople: grandTotalPeople,
-      groupTotalPeople: groupTotalPeople, // 단체 인원 별도 저장
+      groupTotalPeople: groupTotalPeople,
       teamCount: teams.length,
       masterRooms: masterRooms,
       teams: teams,
       updatedAt: new Date()
     }).then(() => {
-      alert(`[${selectedDate}] 객실 배정 정보가 서버에 성공적으로 저장되었습니다.`);
+      alert(`[${selectedDate}] 일정 및 여정이 정상 저장되었습니다.`);
       if(calendar) calendar.refetchEvents();
-    }).catch(err => {
-      alert("저장 중 오류 발생: " + err);
-    });
+    }).catch(err => { alert("저장 실패: " + err); });
   }
 }
 
