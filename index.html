@@ -55,6 +55,8 @@ th{background:#f1f4f7}
 
 .section-subtitle{font-size:13px; font-weight:bold; color:#1769aa; margin:8px 0 4px 0; border-left:3px solid #1769aa; padding-left:6px;}
 
+.in-team-chip{display:inline-flex; align-items:center; gap:6px; background:#e8f5e9; border:1px solid #c8e6c9; color:#2e7d32; padding:6px 12px; border-radius:20px; font-size:13px; font-weight:bold; margin:4px;}
+
 @media (max-width: 768px) {
   header{padding:12px 16px;}
   header h1{font-size:16px;}
@@ -151,19 +153,26 @@ th{background:#f1f4f7}
           </div>
           <div id="simWarn"></div>
         </div>
+
         <div class="card">
           <h2>2. 오늘 승선 단체 전체 및 상세 여정</h2>
           <div id="teamResultsContainer"></div>
+        </div>
+
+        <!-- 오늘 입국 단체 간략 요약 카드 -->
+        <div class="card">
+          <h2>3. 오늘 입국 단체 요약 (총 <span id="inTeamTotalPeople" style="color:#2e7d32;">0</span>명 / <span id="inTeamCount">0</span>개 단체)</h2>
+          <div id="inTeamSummaryContainer" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;"></div>
         </div>
       </div>
     </div>
 
     <!-- 입력 및 설정 영역 -->
     <div class="card">
-      <h2>3. 선박 전체 보유 객실 및 일반 여객 설정</h2>
+      <h2>4. 선박 전체 보유 객실 및 일반 여객 설정</h2>
       <div class="master-grid" id="masterRoomsContainer"></div>
 
-      <h2 style="margin-top:20px;">4. [신규 등록] 출발 단체 및 여정 설정</h2>
+      <h2 style="margin-top:20px;">5. [신규 등록] 출발 단체 및 여정 설정</h2>
       <div id="teamsContainer"></div>
       <button class="secondary" style="margin-top:8px" onclick="addTeam()">+ 단체 추가</button>
 
@@ -197,7 +206,8 @@ try {
 let selectedDate = "";
 let calendar = null;
 let teamSeq = 0;
-let linkedReturnTeams = []; // 과거 날짜에서 건너온 오늘 복귀 승선 단체들
+let linkedReturnTeams = []; // 과거 날짜에서 건너온 오늘 승선 단체들
+let allInboundTeams = [];   // 오늘 입국하는 모든 단체 (신규 + 과거 복귀)
 
 let masterRooms = {
   "6": { label: "6인실", totalRooms: 143, defaultCapPerRoom: 4, generalPeople: 100, generalCap: 3 },
@@ -376,7 +386,7 @@ function deleteCustomEvent(){
   }
 }
 
-// 선택 날짜 오픈 및 과거 날짜 복귀 단체 자동 검색
+// 선택 날짜 오픈 및 과거 날짜 연동 단체 검색
 async function openDateSim(dateStr){
   selectedDate = dateStr;
   document.getElementById("selectedDateText").innerText = dateStr;
@@ -385,7 +395,8 @@ async function openDateSim(dateStr){
   resetMasterData();
   document.getElementById("teamsContainer").innerHTML = "";
   document.getElementById("simResult").classList.add("hidden");
-  linkedReturnTeams = []; // 과거 날짜에서 오늘 승선(복귀)하는 단체 초기화
+  linkedReturnTeams = [];
+  allInboundTeams = [];
 
   // 과거에 등록되어 오늘 복귀 승선하는 단체 탐색
   if (db) {
@@ -393,19 +404,24 @@ async function openDateSim(dateStr){
       const allDocs = await db.collection("schedules").get();
       allDocs.forEach(doc => {
         const regDate = doc.id;
-        if (regDate !== dateStr) { // 오늘 날짜 제외
+        if (regDate !== dateStr) { // 오늘 등록건 제외
           const data = doc.data();
           if (data.teams && data.teams.length > 0) {
             data.teams.forEach(t => {
               const nights = parseInt(t.nights || 4, 10);
               const retDate = addDays(regDate, nights);
               if (retDate === dateStr) {
-                // 오늘이 복귀일인 단체 발견!
+                // 오늘 복귀하는 단체
                 linkedReturnTeams.push({
                   ...t,
                   regDate: regDate,
-                  isReturnOnTarget: true // 오늘 복귀 승선 구분
+                  isReturnOnTarget: true
                 });
+
+                // 한국발 왕복 단체의 복귀일 = 입국일
+                if (t.pattern === 'KR_ROUND') {
+                  allInboundTeams.push({ name: t.name, people: t.totalPeople, type: "🇰🇷 복귀 입국" });
+                }
               }
             });
           }
@@ -739,14 +755,17 @@ function extractAllocations(typeDivs) {
   return { totalPeople, allocations };
 }
 
-// 계산 로직: 오늘 승선하는 모든 단체(오늘 신규 + 과거 날짜에서 건너온 복귀 단체) 통합 합산
+// 계산 로직: 오늘 승선 단체 + 오늘 입국 단체 간략 요약
 function runSimulation(shouldSave = true){
   const teamCards = [...document.querySelectorAll("#teamsContainer .team-card")];
 
   let todayTeams = [];
   let groupRoomUsed = { "6": 0, "4": 0, "2": 0, "dadami24": 0, "dadami36": 0 };
+  
+  // 오늘 입국 단체 목록 초기화 (과거 복귀 목록 유지)
+  let currentInboundTeams = [...allInboundTeams];
 
-  // 1. 오늘 날짜에 새로 등록하는 단체 처리
+  // 1. 오늘 날짜 신규 단체 처리
   for (let idx = 0; idx < teamCards.length; idx++) {
     const card = teamCards[idx];
     const name = card.querySelector(".teamName").value.trim() || `단체 ${idx+1}`;
@@ -790,7 +809,6 @@ function runSimulation(shouldSave = true){
         return;
       }
 
-      // 오늘 승선하는 편의 객실 집계 (중국발/입국편도는 오늘 '입국 객실' 사용)
       if (pattern === 'CN_ROUND' || pattern === 'ONEWAY_IN') {
         inAllocations.forEach(a => groupRoomUsed[a.key] += a.roomsNeeded);
       } else {
@@ -808,10 +826,12 @@ function runSimulation(shouldSave = true){
       itineraryStr = `출국: ${selShort} ~ 입국: ${retShort} (${nights}박 ${days}일)`;
     } else if(pattern === 'CN_ROUND') {
       itineraryStr = `입국: ${selShort} ~ 출국: ${retShort} (${nights}박 ${days}일)`;
+      currentInboundTeams.push({ name, people: teamTotalPeople, type: "🇨🇳 중국발 입국" });
     } else if(pattern === 'ONEWAY_OUT') {
       itineraryStr = `출국: ${selShort} (편도)`;
     } else {
       itineraryStr = `입국: ${selShort} (편도)`;
+      currentInboundTeams.push({ name, people: teamTotalPeople, type: "⬅️ 입국 편도" });
     }
 
     todayTeams.push({
@@ -823,14 +843,12 @@ function runSimulation(shouldSave = true){
     });
   }
 
-  // 2. 과거 날짜에서 오늘 복귀 승선하는 단체(중국발 출국 포함) 객실 및 인원 합산
+  // 2. 과거 날짜 복귀 단체 합산
   linkedReturnTeams.forEach(t => {
-    // 복귀 여정에서 사용되는 객실 파악
     let targetAlloc = [];
     if (!t.isSplitRoom) {
       targetAlloc = t.allocations || [];
     } else {
-      // 한국발 단체 복귀: 입국 객실 / 중국발 단체 복귀: 출국 객실
       if (t.pattern === 'KR_ROUND') {
         targetAlloc = t.inAllocations || [];
       } else if (t.pattern === 'CN_ROUND') {
@@ -838,7 +856,6 @@ function runSimulation(shouldSave = true){
       }
     }
 
-    // 객실 사용 수량 합산
     targetAlloc.forEach(a => {
       if(groupRoomUsed[a.key] !== undefined) {
         groupRoomUsed[a.key] += a.roomsNeeded;
@@ -846,9 +863,7 @@ function runSimulation(shouldSave = true){
     });
   });
 
-  // 오늘 탑승하는 모든 단체(오늘 출발 + 과거 복귀)
   const allBoardingTeams = [...todayTeams, ...linkedReturnTeams];
-
   const groupTotalPeople = allBoardingTeams.reduce((s,t) => s + t.totalPeople, 0);
   const groupTotalRooms = Object.values(groupRoomUsed).reduce((a,b)=>a+b, 0);
 
@@ -904,7 +919,7 @@ function runSimulation(shouldSave = true){
 
   document.getElementById("simWarn").innerHTML = overLimit ? `<div class="warn-box"><span class="bad">⚠ 초과 경고:</span> 총 객실 신청량이 보유 객실 수를 초과했습니다.</div>` : "";
 
-  // 2. 단체별 상세 내역 표시 (오늘 출발 + 과거 복귀)
+  // 3. 단체별 상세 내역 (요청사항: '신규 출발' 제거, '복귀' -> '리턴' 변경)
   let teamResultsHtml = "";
   allBoardingTeams.forEach(team => {
     const priceText = team.price ? ` | 💵 ${esc(team.price)}` : '';
@@ -914,16 +929,16 @@ function runSimulation(shouldSave = true){
     if(team.pattern === 'ONEWAY_IN') patternLabel = "⬅️ 입국 편도";
 
     const isReturn = team.isReturnOnTarget;
+    // 태그 간소화 적용
     const statusTag = isReturn 
-      ? `<span class="tag-linked">🔄 복귀 승선 (${formatShortDate(team.regDate)} 등록건)</span>`
-      : `<span class="tag-pattern">✨ 오늘 신규 출발</span>`;
+      ? `<span class="tag-linked">🔄 리턴 (${formatShortDate(team.regDate)} 등록)</span>`
+      : ''; // 오늘 신규 출발 태그는 제거함
 
     teamResultsHtml += `<div style="margin-bottom:16px; border-bottom:1px solid #e1e7ef; padding-bottom:12px;">
       <h3 style="margin-bottom:4px; color:#1769aa;">🚩 ${esc(team.name)} (${team.totalPeople}명) <span class="tag-pattern">${patternLabel}</span> ${statusTag}${priceText}</h3>
       <div style="font-size:13px; font-weight:bold; color:#2e7d32; margin-bottom:6px;">🗓️ 전체 여정: ${team.itineraryStr}</div>
       ${team.memo ? `<div class="memo-box"><b>📌 메모:</b> ${esc(team.memo)}</div>` : ''}`;
 
-    // 복귀 단체의 경우 오늘 승선하는 방을 정확히 지정
     let targetAllocations = [];
     if (!team.isSplitRoom) {
       targetAllocations = team.allocations || [];
@@ -955,9 +970,25 @@ function runSimulation(shouldSave = true){
   });
 
   document.getElementById("teamResultsContainer").innerHTML = teamResultsHtml;
+
+  // 4. [신규 기능] 오늘 입국 단체 간략 요약 표시
+  let inTeamSumHtml = "";
+  let inTeamTotalP = 0;
+  if (currentInboundTeams.length > 0) {
+    currentInboundTeams.forEach(t => {
+      inTeamTotalP += t.people;
+      inTeamSumHtml += `<div class="in-team-chip">🚩 <b>${esc(t.name)}</b> : ${t.people}명 <span style="font-size:11px; opacity:0.8;">(${t.type})</span></div>`;
+    });
+  } else {
+    inTeamSumHtml = `<span style="font-size:13px; color:#888;">오늘 입국하는 단체가 없습니다.</span>`;
+  }
+  document.getElementById("inTeamTotalPeople").innerText = inTeamTotalP;
+  document.getElementById("inTeamCount").innerText = currentInboundTeams.length;
+  document.getElementById("inTeamSummaryContainer").innerHTML = inTeamSumHtml;
+
   document.getElementById("simResult").classList.remove("hidden");
 
-  // 데이터 저장 (오늘 날짜의 신규 등록 단체만 저장)
+  // 데이터 저장
   if(shouldSave && db && selectedDate){
     db.collection("schedules").doc(selectedDate).set({
       totalPeople: grandTotalPeople,
