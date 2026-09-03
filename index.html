@@ -205,23 +205,19 @@ let masterRooms = {
   "dadami36": { label: "다다미 36인실", totalRooms: 1, defaultCapPerRoom: 36, generalPeople: "", generalCap: "" }
 };
 
-// 特殊文字 ESC
 function esc(s){ return String(s??"").replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m])); }
 
-// N일 더하는 함수
 function addDays(dateStr, days) {
   const result = new Date(dateStr);
   result.setDate(result.getDate() + parseInt(days, 10));
   return result.toISOString().split('T')[0];
 }
 
-// "YYYY-MM-DD" -> "MM-DD" 변환 (연도 제거)
 function formatShortDate(dateStr) {
   if (!dateStr || dateStr.length < 10) return dateStr;
   return dateStr.substring(5);
 }
 
-// 달력 초기화
 document.addEventListener('DOMContentLoaded', function() {
   const calendarEl = document.getElementById('calendar');
   calendar = new FullCalendar.Calendar(calendarEl, {
@@ -233,7 +229,6 @@ document.addEventListener('DOMContentLoaded', function() {
       openDateSim(info.dateStr);
     },
     eventSources: [
-      // 공휴일
       {
         events: async function(fetchInfo, successCallback) {
           try {
@@ -247,7 +242,6 @@ document.addEventListener('DOMContentLoaded', function() {
           } catch(e) { successCallback([]); }
         }
       },
-      // Firebase 단체 출국/입국 집계
       {
         events: function(fetchInfo, successCallback) {
           if(!db) { successCallback([]); return; }
@@ -283,13 +277,11 @@ document.addEventListener('DOMContentLoaded', function() {
             });
 
             let events = [];
-            // 출국 이벤트 (이모지 제외)
             Object.keys(dailyOut).forEach(d => {
               if (dailyOut[d] > 0) {
                 events.push({ title: `출${dailyOut[d]}`, start: d, color: '#1769aa' });
               }
             });
-            // 입국 이벤트 (이모지 제외)
             Object.keys(dailyIn).forEach(d => {
               if (dailyIn[d] > 0) {
                 events.push({ title: `입${dailyIn[d]}`, start: d, color: '#2e7d32' });
@@ -300,7 +292,6 @@ document.addEventListener('DOMContentLoaded', function() {
           }).catch(() => successCallback([]));
         }
       },
-      // 별도 휴항/메모
       {
         events: function(fetchInfo, successCallback) {
           if(!db) { successCallback([]); return; }
@@ -383,7 +374,6 @@ function deleteCustomEvent(){
   }
 }
 
-// 시뮬레이터 로드
 function openDateSim(dateStr){
   selectedDate = dateStr;
   document.getElementById("selectedDateText").innerText = dateStr;
@@ -483,7 +473,6 @@ function updateMasterRoom(key){
   document.getElementById(`calc_remain_room_${key}`).innerText = remainRooms;
 }
 
-// 단체 추가 UI
 function addTeam(name="", pattern="KR_ROUND", nights="4", price="", memo="", isSplitRoom=false){
   const teamId = "team_" + (teamSeq++);
   const teamDiv = document.createElement("div");
@@ -555,6 +544,7 @@ function togglePatternUI(teamId) {
   }
 }
 
+// 입/출국 객실 분리 토글 시 자동 복사 로직 추가
 function toggleRoomSplitUI(teamId) {
   const card = document.getElementById(teamId);
   const isChecked = card.querySelector(".splitRoomCheck").checked;
@@ -564,12 +554,34 @@ function toggleRoomSplitUI(teamId) {
   if(isChecked) {
     normalArea.classList.add("hidden");
     splitArea.classList.remove("hidden");
-    if(!card.querySelector(".outRoomTypesContainer").children.length) {
+
+    const outContainer = card.querySelector(".outRoomTypesContainer");
+    const inContainer = card.querySelector(".inRoomTypesContainer");
+    
+    // 일반 객실에 있던 설정을 출국으로 이전
+    const normalDivs = [...card.querySelectorAll(".roomTypesContainer .type-card")];
+    if(normalDivs.length > 0 && !outContainer.children.length) {
+      outContainer.innerHTML = "";
+      normalDivs.forEach(td => {
+        const key = td.querySelector(".typeSelect").value;
+        const people = td.querySelector(".assignPeople").value;
+        const cap = td.querySelector(".capPerRoom").value;
+        addRoomTypeToTeam(teamId, "outRoomTypesContainer", key, people, cap);
+      });
+    } else if(!outContainer.children.length) {
       addRoomTypeToTeam(teamId, "outRoomTypesContainer", "6", "", 4);
     }
-    if(!card.querySelector(".inRoomTypesContainer").children.length) {
-      addRoomTypeToTeam(teamId, "inRoomTypesContainer", "6", "", 4);
-    }
+
+    // 출국 설정을 입국 설정으로 자동 복사
+    inContainer.innerHTML = "";
+    const outDivs = [...outContainer.querySelectorAll(".type-card")];
+    outDivs.forEach(td => {
+      const key = td.querySelector(".typeSelect").value;
+      const people = td.querySelector(".assignPeople").value;
+      const cap = td.querySelector(".capPerRoom").value;
+      addRoomTypeToTeam(teamId, "inRoomTypesContainer", key, people, cap);
+    });
+
   } else {
     normalArea.classList.remove("hidden");
     splitArea.classList.add("hidden");
@@ -682,7 +694,6 @@ function addRoomTypeToTeam(teamId, containerClass, presetKey="6", assignPeople="
   div.querySelector(".typeSelect").value = presetKey;
 }
 
-// 객실 추출 도우미
 function extractAllocations(typeDivs, groupRoomUsedObj) {
   let totalPeople = 0;
   let allocations = [];
@@ -701,7 +712,7 @@ function extractAllocations(typeDivs, groupRoomUsedObj) {
   return { totalPeople, allocations };
 }
 
-// 시뮬레이션 계산
+// 시뮬레이션 계산 및 유효성 검사 수정
 function runSimulation(shouldSave = true){
   const teamCards = [...document.querySelectorAll("#teamsContainer .team-card")];
   if(!teamCards.length){ alert("최소 1개 이상의 단체를 추가해주세요."); return; }
@@ -709,7 +720,8 @@ function runSimulation(shouldSave = true){
   let teams = [];
   let groupRoomUsed = { "6": 0, "4": 0, "2": 0, "dadami24": 0, "dadami36": 0 };
 
-  teamCards.forEach((card, idx) => {
+  for (let idx = 0; idx < teamCards.length; idx++) {
+    const card = teamCards[idx];
     const name = card.querySelector(".teamName").value.trim() || `단체 ${idx+1}`;
     const pattern = card.querySelector(".teamPattern").value;
     const nights = parseInt(card.querySelector(".teamNights").value, 10) || 4;
@@ -727,6 +739,12 @@ function runSimulation(shouldSave = true){
       const res = extractAllocations(typeDivs, groupRoomUsed);
       teamTotalPeople = res.totalPeople;
       allocations = res.allocations;
+
+      if(teamTotalPeople <= 0) {
+        alert(`[${name}] 단체의 배정 인원을 입력해주세요.`);
+        card.scrollIntoView({ behavior: 'smooth' });
+        return;
+      }
     } else {
       const outDivs = [...card.querySelectorAll(".splitRoomArea .outRoomTypesContainer .type-card")];
       const inDivs = [...card.querySelectorAll(".splitRoomArea .inRoomTypesContainer .type-card")];
@@ -736,34 +754,38 @@ function runSimulation(shouldSave = true){
       outAllocations = outRes.allocations;
       inAllocations = inRes.allocations;
       teamTotalPeople = Math.max(outRes.totalPeople, inRes.totalPeople);
-    }
 
-    if(teamTotalPeople > 0){
-      const days = nights + 1;
-      const returnDate = addDays(selectedDate, nights);
-      
-      const selShort = formatShortDate(selectedDate);
-      const retShort = formatShortDate(returnDate);
-
-      let itineraryStr = "";
-      if(pattern === 'KR_ROUND') {
-        itineraryStr = `출국: ${selShort} ~ 입국: ${retShort} (${nights}박 ${days}일)`;
-      } else if(pattern === 'CN_ROUND') {
-        itineraryStr = `입국: ${selShort} ~ 출국: ${retShort} (${nights}박 ${days}일)`;
-      } else if(pattern === 'ONEWAY_OUT') {
-        itineraryStr = `출국: ${selShort} (편도)`;
-      } else {
-        itineraryStr = `입국: ${selShort} (편도)`;
+      if(outRes.totalPeople <= 0 || inRes.totalPeople <= 0) {
+        alert(`[${name}] 단체의 출국 및 입국 배정 인원을 모두 입력해주세요.`);
+        card.scrollIntoView({ behavior: 'smooth' });
+        return;
       }
-
-      teams.push({
-        name, pattern, nights, price, memo, isSplitRoom,
-        totalPeople: teamTotalPeople,
-        allocations, outAllocations, inAllocations,
-        itineraryStr, returnDate
-      });
     }
-  });
+
+    const days = nights + 1;
+    const returnDate = addDays(selectedDate, nights);
+    
+    const selShort = formatShortDate(selectedDate);
+    const retShort = formatShortDate(returnDate);
+
+    let itineraryStr = "";
+    if(pattern === 'KR_ROUND') {
+      itineraryStr = `출국: ${selShort} ~ 입국: ${retShort} (${nights}박 ${days}일)`;
+    } else if(pattern === 'CN_ROUND') {
+      itineraryStr = `입국: ${selShort} ~ 출국: ${retShort} (${nights}박 ${days}일)`;
+    } else if(pattern === 'ONEWAY_OUT') {
+      itineraryStr = `출국: ${selShort} (편도)`;
+    } else {
+      itineraryStr = `입국: ${selShort} (편도)`;
+    }
+
+    teams.push({
+      name, pattern, nights, price, memo, isSplitRoom,
+      totalPeople: teamTotalPeople,
+      allocations, outAllocations, inAllocations,
+      itineraryStr, returnDate
+    });
+  }
 
   const groupTotalPeople = teams.reduce((s,t) => s + t.totalPeople, 0);
   const groupTotalRooms = Object.values(groupRoomUsed).reduce((a,b)=>a+b, 0);
@@ -820,7 +842,6 @@ function runSimulation(shouldSave = true){
 
   document.getElementById("simWarn").innerHTML = overLimit ? `<div class="warn-box"><span class="bad">⚠ 초과 경고:</span> 총 객실 신청량이 보유 객실 수를 초과했습니다.</div>` : "";
 
-  // 2. 단체별 상세 안내 표기
   let teamResultsHtml = "";
   teams.forEach(team => {
     const priceText = team.price ? ` | 💵 ${esc(team.price)}` : '';
