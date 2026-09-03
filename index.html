@@ -3,377 +3,339 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>단동 객실 및 예약 관리 시스템</title>
+    <title>단동 페리 객실 관리 시스템</title>
     <style>
         :root {
-            --primary: #2563eb;
-            --bg: #f8fafc;
+            --primary-color: #1e3a8a;
+            --secondary-color: #3b82f6;
+            --bg-color: #f8fafc;
             --card-bg: #ffffff;
-            --text: #1e293b;
-            --border: #e2e8f0;
+            --border-color: #e2e8f0;
+            --text-main: #0f172a;
+            --text-sub: #64748b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            margin: 0;
-            padding: 16px;
-            background-color: var(--bg);
-            color: var(--text);
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        header h1 {
+            color: var(--primary-color);
+            font-size: 1.8rem;
+            margin-bottom: 8px;
         }
 
         .container {
-            max-width: 800px;
-            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+
+        @media (min-width: 768px) {
+            .container {
+                grid-template-columns: 320px 1fr;
+            }
         }
 
         .card {
             background: var(--card-bg);
             border-radius: 12px;
             padding: 20px;
-            margin-bottom: 20px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            border: 1px solid var(--border);
+            border: 1px solid var(--border-color);
+            margin-bottom: 20px;
         }
 
-        h2, h3 {
-            margin-top: 0;
-            color: var(--text);
-        }
-
-        /* 최상단 요약 브리핑 카드 */
-        .summary-card {
-            background: linear-gradient(135deg, #2563eb, #1d4ed8);
-            color: white;
-            border: none;
-        }
-
-        .summary-card h2 {
-            color: white;
+        .card-title {
             font-size: 1.1rem;
-            margin-bottom: 12px;
-            opacity: 0.9;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
 
-        .summary-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 12px;
-            text-align: center;
-        }
-
-        .summary-item {
-            background: rgba(255, 255, 255, 0.15);
-            padding: 12px 8px;
-            border-radius: 8px;
-            backdrop-filter: blur(4px);
-        }
-
-        .summary-item .label {
-            font-size: 0.8rem;
-            opacity: 0.85;
-            margin-bottom: 4px;
-        }
-
-        .summary-item .value {
-            font-size: 1.2rem;
-            font-weight: bold;
-        }
-
-        /* 폼 스타일 */
         .form-group {
             margin-bottom: 14px;
         }
 
-        label {
+        .form-group label {
             display: block;
-            font-size: 0.88rem;
+            font-size: 0.85rem;
             font-weight: 600;
+            color: var(--text-sub);
             margin-bottom: 6px;
         }
 
-        input, select, textarea {
+        .form-control {
             width: 100%;
-            padding: 10px;
-            border: 1px solid var(--border);
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
             border-radius: 6px;
-            box-sizing: border-box;
             font-size: 0.95rem;
+            transition: border-color 0.2s;
         }
 
-        textarea {
+        .form-control:focus {
+            outline: none;
+            border-color: var(--secondary-color);
+        }
+
+        textarea.form-control {
             resize: vertical;
-            height: 70px;
-            font-family: inherit;
+            min-height: 80px;
         }
 
-        .row {
-            display: flex;
-            gap: 10px;
-        }
-
-        .row > div {
-            flex: 1;
-        }
-
-        button {
+        .btn {
             width: 100%;
-            background: var(--primary);
+            padding: 12px;
+            background-color: var(--secondary-color);
             color: white;
             border: none;
-            padding: 12px;
             border-radius: 6px;
             font-size: 1rem;
-            font-weight: bold;
+            font-weight: 600;
             cursor: pointer;
+            transition: background 0.2s;
         }
 
-        button:active {
-            opacity: 0.9;
+        .btn:hover {
+            background-color: var(--primary-color);
         }
 
-        /* 예약 목록 스타일 */
-        .group-item {
-            border-bottom: 1px solid var(--border);
-            padding: 12px 0;
+        .team-card {
+            border-left: 4px solid var(--secondary-color);
+            position: relative;
         }
 
-        .group-item:last-child {
-            border-bottom: none;
-        }
-
-        .group-header {
+        .team-header {
             display: flex;
             justify-content: space-between;
-            font-weight: bold;
-            margin-bottom: 4px;
+            align-items: flex-start;
+            margin-bottom: 12px;
         }
 
-        /* 개선된 메모 스타일 (줄바꿈 지원) */
-        .group-memo {
+        .team-name {
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        .team-info-badge {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+
+        .badge {
+            background-color: #eff6ff;
+            color: var(--secondary-color);
+            padding: 4px 10px;
+            border-radius: 20px;
             font-size: 0.85rem;
-            color: #334155;
-            background: #f1f5f9;
-            padding: 8px 12px;
-            border-radius: 6px;
-            margin-top: 8px;
-            white-space: pre-wrap; /* 줄바꿈 및 공백 보존 */
-            word-break: break-word;
-            line-height: 1.4;
-            border-left: 3px solid var(--primary);
+            font-weight: 600;
         }
 
-        .delete-btn {
-            background: #ef4444;
-            color: white;
-            border: none;
-            padding: 4px 8px;
-            border-radius: 4px;
+        .badge-price {
+            background-color: #f0fdf4;
+            color: #166534;
+        }
+
+        .memo-box {
+            background-color: #f8fafc;
+            border: 1px dashed var(--border-color);
+            padding: 10px 12px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            color: var(--text-main);
+            white-space: pre-wrap;
+            margin-top: 10px;
+        }
+
+        .memo-title {
             font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text-sub);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+
+        .btn-delete {
+            background: none;
+            border: none;
+            color: #ef4444;
             cursor: pointer;
-            width: auto;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-sub);
         }
     </style>
 </head>
 <body>
 
-<div class="container">
+    <header>
+        <h1>🚢 단동 페리 팀/단체 관리</h1>
+        <p style="color: var(--text-sub); font-size: 0.9rem;">팀별 인당 금액 및 메모를 한눈에 관리하세요</p>
+    </header>
 
-    <!-- 1. 최상단 요약 결과 카드 -->
-    <div class="card summary-card">
-        <h2 id="selected-date-title">📅 날짜를 선택하세요</h2>
-        <div class="summary-grid">
-            <div class="summary-item">
-                <div class="label">총 예약</div>
-                <div class="value" id="summary-groups">0건</div>
+    <div class="container">
+        <!-- 등록 폼 영역 -->
+        <div>
+            <div class="card">
+                <div class="card-title">📝 팀/단체 등록</div>
+                <form id="teamForm">
+                    <div class="form-group">
+                        <label for="teamName">팀/단체명 *</label>
+                        <input type="text" id="teamName" class="form-control" placeholder="예: 단동 여행 동호회" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="memberCount">인원수 (명) *</label>
+                        <input type="number" id="memberCount" class="form-control" placeholder="예: 15" min="1" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="pricePerPerson">인당 금액 (원) <span style="font-weight: normal; color: #94a3b8;">(선택)</span></label>
+                        <input type="number" id="pricePerPerson" class="form-control" placeholder="예: 150000" min="0" step="1000">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="memo">단체 메모 <span style="font-weight: normal; color: #94a3b8;">(선택)</span></label>
+                        <textarea id="memo" class="form-control" placeholder="객실 요청사항, 입금 여부, 기타 특이사항을 적어주세요."></textarea>
+                    </div>
+
+                    <button type="submit" class="btn">팀 등록하기</button>
+                </form>
             </div>
-            <div class="summary-item">
-                <div class="label">총 인원</div>
-                <div class="value" id="summary-people">0명</div>
-            </div>
-            <div class="summary-item">
-                <div class="label">총 금액</div>
-                <div class="value" id="summary-price">0원</div>
+        </div>
+
+        <!-- 목록 영역 -->
+        <div>
+            <div class="card">
+                <div class="card-title">
+                    <span>📋 등록된 팀 목록</span>
+                    <span id="totalStats" style="font-size: 0.85rem; font-weight: normal; color: var(--text-sub);">총 0개 팀</span>
+                </div>
+                <div id="teamList">
+                    <div class="empty-state">등록된 팀이 없습니다. 왼쪽 폼에서 등록해 주세요.</div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- 2. 날짜 선택 및 등록 폼 -->
-    <div class="card">
-        <h3>📝 예약 등록</h3>
-        <div class="form-group">
-            <label>날짜 선택</label>
-            <input type="date" id="date-input">
-        </div>
-        <div class="form-group">
-            <label>단체/팀 이름</label>
-            <input type="text" id="group-name" placeholder="예: 단동상사 A팀">
-        </div>
-        <div class="form-group">
-            <label>인원 수 (명)</label>
-            <input type="number" id="group-people" placeholder="0" oninput="calculatePrice('people')">
-        </div>
-        <div class="row">
-            <div class="form-group">
-                <label>인당 금액 (선택)</label>
-                <input type="number" id="price-per-person" placeholder="0" oninput="calculatePrice('perPerson')">
-            </div>
-            <div class="form-group">
-                <label>총 금액 (선택)</label>
-                <input type="number" id="total-price-input" placeholder="0" oninput="calculatePrice('total')">
-            </div>
-        </div>
-        <div class="form-group">
-            <label>단체 메모 (선택)</label>
-            <textarea id="group-memo" placeholder="요청사항이나 특이사항을 적으세요 (줄바꿈 가능)"></textarea>
-        </div>
-        <button onclick="addBooking()">예약 추가하기</button>
-    </div>
+    <script>
+        // LocalStorage를 활용해 데이터를 저장합니다.
+        let teams = JSON.parse(localStorage.getItem('ferry_teams')) || [];
 
-    <!-- 3. 선택한 날짜의 예약 상세 목록 -->
-    <div class="card">
-        <h3>📋 예약 상세 목록</h3>
-        <div id="booking-list">
-            <p style="color: #94a3b8; text-align: center;">등록된 예약이 없습니다.</p>
-        </div>
-    </div>
+        const teamForm = document.getElementById('teamForm');
+        const teamList = document.getElementById('teamList');
+        const totalStats = document.getElementById('totalStats');
 
-</div>
+        function saveAndRender() {
+            localStorage.setItem('ferry_teams', JSON.stringify(teams));
+            renderTeams();
+        }
 
-<script>
-    // 오늘 날짜 기본 세팅
-    const dateInput = document.getElementById('date-input');
-    dateInput.value = new Date().toISOString().substring(0, 10);
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('ko-KR').format(amount) + '원';
+        }
 
-    // 데이터 저장소 (LocalStorage)
-    let bookings = JSON.parse(localStorage.getItem('ferry_bookings') || '{}');
+        function renderTeams() {
+            totalStats.textContent = `총 ${teams.length}개 팀`;
 
-    // 금액 자동 계산 연동 함수
-    function calculatePrice(source) {
-        const people = Number(document.getElementById('group-people').value) || 0;
-        const perPersonInput = document.getElementById('price-per-person');
-        const totalPriceInput = document.getElementById('total-price-input');
-
-        if (source === 'perPerson' && people > 0) {
-            const perPerson = Number(perPersonInput.value) || 0;
-            totalPriceInput.value = perPerson * people;
-        } else if (source === 'total' && people > 0) {
-            const total = Number(totalPriceInput.value) || 0;
-            perPersonInput.value = Math.round(total / people);
-        } else if (source === 'people') {
-            const perPerson = Number(perPersonInput.value) || 0;
-            if (perPerson > 0) {
-                totalPriceInput.value = perPerson * people;
+            if (teams.length === 0) {
+                teamList.innerHTML = '<div class="empty-state">등록된 팀이 없습니다. 왼쪽 폼에서 등록해 주세요.</div>';
+                return;
             }
-        }
-    }
 
-    // 화면 업데이트 함수
-    function updateView() {
-        const selectedDate = dateInput.value;
-        document.getElementById('selected-date-title').innerText = `📅 ${selectedDate} 요약`;
-
-        const list = bookings[selectedDate] || [];
-        
-        let totalPeople = 0;
-        let totalPrice = 0;
-        
-        const listContainer = document.getElementById('booking-list');
-        listContainer.innerHTML = '';
-
-        if (list.length === 0) {
-            listContainer.innerHTML = '<p style="color: #94a3b8; text-align: center;">등록된 예약이 없습니다.</p>';
-        } else {
-            list.forEach((item, index) => {
-                totalPeople += Number(item.people || 0);
-                totalPrice += Number(item.totalPrice || 0);
-
-                const itemEl = document.createElement('div');
-                itemEl.className = 'group-item';
-                itemEl.innerHTML = `
-                    <div class="group-header">
-                        <span>${item.name} (${item.people}명)</span>
-                        <span>${Number(item.totalPrice).toLocaleString()}원 
-                            <button class="delete-btn" onclick="deleteBooking(${index})">삭제</button>
-                        </span>
+            teamList.innerHTML = teams.map((team, index) => {
+                const totalPrice = team.pricePerPerson ? team.pricePerPerson * team.memberCount : null;
+                
+                return `
+                    <div class="card team-card">
+                        <div class="team-header">
+                            <div class="team-name">${escapeHtml(team.name)}</div>
+                            <button class="btn-delete" onclick="deleteTeam(${index})">삭제</button>
+                        </div>
+                        <div class="team-info-badge">
+                            <span class="badge">👥 ${team.memberCount}명</span>
+                            ${team.pricePerPerson ? `<span class="badge badge-price">💵 인당 ${formatCurrency(team.pricePerPerson)}</span>` : ''}
+                            ${totalPrice ? `<span class="badge badge-price" style="background-color: #dcfce7;">💰 총 ${formatCurrency(totalPrice)}</span>` : ''}
+                        </div>
+                        ${team.memo ? `
+                            <div class="memo-box">
+                                <div class="memo-title">📌 단체 메모</div>
+                                <div>${escapeHtml(team.memo)}</div>
+                            </div>
+                        ` : ''}
                     </div>
-                    <div style="font-size:0.8rem; color:#64748b;">
-                        인당: ${item.pricePerPerson ? Number(item.pricePerPerson).toLocaleString() + '원' : '미지정'}
-                    </div>
-                    ${item.memo ? `<div class="group-memo">📌 ${escapeHtml(item.memo)}</div>` : ''}
                 `;
-                listContainer.appendChild(itemEl);
+            }).join('');
+        }
+
+        function escapeHtml(text) {
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        teamForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            const name = document.getElementById('teamName').value.trim();
+            const memberCount = parseInt(document.getElementById('memberCount').value, 10);
+            const priceVal = document.getElementById('pricePerPerson').value;
+            const pricePerPerson = priceVal ? parseInt(priceVal, 10) : null;
+            const memo = document.getElementById('memo').value.trim();
+
+            teams.push({
+                name,
+                memberCount,
+                pricePerPerson,
+                memo,
+                createdAt: new Date().toISOString()
             });
-        }
 
-        // 최상단 요약 결과 업데이트
-        document.getElementById('summary-groups').innerText = `${list.length}건`;
-        document.getElementById('summary-people').innerText = `${totalPeople}명`;
-        document.getElementById('summary-price').innerText = `${totalPrice.toLocaleString()}원`;
-    }
-
-    // HTML 이스케이프 (XSS 방지)
-    function escapeHtml(text) {
-        return text
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-    }
-
-    // 예약 추가
-    function addBooking() {
-        const date = dateInput.value;
-        const name = document.getElementById('group-name').value.trim();
-        const people = document.getElementById('group-people').value;
-        const pricePerPerson = document.getElementById('price-per-person').value || 0;
-        const totalPrice = document.getElementById('total-price-input').value || (Number(people) * Number(pricePerPerson));
-        const memo = document.getElementById('group-memo').value.trim();
-
-        if (!date || !name || !people) {
-            alert('날짜, 단체 이름, 인원 수는 필수 입력값입니다.');
-            return;
-        }
-
-        if (!bookings[date]) bookings[date] = [];
-
-        bookings[date].push({
-            name,
-            people: Number(people),
-            pricePerPerson: Number(pricePerPerson),
-            totalPrice: Number(totalPrice),
-            memo
+            saveAndRender();
+            teamForm.reset();
         });
 
-        localStorage.setItem('ferry_bookings', JSON.stringify(bookings));
-        
-        // 폼 초기화
-        document.getElementById('group-name').value = '';
-        document.getElementById('group-people').value = '';
-        document.getElementById('price-per-person').value = '';
-        document.getElementById('total-price-input').value = '';
-        document.getElementById('group-memo').value = '';
-
-        updateView();
-    }
-
-    // 예약 삭제
-    function deleteBooking(index) {
-        const date = dateInput.value;
-        if (confirm('이 예약을 삭제하시겠습니까?')) {
-            bookings[date].splice(index, 1);
-            if (bookings[date].length === 0) delete bookings[date];
-            localStorage.setItem('ferry_bookings', JSON.stringify(bookings));
-            updateView();
+        function deleteTeam(index) {
+            if (confirm('이 팀을 목록에서 삭제하시겠습니까?')) {
+                teams.splice(index, 1);
+                saveAndRender();
+            }
         }
-    }
 
-    // 날짜 변경 시 자동 갱신
-    dateInput.addEventListener('change', updateView);
-
-    // 최초 실행
-    updateView();
-</script>
-
+        // 초기 로드 시 실행
+        renderTeams();
+    </script>
 </body>
 </html>
