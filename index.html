@@ -1,341 +1,529 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>단동 페리 객실 관리 시스템</title>
-    <style>
-        :root {
-            --primary-color: #1e3a8a;
-            --secondary-color: #3b82f6;
-            --bg-color: #f8fafc;
-            --card-bg: #ffffff;
-            --border-color: #e2e8f0;
-            --text-main: #0f172a;
-            --text-sub: #64748b;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>단동훼리 날짜별 객실 배정 시뮬레이션</title>
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        }
+<!-- FullCalendar (달력 라이브러리) -->
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
 
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            padding: 20px;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
+<!-- Firebase SDK (데이터베이스 연동) -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-        header {
-            text-align: center;
-            margin-bottom: 24px;
-            padding-bottom: 16px;
-            border-bottom: 2px solid var(--border-color);
-        }
-
-        header h1 {
-            color: var(--primary-color);
-            font-size: 1.8rem;
-            margin-bottom: 8px;
-        }
-
-        .container {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 20px;
-        }
-
-        @media (min-width: 768px) {
-            .container {
-                grid-template-columns: 320px 1fr;
-            }
-        }
-
-        .card {
-            background: var(--card-bg);
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            border: 1px solid var(--border-color);
-            margin-bottom: 20px;
-        }
-
-        .card-title {
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: var(--primary-color);
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .form-group {
-            margin-bottom: 14px;
-        }
-
-        .form-group label {
-            display: block;
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: var(--text-sub);
-            margin-bottom: 6px;
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 10px 12px;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            font-size: 0.95rem;
-            transition: border-color 0.2s;
-        }
-
-        .form-control:focus {
-            outline: none;
-            border-color: var(--secondary-color);
-        }
-
-        textarea.form-control {
-            resize: vertical;
-            min-height: 80px;
-        }
-
-        .btn {
-            width: 100%;
-            padding: 12px;
-            background-color: var(--secondary-color);
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        .btn:hover {
-            background-color: var(--primary-color);
-        }
-
-        .team-card {
-            border-left: 4px solid var(--secondary-color);
-            position: relative;
-        }
-
-        .team-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 12px;
-        }
-
-        .team-name {
-            font-size: 1.2rem;
-            font-weight: 700;
-        }
-
-        .team-info-badge {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            margin-bottom: 12px;
-        }
-
-        .badge {
-            background-color: #eff6ff;
-            color: var(--secondary-color);
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: 600;
-        }
-
-        .badge-price {
-            background-color: #f0fdf4;
-            color: #166534;
-        }
-
-        .memo-box {
-            background-color: #f8fafc;
-            border: 1px dashed var(--border-color);
-            padding: 10px 12px;
-            border-radius: 6px;
-            font-size: 0.9rem;
-            color: var(--text-main);
-            white-space: pre-wrap;
-            margin-top: 10px;
-        }
-
-        .memo-title {
-            font-size: 0.75rem;
-            font-weight: 700;
-            color: var(--text-sub);
-            margin-bottom: 4px;
-            text-transform: uppercase;
-        }
-
-        .btn-delete {
-            background: none;
-            border: none;
-            color: #ef4444;
-            cursor: pointer;
-            font-size: 0.85rem;
-            font-weight: 600;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 40px 20px;
-            color: var(--text-sub);
-        }
-    </style>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,"Malgun Gothic",sans-serif;background:#f4f6f9;color:#202733}
+header{background:#17324d;color:white;padding:18px 24px;display:flex;justify-content:space-between;align-items:center;}
+header h1{margin:0;font-size:20px}
+.wrap{max-width:1100px;margin:20px auto;padding:0 18px}
+.card{background:white;border-radius:12px;padding:18px;margin-bottom:16px;box-shadow:0 2px 9px #0000000d}
+#calendar{background:white;padding:20px;border-radius:12px;}
+.date-title{font-size:18px;font-weight:bold;color:#17324d;margin-bottom:15px;display:flex;align-items:center;gap:10px;}
+.team-card{border:1px solid #c3d1e0;background:#f8fafc;border-radius:10px;padding:16px;margin-bottom:16px}
+.team-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:2px solid #e1e7ef;padding-bottom:10px}
+h2{font-size:16px;margin:0 0 12px}
+label{font-size:12px;color:#5c6673;display:block;margin-bottom:4px}
+input,select,button{font:inherit}
+input,select{width:100%;padding:8px 10px;border:1px solid #ccd3dc;border-radius:7px;background:white}
+input.assignPeople{background:#e3f2fd !important; border:1px solid #90caf9 !important; font-weight:bold; color:#0d47a1;}
+button{border:0;border-radius:7px;padding:8px 12px;cursor:pointer;font-weight:700}
+.primary{background:#1769aa;color:#fff}
+.secondary{background:#e9eef4;color:#263746}
+.success{background:#2e7d32;color:#fff}
+.danger{background:#fff0f0;color:#b3261e}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.stat{padding:14px;border-radius:9px;background:#f3f6f9}.stat b{display:block;font-size:22px;margin-top:5px}
+.small{font-size:11px;color:#687583}
+.hidden{display:none!important}
+.warn-box{padding:10px 12px;background:#fff0f0;border:1px solid #f3c2c2;border-radius:8px;font-size:13px;margin-top:12px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:9px;border-bottom:1px solid #e4e8ed;text-align:left}
+th{background:#f1f4f7}
+.bad{color:#b3261e;font-weight:700}
+.type-card{border:1px solid #dde3ea;border-radius:8px;padding:10px;margin-bottom:8px;background:white}
+.type-grid{display:grid;grid-template-columns:2fr 1.5fr 1.5fr 1.5fr 40px;gap:8px;align-items:center}
+.master-grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:10px;background:#f0f4f8;padding:12px;border-radius:8px;}
+.master-card{background:white;padding:10px;border-radius:8px;border:1px solid #dcdfe6;}
+</style>
 </head>
 <body>
 
-    <header>
-        <h1>🚢 단동 페리 팀/단체 관리</h1>
-        <p style="color: var(--text-sub); font-size: 0.9rem;">팀별 인당 금액 및 메모를 한눈에 관리하세요</p>
-    </header>
+<header>
+  <h1>📅 단동훼리 날짜별 객실 배정 시뮬레이션</h1>
+  <span style="font-size:12px; opacity:0.8;">원하는 날짜를 클릭하여 작성 및 조회하세요.</span>
+</header>
 
-    <div class="container">
-        <!-- 등록 폼 영역 -->
-        <div>
-            <div class="card">
-                <div class="card-title">📝 팀/단체 등록</div>
-                <form id="teamForm">
-                    <div class="form-group">
-                        <label for="teamName">팀/단체명 *</label>
-                        <input type="text" id="teamName" class="form-control" placeholder="예: 단동 여행 동호회" required>
-                    </div>
+<div class="wrap">
+  <!-- 달력 영역 -->
+  <div class="card">
+    <div id="calendar"></div>
+  </div>
 
-                    <div class="form-group">
-                        <label for="memberCount">인원수 (명) *</label>
-                        <input type="number" id="memberCount" class="form-control" placeholder="예: 15" min="1" required>
-                    </div>
+  <!-- 선택한 날짜 시뮬레이터 영역 -->
+  <div id="simSection" class="hidden">
+    <div class="card" style="border: 2px solid #1769aa;">
+      <div class="date-title">
+        <span>📌 선택된 날짜: <span id="selectedDateText" style="color:#1769aa;"></span></span>
+        <button class="secondary" style="font-size:12px; margin-left:auto;" onclick="closeSimSection()">닫기 ✕</button>
+      </div>
 
-                    <div class="form-group">
-                        <label for="pricePerPerson">인당 금액 (원) <span style="font-weight: normal; color: #94a3b8;">(선택)</span></label>
-                        <input type="number" id="pricePerPerson" class="form-control" placeholder="예: 150000" min="0" step="1000">
-                    </div>
+      <!-- 1. 선박 전체 보유 객실 및 일반 여객 설정 -->
+      <h2>1. 선박 전체 보유 객실 및 일반 여객 설정</h2>
+      <div class="master-grid" id="masterRoomsContainer"></div>
 
-                    <div class="form-group">
-                        <label for="memo">단체 메모 <span style="font-weight: normal; color: #94a3b8;">(선택)</span></label>
-                        <textarea id="memo" class="form-control" placeholder="객실 요청사항, 입금 여부, 기타 특이사항을 적어주세요."></textarea>
-                    </div>
+      <!-- 2. 단체(팀) 설정 -->
+      <h2 style="margin-top:20px;">2. 단체(팀) 및 객실별 인원 설정</h2>
+      <div id="teamsContainer"></div>
+      <button class="secondary" style="margin-top:8px" onclick="addTeam()">+ 별도 단체 추가</button>
 
-                    <button type="submit" class="btn">팀 등록하기</button>
-                </form>
-            </div>
-        </div>
-
-        <!-- 목록 영역 -->
-        <div>
-            <div class="card">
-                <div class="card-title">
-                    <span>📋 등록된 팀 목록</span>
-                    <span id="totalStats" style="font-size: 0.85rem; font-weight: normal; color: var(--text-sub);">총 0개 팀</span>
-                </div>
-                <div id="teamList">
-                    <div class="empty-state">등록된 팀이 없습니다. 왼쪽 폼에서 등록해 주세요.</div>
-                </div>
-            </div>
-        </div>
+      <div style="margin-top:20px; border-top:1px solid #eee; padding-top:16px; display:flex; gap:10px;">
+        <button class="primary" style="font-size:16px;padding:12px 24px" onclick="runSimulation()">계산 및 서버 저장</button>
+        <button class="danger" onclick="deleteDateData()">이 날짜 데이터 삭제</button>
+      </div>
     </div>
 
-    <script>
-        // LocalStorage를 활용해 데이터를 저장합니다.
-        let teams = JSON.parse(localStorage.getItem('ferry_teams')) || [];
+    <!-- 시뮬레이션 결과 -->
+    <div id="simResult" class="hidden">
+      <div style="text-align:right; margin-bottom:10px;">
+        <button class="success" onclick="downloadResultImage()">📸 결과 이미지 다운로드 (PNG)</button>
+      </div>
+      <div id="captureArea" style="background:#f4f6f9; padding:10px; border-radius:12px;">
+        <div class="card">
+          <h2>3. 전체 합산 비중 요약 (일반 여객 + 단체)</h2>
+          <div class="stats" id="simStats"></div>
+          <h3 style="margin-top:20px; margin-bottom:10px; font-size:14px;">전체 보유 객실 대비 총 사용 비중</h3>
+          <table id="totalTypeTable"></table>
+          <div id="simWarn"></div>
+        </div>
+        <div class="card">
+          <h2>4. 단체별 배정 상세 및 비중</h2>
+          <div id="teamResultsContainer"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
-        const teamForm = document.getElementById('teamForm');
-        const teamList = document.getElementById('teamList');
-        const totalStats = document.getElementById('totalStats');
+<script>
+// -----------------------------------------------------------------
+// 1. 구글 Firebase 설정 (쉼표 오류 수정 완료)
+// -----------------------------------------------------------------
+const firebaseConfig = {
+  apiKey: "AIzaSyCxQ8kYN_VL6-_8oqhrUv3TjV-Yjpimo00",
+  authDomain: "dd-group-2c8e8.firebaseapp.com",
+  projectId: "dd-group-2c8e8",
+  storageBucket: "dd-group-2c8e8.firebasestorage.app",
+  messagingSenderId: "35622249443",
+  appId: "1:35622249443:web:ee7e139f1ca0e3792af6d6",
+  measurementId: "G-Y3GQZF3T59"
+};
 
-        function saveAndRender() {
-            localStorage.setItem('ferry_teams', JSON.stringify(teams));
-            renderTeams();
-        }
+// Firebase 초기화
+let db = null;
+try {
+  if (typeof firebase !== 'undefined') {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+  }
+} catch(e) {
+  console.log("Firebase 로드 오류:", e);
+}
 
-        function formatCurrency(amount) {
-            return new Intl.NumberFormat('ko-KR').format(amount) + '원';
-        }
+// -----------------------------------------------------------------
+// 2. 변수 및 기본 객실 구조
+// -----------------------------------------------------------------
+let selectedDate = "";
+let calendar = null;
+let teamSeq = 0;
 
-        function renderTeams() {
-            totalStats.textContent = `총 ${teams.length}개 팀`;
+let masterRooms = {
+  "2": { label: "2인실", totalRooms: 15, defaultCapPerRoom: 2, generalPeople: "", generalCap: "" },
+  "4": { label: "4인실", totalRooms: 124, defaultCapPerRoom: 4, generalPeople: "", generalCap: 4 },
+  "6": { label: "6인실", totalRooms: 143, defaultCapPerRoom: 4, generalPeople: "", generalCap: 4 },
+  "dadami24": { label: "다다미 24인실", totalRooms: 2, defaultCapPerRoom: 24, generalPeople: "", generalCap: "" },
+  "dadami36": { label: "다다미 36인실", totalRooms: 1, defaultCapPerRoom: 36, generalPeople: "", generalCap: "" }
+};
 
-            if (teams.length === 0) {
-                teamList.innerHTML = '<div class="empty-state">등록된 팀이 없습니다. 왼쪽 폼에서 등록해 주세요.</div>';
-                return;
-            }
+function esc(s){ return String(s??"").replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m])); }
 
-            teamList.innerHTML = teams.map((team, index) => {
-                const totalPrice = team.pricePerPerson ? team.pricePerPerson * team.memberCount : null;
-                
-                return `
-                    <div class="card team-card">
-                        <div class="team-header">
-                            <div class="team-name">${escapeHtml(team.name)}</div>
-                            <button class="btn-delete" onclick="deleteTeam(${index})">삭제</button>
-                        </div>
-                        <div class="team-info-badge">
-                            <span class="badge">👥 ${team.memberCount}명</span>
-                            ${team.pricePerPerson ? `<span class="badge badge-price">💵 인당 ${formatCurrency(team.pricePerPerson)}</span>` : ''}
-                            ${totalPrice ? `<span class="badge badge-price" style="background-color: #dcfce7;">💰 총 ${formatCurrency(totalPrice)}</span>` : ''}
-                        </div>
-                        ${team.memo ? `
-                            <div class="memo-box">
-                                <div class="memo-title">📌 단체 메모</div>
-                                <div>${escapeHtml(team.memo)}</div>
-                            </div>
-                        ` : ''}
-                    </div>
-                `;
-            }).join('');
-        }
-
-        function escapeHtml(text) {
-            return text
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
-        }
-
-        teamForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-
-            const name = document.getElementById('teamName').value.trim();
-            const memberCount = parseInt(document.getElementById('memberCount').value, 10);
-            const priceVal = document.getElementById('pricePerPerson').value;
-            const pricePerPerson = priceVal ? parseInt(priceVal, 10) : null;
-            const memo = document.getElementById('memo').value.trim();
-
-            teams.push({
-                name,
-                memberCount,
-                pricePerPerson,
-                memo,
-                createdAt: new Date().toISOString()
-            });
-
-            saveAndRender();
-            teamForm.reset();
+// -----------------------------------------------------------------
+// 3. 달력 초기화
+// -----------------------------------------------------------------
+document.addEventListener('DOMContentLoaded', function() {
+  const calendarEl = document.getElementById('calendar');
+  calendar = new FullCalendar.Calendar(calendarEl, {
+    initialView: 'dayGridMonth',
+    locale: 'ko',
+    headerToolbar: {
+      left: 'prev,next today',
+      center: 'title',
+      right: ''
+    },
+    dateClick: function(info) {
+      openDateSim(info.dateStr);
+    },
+    events: function(fetchInfo, successCallback, failureCallback) {
+      if(!db) { successCallback([]); return; }
+      
+      db.collection("schedules").get().then((querySnapshot) => {
+        let events = [];
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          events.push({
+            id: doc.id,
+            title: `👥 ${data.totalPeople}명 (${data.teamCount}팀)`,
+            start: doc.id,
+            color: '#1769aa'
+          });
         });
+        successCallback(events);
+      }).catch((err) => {
+        console.log("이벤트 로드 예외:", err);
+        successCallback([]);
+      });
+    }
+  });
+  calendar.render();
+});
 
-        function deleteTeam(index) {
-            if (confirm('이 팀을 목록에서 삭제하시겠습니까?')) {
-                teams.splice(index, 1);
-                saveAndRender();
-            }
+// 날짜 선택 시 해당 날짜 데이터 불러오기
+function openDateSim(dateStr){
+  selectedDate = dateStr;
+  document.getElementById("selectedDateText").innerText = dateStr;
+  document.getElementById("simSection").classList.remove("hidden");
+  
+  resetMasterData();
+  document.getElementById("teamsContainer").innerHTML = "";
+  document.getElementById("simResult").classList.add("hidden");
+
+  if(db){
+    db.collection("schedules").doc(dateStr).get().then((doc) => {
+      if(doc.exists){
+        const data = doc.data();
+        if(data.masterRooms) masterRooms = data.masterRooms;
+        initMasterRoomsUI();
+        
+        if(data.teams && data.teams.length > 0){
+          data.teams.forEach(t => {
+            restoreTeamUI(t);
+          });
+        } else {
+          addTeam("팀명");
         }
+        runSimulation(false);
+      } else {
+        initMasterRoomsUI();
+        addTeam("팀명");
+      }
+    }).catch(err => {
+      initMasterRoomsUI();
+      addTeam("팀명");
+    });
+  } else {
+    initMasterRoomsUI();
+    addTeam("팀명");
+  }
 
-        // 초기 로드 시 실행
-        renderTeams();
-    </script>
+  document.getElementById("simSection").scrollIntoView({ behavior: 'smooth' });
+}
+
+function closeSimSection(){
+  document.getElementById("simSection").classList.add("hidden");
+}
+
+function resetMasterData(){
+  masterRooms = {
+    "2": { label: "2인실", totalRooms: 15, defaultCapPerRoom: 2, generalPeople: "", generalCap: "" },
+    "4": { label: "4인실", totalRooms: 124, defaultCapPerRoom: 4, generalPeople: "", generalCap: 4 },
+    "6": { label: "6인실", totalRooms: 143, defaultCapPerRoom: 4, generalPeople: "", generalCap: 4 },
+    "dadami24": { label: "다다미 24인실", totalRooms: 2, defaultCapPerRoom: 24, generalPeople: "", generalCap: "" },
+    "dadami36": { label: "다다미 36인실", totalRooms: 1, defaultCapPerRoom: 36, generalPeople: "", generalCap: "" }
+  };
+}
+
+// -----------------------------------------------------------------
+// 4. UI 및 입력 로직
+// -----------------------------------------------------------------
+function initMasterRoomsUI(){
+  const container = document.getElementById("masterRoomsContainer");
+  container.innerHTML = "";
+  Object.keys(masterRooms).forEach(key => {
+    const room = masterRooms[key];
+    const people = parseInt(room.generalPeople, 10) || 0;
+    const cap = parseInt(room.generalCap, 10) || 0;
+    const genRooms = (people > 0 && cap > 0) ? Math.ceil(people / cap) : 0;
+    const remainRooms = Math.max(0, room.totalRooms - genRooms);
+
+    const div = document.createElement("div");
+    div.className = "master-card";
+    div.innerHTML = `
+      <div style="font-weight:bold; font-size:13px; margin-bottom:6px; color:#17324d;">${room.label}</div>
+      <div style="margin-bottom:4px;">
+        <label>보유 수</label>
+        <input type="number" id="master_room_${key}" min="0" value="${room.totalRooms}" onchange="updateMasterRoom('${key}')">
+      </div>
+      <div style="margin-bottom:4px;">
+        <label>일반 인원</label>
+        <input type="number" id="master_gen_people_${key}" min="0" placeholder="공란" value="${room.generalPeople}" onchange="updateMasterRoom('${key}')">
+      </div>
+      <div style="margin-bottom:4px;">
+        <label>객실 당 인원</label>
+        <input type="number" id="master_gen_cap_${key}" min="1" placeholder="공란" value="${room.generalCap}" onchange="updateMasterRoom('${key}')">
+      </div>
+      <div class="small" style="background:#f5f5f5; padding:4px; border-radius:4px; margin-top:4px;">
+        차감: <b id="calc_gen_room_${key}">${genRooms}</b>실 | 잔여: <b id="calc_remain_room_${key}" style="color:#1769aa;">${remainRooms}</b>실
+      </div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function updateMasterRoom(key){
+  const totalVal = parseInt(document.getElementById(`master_room_${key}`).value, 10);
+  const peopleVal = parseInt(document.getElementById(`master_gen_people_${key}`).value, 10);
+  const capVal = parseInt(document.getElementById(`master_gen_cap_${key}`).value, 10);
+
+  masterRooms[key].totalRooms = isNaN(totalVal) ? 0 : Math.max(0, totalVal);
+  masterRooms[key].generalPeople = isNaN(peopleVal) ? "" : Math.max(0, peopleVal);
+  masterRooms[key].generalCap = isNaN(capVal) ? "" : Math.max(0, capVal);
+
+  const people = parseInt(masterRooms[key].generalPeople, 10) || 0;
+  const cap = parseInt(masterRooms[key].generalCap, 10) || 0;
+  const genRooms = (people > 0 && cap > 0) ? Math.ceil(people / cap) : 0;
+  const remainRooms = Math.max(0, masterRooms[key].totalRooms - genRooms);
+
+  document.getElementById(`calc_gen_room_${key}`).innerText = genRooms;
+  document.getElementById(`calc_remain_room_${key}`).innerText = remainRooms;
+}
+
+function addTeam(name=""){
+  const teamId = "team_" + (teamSeq++);
+  const teamDiv = document.createElement("div");
+  teamDiv.className = "team-card";
+  teamDiv.id = teamId;
+  teamDiv.innerHTML = `
+    <div class="team-head">
+      <input type="text" class="teamName" placeholder="단체명" value="${esc(name)}" style="max-width:220px; font-weight:bold;">
+      <button class="danger" type="button" onclick="document.getElementById('${teamId}').remove()">삭제</button>
+    </div>
+    <div class="roomTypesContainer"></div>
+    <button class="secondary" type="button" style="font-size:12px; padding:4px 8px; margin-top:4px;" onclick="addRoomTypeToTeam('${teamId}')">+ 객실 종류 추가</button>
+  `;
+  document.getElementById("teamsContainer").appendChild(teamDiv);
+  addRoomTypeToTeam(teamId, "6", "", 4);
+}
+
+function restoreTeamUI(teamData){
+  const teamId = "team_" + (teamSeq++);
+  const teamDiv = document.createElement("div");
+  teamDiv.className = "team-card";
+  teamDiv.id = teamId;
+  teamDiv.innerHTML = `
+    <div class="team-head">
+      <input type="text" class="teamName" placeholder="단체명" value="${esc(teamData.name)}" style="max-width:220px; font-weight:bold;">
+      <button class="danger" type="button" onclick="document.getElementById('${teamId}').remove()">삭제</button>
+    </div>
+    <div class="roomTypesContainer"></div>
+    <button class="secondary" type="button" style="font-size:12px; padding:4px 8px; margin-top:4px;" onclick="addRoomTypeToTeam('${teamId}')">+ 객실 종류 추가</button>
+  `;
+  document.getElementById("teamsContainer").appendChild(teamDiv);
+
+  teamData.allocations.forEach(a => {
+    addRoomTypeToTeam(teamId, a.key, a.people, a.cap);
+  });
+}
+
+function addRoomTypeToTeam(teamId, presetKey="6", assignPeople="", capPerRoom=""){
+  const container = document.getElementById(teamId).querySelector(".roomTypesContainer");
+  const typeId = teamId + "_type_" + Date.now() + "_" + Math.floor(Math.random()*1000);
+  const preset = masterRooms[presetKey];
+  const cap = capPerRoom || preset.defaultCapPerRoom;
+
+  const div = document.createElement("div");
+  div.className = "type-card";
+  div.id = typeId;
+  div.innerHTML = `
+    <div class="type-grid">
+      <div>
+        <label>객실 종류</label>
+        <select class="typeSelect">
+          <option value="6">6인실</option>
+          <option value="4">4인실</option>
+          <option value="2">2인실</option>
+          <option value="dadami24">다다미 24인실</option>
+          <option value="dadami36">다다미 36인실</option>
+        </select>
+      </div>
+      <div>
+        <label style="color:#0d47a1; font-weight:bold;">배정 인원(명)</label>
+        <input type="number" class="assignPeople" min="1" value="${assignPeople}">
+      </div>
+      <div>
+        <label>객실당 인원</label>
+        <input type="number" class="capPerRoom" min="1" value="${cap}">
+      </div>
+      <div style="text-align:right; margin-top:16px;">
+        <button class="danger" type="button" style="padding:6px 8px;" onclick="document.getElementById('${typeId}').remove()">✕</button>
+      </div>
+    </div>
+  `;
+  container.appendChild(div);
+  div.querySelector(".typeSelect").value = presetKey;
+}
+
+// -----------------------------------------------------------------
+// 5. 시뮬레이션 계산 및 Firebase 데이터 저장
+// -----------------------------------------------------------------
+function runSimulation(shouldSave = true){
+  const teamCards = [...document.querySelectorAll("#teamsContainer .team-card")];
+  if(!teamCards.length){ alert("최소 1개 이상의 단체를 추가해주세요."); return; }
+
+  let teams = [];
+  let groupRoomUsed = { "2": 0, "4": 0, "6": 0, "dadami24": 0, "dadami36": 0 };
+
+  teamCards.forEach((card, idx) => {
+    const name = card.querySelector(".teamName").value.trim() || `단체 ${idx+1}`;
+    const typeDivs = [...card.querySelectorAll(".type-card")];
+
+    let teamTotalPeople = 0;
+    let allocations = [];
+
+    typeDivs.forEach(td => {
+      const key = td.querySelector(".typeSelect").value;
+      const people = parseInt(td.querySelector(".assignPeople").value, 10) || 0;
+      const cap = parseInt(td.querySelector(".capPerRoom").value, 10) || 1;
+
+      if(people > 0){
+        teamTotalPeople += people;
+        const roomsNeeded = Math.ceil(people / cap);
+        allocations.push({ key, label: masterRooms[key].label, people, cap, roomsNeeded, totalRooms: masterRooms[key].totalRooms });
+        groupRoomUsed[key] += roomsNeeded;
+      }
+    });
+
+    if(teamTotalPeople > 0){
+      teams.push({ name, totalPeople: teamTotalPeople, allocations });
+    }
+  });
+
+  const groupTotalPeople = teams.reduce((s,t) => s + t.totalPeople, 0);
+  const groupTotalRooms = Object.values(groupRoomUsed).reduce((a,b)=>a+b, 0);
+
+  let generalTotalPeople = 0;
+  let generalRoomUsed = {};
+
+  Object.keys(masterRooms).forEach(key => {
+    const preset = masterRooms[key];
+    const people = parseInt(preset.generalPeople, 10) || 0;
+    const cap = parseInt(preset.generalCap, 10) || 0;
+    const genRooms = (people > 0 && cap > 0) ? Math.ceil(people / cap) : 0;
+    generalTotalPeople += people;
+    generalRoomUsed[key] = genRooms;
+  });
+
+  const grandTotalPeople = generalTotalPeople + groupTotalPeople;
+
+  document.getElementById("simStats").innerHTML = `
+    <div class="stat">총 인원 (일반+단체)<b>${grandTotalPeople}명</b><span>일반 ${generalTotalPeople}명 + 단체 ${groupTotalPeople}명</span></div>
+    <div class="stat">단체 전체 인원<b>${groupTotalPeople}명</b><span>총 ${teams.length}개 단체</span></div>
+    <div class="stat">단체 필요 객실<b>${groupTotalRooms}개</b><span>단체 신청 객실 합계</span></div>
+  `;
+
+  let totalTypeHtml = `<thead><tr><th>객실 종류</th><th>전체 보유 수</th><th>일반 여객</th><th>단체 신청</th><th>총 사용 객실</th><th>보유 대비 비중</th></tr></thead><tbody>`;
+  let overLimit = false;
+
+  Object.keys(masterRooms).forEach(key => {
+    const preset = masterRooms[key];
+    const total = preset.totalRooms;
+    const genUsed = generalRoomUsed[key];
+    const grpUsed = groupRoomUsed[key];
+    const totalUsed = genUsed + grpUsed;
+    const genPeople = parseInt(preset.generalPeople, 10) || 0;
+    
+    let pctStr = "—";
+    if(total > 0){
+      const pct = (totalUsed / total * 100).toFixed(1);
+      pctStr = `<b>${pct}%</b> (${totalUsed}/${total}개)`;
+      if(totalUsed > total) overLimit = true;
+    }
+
+    totalTypeHtml += `<tr>
+      <td><b>${preset.label}</b></td>
+      <td>${total > 0 ? total + "개" : "무제한"}</td>
+      <td>${genPeople > 0 ? `${genPeople}명 (${genUsed}개)` : "0개"}</td>
+      <td>${grpUsed}개</td>
+      <td class="${total > 0 && totalUsed > total ? 'bad' : ''}"><b>${totalUsed}개</b></td>
+      <td>${pctStr}</td>
+    </tr>`;
+  });
+  totalTypeHtml += `</tbody>`;
+  document.getElementById("totalTypeTable").innerHTML = totalTypeHtml;
+
+  if(overLimit){
+    document.getElementById("simWarn").innerHTML = `<div class="warn-box"><span class="bad">⚠ 초과 경고:</span> 총 객실 신청량이 보유 객실 수를 초과했습니다.</div>`;
+  } else {
+    document.getElementById("simWarn").innerHTML = "";
+  }
+
+  let teamResultsHtml = "";
+  teams.forEach(team => {
+    const teamTotalRooms = team.allocations.reduce((s,a)=>s+a.roomsNeeded, 0);
+    teamResultsHtml += `<div style="margin-bottom:16px;">
+      <h3 style="margin-bottom:8px; color:#1769aa;">🚩 ${esc(team.name)} — 총 ${team.totalPeople}명 (${teamTotalRooms}실)</h3>
+      <table><thead><tr><th>객실 종류</th><th>인원</th><th>수용 설정</th><th>필요 객실</th><th>인원 비중</th><th>보유 대비 비중</th></tr></thead><tbody>`;
+    team.allocations.forEach(a => {
+      const peoplePct = (a.people / team.totalPeople * 100).toFixed(1);
+      const roomHoldPct = a.totalRooms > 0 ? (a.roomsNeeded / a.totalRooms * 100).toFixed(1) + `% (${a.roomsNeeded}/${a.totalRooms}개)` : "—";
+      teamResultsHtml += `<tr><td><b>${esc(a.label)}</b></td><td>${a.people}명</td><td>${a.cap}명/실</td><td>${a.roomsNeeded}개</td><td>${peoplePct}%</td><td><b>${roomHoldPct}</b></td></tr>`;
+    });
+    teamResultsHtml += `</tbody></table></div>`;
+  });
+
+  document.getElementById("teamResultsContainer").innerHTML = teamResultsHtml;
+  document.getElementById("simResult").classList.remove("hidden");
+
+  if(shouldSave && db && selectedDate){
+    db.collection("schedules").doc(selectedDate).set({
+      totalPeople: grandTotalPeople,
+      teamCount: teams.length,
+      masterRooms: masterRooms,
+      teams: teams,
+      updatedAt: new Date()
+    }).then(() => {
+      alert(`[${selectedDate}] 객실 배정 정보가 서버에 성공적으로 저장되었습니다.`);
+      if(calendar) calendar.refetchEvents();
+    }).catch(err => {
+      alert("저장 중 오류 발생: " + err);
+    });
+  }
+}
+
+// 데이터 삭제
+function deleteDateData(){
+  if(!selectedDate) return;
+  if(confirm(`정말로 ${selectedDate} 날짜의 데이터를 삭제하시겠습니까?`)){
+    if(db){
+      db.collection("schedules").doc(selectedDate).delete().then(() => {
+        alert("삭제되었습니다.");
+        closeSimSection();
+        if(calendar) calendar.refetchEvents();
+      });
+    }
+  }
+}
+
+function downloadResultImage(){
+  const area = document.getElementById("captureArea");
+  html2canvas(area, { scale: 2, backgroundColor: "#f4f6f9" }).then(canvas => {
+    const link = document.createElement("a");
+    link.download = `단동훼리_객실배정_${selectedDate}.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  });
+}
+</script>
 </body>
 </html>
