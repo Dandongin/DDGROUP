@@ -65,44 +65,48 @@ th{background:#f1f4f7}
 
   <!-- 선택한 날짜 시뮬레이터 영역 -->
   <div id="simSection" class="hidden">
-    <div class="card" style="border: 2px solid #1769aa;">
-      <div class="date-title">
+    <!-- 날짜 선택 헤더 -->
+    <div class="card" style="border: 2px solid #1769aa; margin-bottom: 16px;">
+      <div class="date-title" style="margin-bottom:0;">
         <span>📌 선택된 날짜: <span id="selectedDateText" style="color:#1769aa;"></span></span>
         <button class="secondary" style="font-size:12px; margin-left:auto;" onclick="closeSimSection()">닫기 ✕</button>
       </div>
-
-      <!-- 1. 선박 전체 보유 객실 및 일반 여객 설정 -->
-      <h2>1. 선박 전체 보유 객실 및 일반 여객 설정</h2>
-      <div class="master-grid" id="masterRoomsContainer"></div>
-
-      <!-- 2. 단체(팀) 설정 -->
-      <h2 style="margin-top:20px;">2. 단체(팀) 및 객실별 인원 설정</h2>
-      <div id="teamsContainer"></div>
-      <button class="secondary" style="margin-top:8px" onclick="addTeam()">+ 별도 단체 추가</button>
-
-      <div style="margin-top:20px; border-top:1px solid #eee; padding-top:16px; display:flex; gap:10px;">
-        <button class="primary" style="font-size:16px;padding:12px 24px" onclick="runSimulation()">계산 및 서버 저장</button>
-        <button class="danger" onclick="deleteDateData()">이 날짜 데이터 삭제</button>
-      </div>
     </div>
 
-    <!-- 시뮬레이션 결과 -->
+    <!-- [상단 배치] 시뮬레이션 결과 요약 영역 -->
     <div id="simResult" class="hidden">
       <div style="text-align:right; margin-bottom:10px;">
         <button class="success" onclick="downloadResultImage()">📸 결과 이미지 다운로드 (PNG)</button>
       </div>
-      <div id="captureArea" style="background:#f4f6f9; padding:10px; border-radius:12px;">
+      <div id="captureArea" style="background:#f4f6f9; padding:10px; border-radius:12px; margin-bottom: 16px;">
         <div class="card">
-          <h2>3. 전체 합산 비중 요약 (일반 여객 + 단체)</h2>
+          <h2>1. 전체 합산 비중 요약 (일반 여객 + 단체)</h2>
           <div class="stats" id="simStats"></div>
           <h3 style="margin-top:20px; margin-bottom:10px; font-size:14px;">전체 보유 객실 대비 총 사용 비중</h3>
           <table id="totalTypeTable"></table>
           <div id="simWarn"></div>
         </div>
         <div class="card">
-          <h2>4. 단체별 배정 상세 및 비중</h2>
+          <h2>2. 단체별 배정 상세 및 비중</h2>
           <div id="teamResultsContainer"></div>
         </div>
+      </div>
+    </div>
+
+    <!-- [하단 배치] 입력 및 설정 영역 -->
+    <div class="card">
+      <!-- 3. 선박 전체 보유 객실 및 일반 여객 설정 -->
+      <h2>3. 선박 전체 보유 객실 및 일반 여객 설정</h2>
+      <div class="master-grid" id="masterRoomsContainer"></div>
+
+      <!-- 4. 단체(팀) 설정 -->
+      <h2 style="margin-top:20px;">4. 단체(팀) 및 객실별 인원 설정</h2>
+      <div id="teamsContainer"></div>
+      <button class="secondary" style="margin-top:8px" onclick="addTeam()">+ 별도 단체 추가</button>
+
+      <div style="margin-top:20px; border-top:1px solid #eee; padding-top:16px; display:flex; gap:10px;">
+        <button class="primary" style="font-size:16px;padding:12px 24px" onclick="runSimulation()">계산 및 서버 저장</button>
+        <button class="danger" onclick="deleteDateData()">이 날짜 데이터 삭제</button>
       </div>
     </div>
   </div>
@@ -130,15 +134,15 @@ try {
   console.log("Firebase 로드 오류:", e);
 }
 
-// 2. 변수 및 기본 객실 구조
+// 2. 변수 및 기본 객실 구조 (6인실, 4인실, 2인실 순서 및 기본 인원 설정 수정)
 let selectedDate = "";
 let calendar = null;
 let teamSeq = 0;
 
 let masterRooms = {
+  "6": { label: "6인실", totalRooms: 143, defaultCapPerRoom: 4, generalPeople: 100, generalCap: 3 },
+  "4": { label: "4인실", totalRooms: 124, defaultCapPerRoom: 4, generalPeople: 50, generalCap: 2 },
   "2": { label: "2인실", totalRooms: 15, defaultCapPerRoom: 2, generalPeople: "", generalCap: "" },
-  "4": { label: "4인실", totalRooms: 124, defaultCapPerRoom: 4, generalPeople: "", generalCap: 4 },
-  "6": { label: "6인실", totalRooms: 143, defaultCapPerRoom: 4, generalPeople: "", generalCap: 4 },
   "dadami24": { label: "다다미 24인실", totalRooms: 2, defaultCapPerRoom: 24, generalPeople: "", generalCap: "" },
   "dadami36": { label: "다다미 36인실", totalRooms: 1, defaultCapPerRoom: 36, generalPeople: "", generalCap: "" }
 };
@@ -229,9 +233,9 @@ function closeSimSection(){
 
 function resetMasterData(){
   masterRooms = {
+    "6": { label: "6인실", totalRooms: 143, defaultCapPerRoom: 4, generalPeople: 100, generalCap: 3 },
+    "4": { label: "4인실", totalRooms: 124, defaultCapPerRoom: 4, generalPeople: 50, generalCap: 2 },
     "2": { label: "2인실", totalRooms: 15, defaultCapPerRoom: 2, generalPeople: "", generalCap: "" },
-    "4": { label: "4인실", totalRooms: 124, defaultCapPerRoom: 4, generalPeople: "", generalCap: 4 },
-    "6": { label: "6인실", totalRooms: 143, defaultCapPerRoom: 4, generalPeople: "", generalCap: 4 },
     "dadami24": { label: "다다미 24인실", totalRooms: 2, defaultCapPerRoom: 24, generalPeople: "", generalCap: "" },
     "dadami36": { label: "다다미 36인실", totalRooms: 1, defaultCapPerRoom: 36, generalPeople: "", generalCap: "" }
   };
@@ -290,7 +294,7 @@ function updateMasterRoom(key){
   document.getElementById(`calc_remain_room_${key}`).innerText = remainRooms;
 }
 
-// 단체 추가 UI (인당 금액, 단체 메모 추가)
+// 단체 추가 UI
 function addTeam(name="", price="", memo=""){
   const teamId = "team_" + (teamSeq++);
   const teamDiv = document.createElement("div");
@@ -300,7 +304,7 @@ function addTeam(name="", price="", memo=""){
     <div class="team-head">
       <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; flex:1;">
         <input type="text" class="teamName" placeholder="단체명" value="${esc(name)}" style="max-width:180px; font-weight:bold;">
-        <input type="number" class="teamPrice" placeholder="인당 금액(원) 선택" value="${esc(price)}" style="max-width:150px;">
+        <input type="text" class="teamPrice" placeholder="금액 (예: 189)" value="${esc(price)}" style="max-width:140px;">
       </div>
       <button class="danger" type="button" onclick="document.getElementById('${teamId}').remove()">삭제</button>
     </div>
@@ -323,7 +327,7 @@ function restoreTeamUI(teamData){
     <div class="team-head">
       <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; flex:1;">
         <input type="text" class="teamName" placeholder="단체명" value="${esc(teamData.name)}" style="max-width:180px; font-weight:bold;">
-        <input type="number" class="teamPrice" placeholder="인당 금액(원) 선택" value="${esc(teamData.price || '')}" style="max-width:150px;">
+        <input type="text" class="teamPrice" placeholder="금액 (예: 189)" value="${esc(teamData.price || '')}" style="max-width:140px;">
       </div>
       <button class="danger" type="button" onclick="document.getElementById('${teamId}').remove()">삭제</button>
     </div>
@@ -386,11 +390,11 @@ function runSimulation(shouldSave = true){
   if(!teamCards.length){ alert("최소 1개 이상의 단체를 추가해주세요."); return; }
 
   let teams = [];
-  let groupRoomUsed = { "2": 0, "4": 0, "6": 0, "dadami24": 0, "dadami36": 0 };
+  let groupRoomUsed = { "6": 0, "4": 0, "2": 0, "dadami24": 0, "dadami36": 0 };
 
   teamCards.forEach((card, idx) => {
     const name = card.querySelector(".teamName").value.trim() || `단체 ${idx+1}`;
-    const price = parseInt(card.querySelector(".teamPrice").value, 10) || null;
+    const price = card.querySelector(".teamPrice").value.trim();
     const memo = card.querySelector(".teamMemo").value.trim();
 
     const typeDivs = [...card.querySelectorAll(".type-card")];
@@ -478,7 +482,7 @@ function runSimulation(shouldSave = true){
   let teamResultsHtml = "";
   teams.forEach(team => {
     const teamTotalRooms = team.allocations.reduce((s,a)=>s+a.roomsNeeded, 0);
-    const priceText = team.price ? ` | 💵 인당 ${team.price.toLocaleString()}원 (총 ${(team.price * team.totalPeople).toLocaleString()}원)` : '';
+    const priceText = team.price ? ` | 💵 ${esc(team.price)}` : '';
     
     teamResultsHtml += `<div style="margin-bottom:16px;">
       <h3 style="margin-bottom:4px; color:#1769aa;">🚩 ${esc(team.name)} — 총 ${team.totalPeople}명 (${teamTotalRooms}실)${priceText}</h3>
