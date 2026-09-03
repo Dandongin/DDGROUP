@@ -73,7 +73,7 @@ th{background:#f1f4f7}
       </div>
     </div>
 
-    <!-- [상단 배치] 시뮬레이션 결과 요약 영역 -->
+    <!-- [상단] 시뮬레이션 결과 요약 영역 -->
     <div id="simResult" class="hidden">
       <div style="text-align:right; margin-bottom:10px;">
         <button class="success" onclick="downloadResultImage()">📸 결과 이미지 다운로드 (PNG)</button>
@@ -93,7 +93,7 @@ th{background:#f1f4f7}
       </div>
     </div>
 
-    <!-- [하단 배치] 입력 및 설정 영역 -->
+    <!-- [하단] 입력 및 설정 영역 -->
     <div class="card">
       <!-- 3. 선박 전체 보유 객실 및 일반 여객 설정 -->
       <h2>3. 선박 전체 보유 객실 및 일반 여객 설정</h2>
@@ -134,7 +134,7 @@ try {
   console.log("Firebase 로드 오류:", e);
 }
 
-// 2. 변수 및 기본 객실 구조 (6인실, 4인실, 2인실 순서 및 기본 인원 설정 수정)
+// 2. 변수 및 기본 객실 구조 (6인실, 4인실, 2인실 순서)
 let selectedDate = "";
 let calendar = null;
 let teamSeq = 0;
@@ -149,7 +149,7 @@ let masterRooms = {
 
 function esc(s){ return String(s??"").replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m])); }
 
-// 3. 달력 초기화
+// 3. 달력 초기화 (한국 공휴일 API 연동 추가)
 document.addEventListener('DOMContentLoaded', function() {
   const calendarEl = document.getElementById('calendar');
   calendar = new FullCalendar.Calendar(calendarEl, {
@@ -163,26 +163,57 @@ document.addEventListener('DOMContentLoaded', function() {
     dateClick: function(info) {
       openDateSim(info.dateStr);
     },
-    events: function(fetchInfo, successCallback, failureCallback) {
-      if(!db) { successCallback([]); return; }
-      
-      db.collection("schedules").get().then((querySnapshot) => {
-        let events = [];
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          events.push({
-            id: doc.id,
-            title: `👥 ${data.totalPeople}명 (${data.teamCount}팀)`,
-            start: doc.id,
-            color: '#1769aa'
+    // 공휴일 API 및 Firebase 단체 배정 데이터를 동시에 로드
+    eventSources: [
+      // A) 한국 공휴일 자동 로드 API
+      {
+        events: async function(fetchInfo, successCallback, failureCallback) {
+          try {
+            const year = fetchInfo.start.getFullYear();
+            const res = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/KR`);
+            const holidays = await res.json();
+            
+            const holidayEvents = holidays.map(h => ({
+              title: `🔴 ${h.localName}`,
+              start: h.date,
+              allDay: true,
+              display: 'block',
+              backgroundColor: '#fff0f0',
+              borderColor: '#f3c2c2',
+              textColor: '#d32f2f'
+            }));
+            
+            successCallback(holidayEvents);
+          } catch(e) {
+            console.log("공휴일 로드 실패:", e);
+            successCallback([]);
+          }
+        }
+      },
+      // B) Firebase 단체 예약 데이터 로드
+      {
+        events: function(fetchInfo, successCallback, failureCallback) {
+          if(!db) { successCallback([]); return; }
+          
+          db.collection("schedules").get().then((querySnapshot) => {
+            let events = [];
+            querySnapshot.forEach((doc) => {
+              const data = doc.data();
+              events.push({
+                id: doc.id,
+                title: `👥 ${data.totalPeople}명 (${data.teamCount}팀)`,
+                start: doc.id,
+                color: '#1769aa'
+              });
+            });
+            successCallback(events);
+          }).catch((err) => {
+            console.log("이벤트 로드 예외:", err);
+            successCallback([]);
           });
-        });
-        successCallback(events);
-      }).catch((err) => {
-        console.log("이벤트 로드 예외:", err);
-        successCallback([]);
-      });
-    }
+        }
+      }
+    ]
   });
   calendar.render();
 });
