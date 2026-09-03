@@ -205,7 +205,8 @@ let masterRooms = {
   "dadami36": { label: "다다미 36인실", totalRooms: 1, defaultCapPerRoom: 36, generalPeople: "", generalCap: "" }
 };
 
-function esc(s){ return String(s??"").replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]); }
+// 特殊文字 ESC
+function esc(s){ return String(s??"").replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m])); }
 
 // N일 더하는 함수
 function addDays(dateStr, days) {
@@ -214,10 +215,10 @@ function addDays(dateStr, days) {
   return result.toISOString().split('T')[0];
 }
 
-// "YYYY-MM-DD" -> "MM-DD" 로 변환 (년도 제거)
+// "YYYY-MM-DD" -> "MM-DD" 변환 (연도 제거)
 function formatShortDate(dateStr) {
   if (!dateStr || dateStr.length < 10) return dateStr;
-  return dateStr.substring(5); // "09-15" 형태로 자름
+  return dateStr.substring(5);
 }
 
 // 달력 초기화
@@ -265,16 +266,13 @@ document.addEventListener('DOMContentLoaded', function() {
                   const returnDate = addDays(regDate, nights);
 
                   if (pattern === 'KR_ROUND') {
-                    // 한국발 왕복: 등록일 = 출국, returnDate = 입국
                     dailyOut[regDate] = (dailyOut[regDate] || 0) + p;
                     dailyIn[returnDate] = (dailyIn[returnDate] || 0) + p;
                   } else if (pattern === 'CN_ROUND') {
-                    // 중국발 왕복: 등록일 = 입국, returnDate = 출국
                     dailyIn[regDate] = (dailyIn[regDate] || 0) + p;
                     dailyOut[returnDate] = (dailyOut[returnDate] || 0) + p;
                   } else {
-                    // 편도
-                    if (t.oneWayType === 'IN') {
+                    if (t.pattern === 'ONEWAY_IN') {
                       dailyIn[regDate] = (dailyIn[regDate] || 0) + p;
                     } else {
                       dailyOut[regDate] = (dailyOut[regDate] || 0) + p;
@@ -285,13 +283,13 @@ document.addEventListener('DOMContentLoaded', function() {
             });
 
             let events = [];
-            // 출국 이벤트 (이모지 없이 깔끔하게 '출757' 형태)
+            // 출국 이벤트 (이모지 제외)
             Object.keys(dailyOut).forEach(d => {
               if (dailyOut[d] > 0) {
                 events.push({ title: `출${dailyOut[d]}`, start: d, color: '#1769aa' });
               }
             });
-            // 입국 이벤트 ('입345' 형태)
+            // 입국 이벤트 (이모지 제외)
             Object.keys(dailyIn).forEach(d => {
               if (dailyIn[d] > 0) {
                 events.push({ title: `입${dailyIn[d]}`, start: d, color: '#2e7d32' });
@@ -732,7 +730,7 @@ function runSimulation(shouldSave = true){
     } else {
       const outDivs = [...card.querySelectorAll(".splitRoomArea .outRoomTypesContainer .type-card")];
       const inDivs = [...card.querySelectorAll(".splitRoomArea .inRoomTypesContainer .type-card")];
-      const outRes = extractAllocations(outDivs, groupRoomUsed); // 차감 계산은 출국 기준 우선
+      const outRes = extractAllocations(outDivs, groupRoomUsed);
       const inRes = extractAllocations(inDivs, null);
       
       outAllocations = outRes.allocations;
@@ -837,7 +835,6 @@ function runSimulation(shouldSave = true){
       ${team.memo ? `<div class="memo-box"><b>📌 메모:</b> ${esc(team.memo)}</div>` : ''}`;
 
     if(!team.isSplitRoom) {
-      // 통합 객실 표시
       const teamTotalRooms = team.allocations.reduce((s,a)=>s+a.roomsNeeded, 0);
       teamResultsHtml += `<div class="table-responsive">
         <table>
@@ -855,7 +852,6 @@ function runSimulation(shouldSave = true){
       });
       teamResultsHtml += `</tbody></table></div>`;
     } else {
-      // 입/출국 분리 객실 표시
       teamResultsHtml += `<div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;" class="table-responsive">
         <div>
           <div class="section-subtitle">🛫 출국 객실 배정</div>
