@@ -66,7 +66,7 @@ th{background:#f1f4f7}
     <div id="calendar"></div>
   </div>
 
-  <!-- 1. 별도 휴항/메모 등록 카드 (상단 버튼 클릭 시 오픈) -->
+  <!-- 1. 별도 휴항/메모 등록 카드 -->
   <div id="eventSection" class="hidden card" style="border: 2px solid #d32f2f;">
     <div class="date-title">
       <span>🚫 [휴항 및 메모 등록]</span>
@@ -105,7 +105,7 @@ th{background:#f1f4f7}
     </div>
   </div>
 
-  <!-- 2. 선택한 날짜 시뮬레이터 영역 (달력 누르면 바로 열림) -->
+  <!-- 2. 선택한 날짜 시뮬레이터 영역 -->
   <div id="simSection" class="hidden">
     <div class="card" style="border: 2px solid #1769aa; margin-bottom: 16px;">
       <div class="date-title" style="margin-bottom:0;">
@@ -199,7 +199,6 @@ document.addEventListener('DOMContentLoaded', function() {
       center: 'title',
       right: ''
     },
-    // 달력 날짜 클릭 시 이전처럼 바로 단체 객실 배정 시뮬레이터 오픈
     dateClick: function(info) {
       closeEventSection();
       openDateSim(info.dateStr);
@@ -224,7 +223,7 @@ document.addEventListener('DOMContentLoaded', function() {
           } catch(e) { successCallback([]); }
         }
       },
-      // B) Firebase 단체 예약 데이터
+      // B) Firebase 단체 예약 데이터 (일반인 제외, 단체 인원만 표시)
       {
         events: function(fetchInfo, successCallback) {
           if(!db) { successCallback([]); return; }
@@ -232,9 +231,10 @@ document.addEventListener('DOMContentLoaded', function() {
             let events = [];
             querySnapshot.forEach((doc) => {
               const data = doc.data();
+              const groupPeople = data.groupTotalPeople || 0;
               events.push({
                 id: doc.id,
-                title: `👥 ${data.totalPeople}명 (${data.teamCount}팀)`,
+                title: `👥 단체 ${groupPeople}명 (${data.teamCount}팀)`,
                 start: doc.id,
                 color: '#1769aa'
               });
@@ -243,7 +243,7 @@ document.addEventListener('DOMContentLoaded', function() {
           }).catch(() => successCallback([]));
         }
       },
-      // C) Firebase 휴항/메모 데이터 (메모일 경우 적은 내용만 표시)
+      // C) Firebase 휴항/메모 데이터
       {
         events: function(fetchInfo, successCallback) {
           if(!db) { successCallback([]); return; }
@@ -281,7 +281,6 @@ function openEventModal(){
   const eventSection = document.getElementById("eventSection");
   eventSection.classList.remove("hidden");
   
-  // 기본값으로 오늘 날짜 세팅
   const today = new Date().toISOString().split('T')[0];
   document.getElementById("eventDate").value = today;
   loadEventDataForDate(today);
@@ -652,6 +651,7 @@ function runSimulation(shouldSave = true){
   if(shouldSave && db && selectedDate){
     db.collection("schedules").doc(selectedDate).set({
       totalPeople: grandTotalPeople,
+      groupTotalPeople: groupTotalPeople, // 단체 인원 별도 저장
       teamCount: teams.length,
       masterRooms: masterRooms,
       teams: teams,
