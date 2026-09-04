@@ -1099,7 +1099,8 @@ async function downloadMonthlyExcel(year, month){
 
   try {
     const querySnapshot = await db.collection("schedules").get();
-    let rows = [];
+    let outGroups = {}; // { 'YYYY-MM-DD': { names: [], total: 0 } }
+    let inGroups = {};  // { 'YYYY-MM-DD': { names: [], total: 0 } }
 
     querySnapshot.forEach(doc => {
       const regDate = doc.id;
@@ -1108,22 +1109,38 @@ async function downloadMonthlyExcel(year, month){
 
       data.teams.forEach(t => {
         const name = t.name || "";
-        const people = t.totalPeople || 0;
-        const memo = t.memo || "";
+        const people = parseInt(t.totalPeople || 0, 10);
         const nights = parseInt(t.nights || 4, 10);
         const pattern = t.pattern || 'KR_ROUND';
         const returnDate = addDays(regDate, nights);
 
+        let outDate = "";
+        let inDate = "";
+
         if(pattern === 'KR_ROUND'){
-          rows.push({ date: regDate, dir:'OUT', name, people, memo });
-          rows.push({ date: returnDate, dir:'IN', name, people, memo });
+          outDate = regDate;
+          inDate = returnDate;
         } else if(pattern === 'CN_ROUND'){
-          rows.push({ date: regDate, dir:'IN', name, people, memo });
-          rows.push({ date: returnDate, dir:'OUT', name, people, memo });
+          inDate = regDate;
+          outDate = returnDate;
         } else if(pattern === 'ONEWAY_OUT'){
-          rows.push({ date: regDate, dir:'OUT', name, people, memo });
-        } else { // ONEWAY_IN
-          rows.push({ date: regDate, dir:'IN', name, people, memo });
+          outDate = regDate;
+        } else if(pattern === 'ONEWAY_IN'){
+          inDate = regDate;
+        }
+
+        // 출국 데이터 집계
+        if(outDate){
+          if(!outGroups[outDate]) outGroups[outDate] = { names: [], total: 0 };
+          outGroups[outDate].names.push(`${name}${people}명`);
+          outGroups[outDate].total += people;
+        }
+
+        // 입국(돌아오는 단체) 데이터 집계
+        if(inDate){
+          if(!inGroups[inDate]) inGroups[inDate] = { names: [], total: 0 };
+          inGroups[inDate].names.push(`${name}${people}명`);
+          inGroups[inDate].total += people;
         }
       });
     });
@@ -1146,16 +1163,20 @@ async function downloadMonthlyExcel(year, month){
       }
     }
 
-    // 그룹화
-    let outGroups = {};
-    let inGroups = {};
-
-    rows.forEach(r => {
-      const map = r.dir === 'OUT' ? outGroups : inGroups;
-      if(!map[r.date]) map[r.date] = { names: [], total: 0 };
-      map[r.date].names.push(`${r.name}${r.people}명`);
-      map[r.date].total += r.people;
+    // 기본 항차 외 날짜에 등록된 단체가 있을 경우 해당 날짜 추가
+    Object.keys(outGroups).forEach(d => {
+      if(d >= monthStart && d <= monthEnd && !outDatesList.includes(d)){
+        outDatesList.push(d);
+      }
     });
+    Object.keys(inGroups).forEach(d => {
+      if(d >= monthStart && d <= monthEnd && !inDatesList.includes(d)){
+        inDatesList.push(d);
+      }
+    });
+
+    outDatesList.sort();
+    inDatesList.sort();
 
     const maxLen = Math.max(outDatesList.length, inDatesList.length);
 
