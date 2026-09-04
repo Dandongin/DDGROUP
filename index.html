@@ -927,9 +927,9 @@ function runSimulation(shouldSave = true){
 
   // 요약 영역 순수 출국 기준 반영
 document.getElementById("simStats").innerHTML = `
-    <div class="stat">출국 승선 인원<b>${grandTotalPeople}명</b><span>일반 ${generalTotalPeople}명 + 단체 ${groupTotalPeople}명</span></div>
-    <div class="stat">출국 승선 단체 수<b>총 ${groupTotalPeople}명</b><span>신규 ${todayOutTeams.length}개 단체 + 복귀 ${linkedReturnOutTeams.length}개 단체</span></div>
-    <div class="stat">출국 승선 객실<b>${groupTotalRooms}개</b><span>출국 단체 객실 합계</span></div>
+    <div class="stat">출국 (예상) 총 인원<b>${grandTotalPeople}명</b><span>일반 ${generalTotalPeople}명 + 단체 ${groupTotalPeople}명</span></div>
+    <div class="stat">출국 단체 인원<b>총 ${groupTotalPeople}명</b><span>신규 ${todayOutTeams.length}개 단체 + 복귀 ${linkedReturnOutTeams.length}개 단체</span></div>
+    <div class="stat">객실 사용량<b>${groupTotalRooms}개</b><span>출국 단체 객실 합계</span></div>
   `;
 
   let totalTypeHtml = `<thead><tr><th>객실 종류</th><th>전체 보유 수</th><th>일반 여객</th><th>단체 출국 승선</th><th>총 사용 객실</th><th>보유 대비 비중</th></tr></thead><tbody>`;
