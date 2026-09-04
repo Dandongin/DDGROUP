@@ -1077,7 +1077,7 @@ function formatDateMDShort(dateStr){
 function formatPrevDayMDShort(dateStr){
   if(!dateStr) return "";
   const d = new Date(dateStr);
-  d.setDate(d.getDate() - 1); // 1일 감산
+  d.setDate(d.getDate() - 1);
   const mm = d.getMonth() + 1;
   const dd = d.getDate();
   const wd = WEEKDAYS_KR[d.getDay()];
@@ -1180,7 +1180,7 @@ async function downloadMonthlyExcel(year, month){
 
     const maxLen = Math.max(outDatesList.length, inDatesList.length);
 
-    // HTML 테이블을 생성하여 테두리 및 셀 스타일 지정
+    // HTML 테이블을 생성하여 셀 스타일, 너비, 줄바꿈(white-space) 지정
     let tableHtml = `<table border="1" style="border-collapse:collapse; text-align:center; font-family:맑은 고딕, Arial;">`;
     
     // 1행: 제목 행
@@ -1195,12 +1195,12 @@ async function downloadMonthlyExcel(year, month){
     // 2행: 헤더 행
     tableHtml += `
       <tr style="background-color:#f2f2f2; font-weight:bold; height:28px;">
-        <th style="border:1px solid black; width:100px;">OUT 날짜</th>
-        <th style="border:1px solid black; width:350px;">단체명 / 인원</th>
-        <th style="border:1px solid black; width:80px;">합계</th>
-        <th style="border:1px solid black; width:100px;">IN 날짜</th>
-        <th style="border:1px solid black; width:350px;">단체명 / 인원</th>
-        <th style="border:1px solid black; width:80px;">합계</th>
+        <th style="border:1px solid black; width:90px;">OUT 날짜</th>
+        <th style="border:1px solid black; width:300px;">단체명 / 인원</th>
+        <th style="border:1px solid black; width:70px;">합계</th>
+        <th style="border:1px solid black; width:90px;">IN 날짜</th>
+        <th style="border:1px solid black; width:300px;">단체명 / 인원</th>
+        <th style="border:1px solid black; width:70px;">합계</th>
       </tr>
     `;
 
@@ -1210,22 +1210,23 @@ async function downloadMonthlyExcel(year, month){
       const id = inDatesList[i];
 
       const outDateDisp = od ? formatDateMDShort(od) : "";
-      const outNamesDisp = (od && outGroups[od]) ? outGroups[od].names.join(", ") : "";
+      // 단체명 간 구분 기호를 줄바꿈(<br>)으로 연결
+      const outNamesDisp = (od && outGroups[od]) ? outGroups[od].names.join("<br>") : "";
       const outTotalDisp = (od && outGroups[od]) ? outGroups[od].total : "";
 
       // IN 의 경우 전날 날짜/요일로 변환하여 표시 (예: 9-2(수) -> 9-1(화))
       const inDateDisp = id ? formatPrevDayMDShort(id) : "";
-      const inNamesDisp = (id && inGroups[id]) ? inGroups[id].names.join(", ") : "";
+      const inNamesDisp = (id && inGroups[id]) ? inGroups[id].names.join("<br>") : "";
       const inTotalDisp = (id && inGroups[id]) ? inGroups[id].total : "";
 
       tableHtml += `
-        <tr style="height:25px;">
-          <td style="border:1px solid black; text-align:center;">${outDateDisp}</td>
-          <td style="border:1px solid black; text-align:left; padding-left:5px;">${outNamesDisp}</td>
-          <td style="border:1px solid black; text-align:right; padding-right:5px;">${outTotalDisp}</td>
-          <td style="border:1px solid black; text-align:center;">${inDateDisp}</td>
-          <td style="border:1px solid black; text-align:left; padding-left:5px;">${inNamesDisp}</td>
-          <td style="border:1px solid black; text-align:right; padding-right:5px;">${inTotalDisp}</td>
+        <tr>
+          <td style="border:1px solid black; text-align:center; vertical-align:middle; padding:5px;">${outDateDisp}</td>
+          <td style="border:1px solid black; text-align:left; vertical-align:middle; padding:5px 8px; white-space:pre-line;">${outNamesDisp}</td>
+          <td style="border:1px solid black; text-align:right; vertical-align:middle; padding:5px 8px;">${outTotalDisp}</td>
+          <td style="border:1px solid black; text-align:center; vertical-align:middle; padding:5px;">${inDateDisp}</td>
+          <td style="border:1px solid black; text-align:left; vertical-align:middle; padding:5px 8px; white-space:pre-line;">${inNamesDisp}</td>
+          <td style="border:1px solid black; text-align:right; vertical-align:middle; padding:5px 8px;">${inTotalDisp}</td>
         </tr>
       `;
     }
@@ -1246,6 +1247,18 @@ async function downloadMonthlyExcel(year, month){
     const tableEl = tempDiv.querySelector("table");
 
     const wb = XLSX.utils.table_to_book(tableEl, { sheet: "월별현황" });
+
+    // 엑셀 열 너비(Col Width) 자동 넉넉하게 재설정 (가려짐 방지)
+    const ws = wb.Sheets["월별현황"];
+    ws['!cols'] = [
+      { wch: 14 }, // OUT 날짜
+      { wch: 48 }, // 단체명 / 인원
+      { wch: 10 }, // 합계
+      { wch: 14 }, // IN 날짜
+      { wch: 48 }, // 단체명 / 인원
+      { wch: 10 }  // 합계
+    ];
+
     XLSX.writeFile(wb, `단동훼리_${year}년${mm}월_단체현황.xlsx`);
 
   } catch(e) {
@@ -1253,7 +1266,6 @@ async function downloadMonthlyExcel(year, month){
     alert("다운로드 중 오류가 발생했습니다: " + e.message);
   }
 }
-
 
 function downloadResultImage(){
   const area = document.getElementById("captureArea");
