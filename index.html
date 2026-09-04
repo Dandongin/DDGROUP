@@ -257,7 +257,7 @@ function formatShortDate(dateStr) {
   return dateStr.substring(5);
 }
 
-// 접기/펼치기
+// 보유 객실 영역 접기/펼치기
 function toggleMasterArea(){
   const content = document.getElementById("masterAreaContent");
   const icon = document.getElementById("masterToggleIcon");
@@ -309,10 +309,7 @@ document.addEventListener('DOMContentLoaded', function() {
                   const p = t.totalPeople || 0;
                   const nights = parseInt(t.nights || 4, 10);
                   const pattern = t.pattern || 'KR_ROUND';
-                  
-                  // 수정: N박 M일인 경우, N일째 날(출발일 + nights - 1일)에 리턴 기록
-                  const returnDaysToAdd = Math.max(0, nights - 1);
-                  const returnDate = addDays(regDate, returnDaysToAdd);
+                  const returnDate = addDays(regDate, nights);
 
                   if (pattern === 'KR_ROUND') {
                     dailyOut[regDate] = (dailyOut[regDate] || 0) + p;
@@ -451,10 +448,7 @@ async function openDateSim(dateStr){
           if (data.teams && data.teams.length > 0) {
             data.teams.forEach(t => {
               const nights = parseInt(t.nights || 4, 10);
-              // 수정: N박 M일일 때 N일째 날 복귀 여부 체크
-              const returnDaysToAdd = Math.max(0, nights - 1);
-              const retDate = addDays(regDate, returnDaysToAdd);
-              
+              const retDate = addDays(regDate, nights);
               if (retDate === dateStr) {
                 linkedReturnTeams.push({
                   ...t,
@@ -798,7 +792,7 @@ function extractAllocations(typeDivs) {
   return { totalPeople, allocations };
 }
 
-// 시뮬레이션 계산
+// 계산 로직 (순수 출국 기준으로 수정)
 function runSimulation(shouldSave = true){
   const teamCards = [...document.querySelectorAll("#teamsContainer .team-card")];
 
@@ -832,6 +826,7 @@ function runSimulation(shouldSave = true){
         return;
       }
       
+      // 출국 패턴인 경우에만 출국 승선 객실에 합산
       if (pattern === 'KR_ROUND' || pattern === 'ONEWAY_OUT') {
         allocations.forEach(a => groupRoomUsed[a.key] += a.roomsNeeded);
       }
@@ -852,22 +847,22 @@ function runSimulation(shouldSave = true){
         return;
       }
 
+      // 출국 패턴인 경우에만 출국 객실 합산
       if (pattern === 'KR_ROUND' || pattern === 'ONEWAY_OUT') {
         outAllocations.forEach(a => groupRoomUsed[a.key] += a.roomsNeeded);
       }
     }
 
-    // 수정: N박 N일째 복귀 계산 (nights - 1 일 후)
-    const returnDaysToAdd = Math.max(0, nights - 1);
-    const returnDate = addDays(selectedDate, returnDaysToAdd);
+    const days = nights + 1;
+    const returnDate = addDays(selectedDate, nights);
     const selShort = formatShortDate(selectedDate);
     const retShort = formatShortDate(returnDate);
 
     let itineraryStr = "";
     if(pattern === 'KR_ROUND') {
-      itineraryStr = `출국: ${selShort} ~ 입국: ${retShort} (${nights}박 ${nights+1}일, ${nights}일째 리턴)`;
+      itineraryStr = `출국: ${selShort} ~ 입국: ${retShort} (${nights}박 ${days}일)`;
     } else if(pattern === 'CN_ROUND') {
-      itineraryStr = `입국: ${selShort} ~ 출국: ${retShort} (${nights}박 ${nights+1}일, ${nights}일째 리턴)`;
+      itineraryStr = `입국: ${selShort} ~ 출국: ${retShort} (${nights}박 ${days}일)`;
       currentInboundTeams.push({ name, people: teamTotalPeople, type: "🇨🇳 중국발 입국" });
     } else if(pattern === 'ONEWAY_OUT') {
       itineraryStr = `출국: ${selShort} (편도)`;
@@ -885,6 +880,7 @@ function runSimulation(shouldSave = true){
     });
   }
 
+  // 과거 날짜에서 넘어온 복귀 단체 중 '출국' 승선 단체만 처리 (중국발 왕복의 복귀 출국)
   let linkedReturnOutTeams = [];
   linkedReturnTeams.forEach(t => {
     if (t.pattern === 'CN_ROUND') {
@@ -898,6 +894,7 @@ function runSimulation(shouldSave = true){
     }
   });
 
+  // 오늘 '출국' 승선 단체만 모음 (신규 한국발/출국편도 + 과거 중국발의 리턴 출국)
   const todayOutTeams = todayTeams.filter(t => t.pattern === 'KR_ROUND' || t.pattern === 'ONEWAY_OUT');
   const outBoardingTeams = [...todayOutTeams, ...linkedReturnOutTeams];
 
@@ -918,6 +915,7 @@ function runSimulation(shouldSave = true){
 
   const grandTotalPeople = generalTotalPeople + groupTotalPeople;
 
+  // 요약 영역 순수 출국 기준 반영
   document.getElementById("simStats").innerHTML = `
     <div class="stat">출국 승선 인원<b>${grandTotalPeople}명</b><span>일반 ${generalTotalPeople}명 + 단체 ${groupTotalPeople}명</span></div>
     <div class="stat">출국 승선 단체 수<b>${outBoardingTeams.length}개 단체</b><span>신규 ${todayOutTeams.length} + 복귀출국 ${linkedReturnOutTeams.length}</span></div>
@@ -956,6 +954,7 @@ function runSimulation(shouldSave = true){
 
   document.getElementById("simWarn").innerHTML = overLimit ? `<div class="warn-box"><span class="bad">⚠ 초과 경고:</span> 총 출국 객실 신청량이 보유 객실 수를 초과했습니다.</div>` : "";
 
+  // 2. 오늘 출국 승선 단체 상세 내역
   let teamResultsHtml = "";
   if (outBoardingTeams.length === 0) {
     teamResultsHtml = `<div style="text-align:center; padding:20px; color:#666;">오늘 출국 승선 예정인 단체가 없습니다.</div>`;
@@ -1005,6 +1004,7 @@ function runSimulation(shouldSave = true){
 
   document.getElementById("teamResultsContainer").innerHTML = teamResultsHtml;
 
+  // 3. 오늘 입국 단체 간략 요약
   let inTeamSumHtml = "";
   let inTeamTotalP = 0;
   if (currentInboundTeams.length > 0) {
@@ -1021,6 +1021,7 @@ function runSimulation(shouldSave = true){
 
   document.getElementById("simResult").classList.remove("hidden");
 
+  // 데이터 저장
   if(shouldSave && db && selectedDate){
     db.collection("schedules").doc(selectedDate).set({
       totalPeople: grandTotalPeople,
