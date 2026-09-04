@@ -1057,6 +1057,17 @@ async function downloadMonthlyExcel(year, month){
   const todayStr = `${today.getMonth() + 1}/${today.getDate()}`;
   const titleText = `${year}년 ${month}월 (${todayStr} 기준)`;
 
+  // 단체 목록 배열을 3개 단위로 쉼표로 묶고 줄바꿈해주는 헬퍼 함수
+  function formatGroupNames(namesArray) {
+    if (!namesArray || namesArray.length === 0) return "";
+    let lines = [];
+    for (let i = 0; i < namesArray.length; i += 3) {
+      const chunk = namesArray.slice(i, i + 3);
+      lines.push(chunk.join(", "));
+    }
+    return lines.join("<br>");
+  }
+
   try {
     const querySnapshot = await db.collection("schedules").get();
     let outGroups = {}; 
@@ -1077,12 +1088,12 @@ async function downloadMonthlyExcel(year, month){
           // 왕복 단체의 출발일과 복귀일 모두 승선 집계
           [regDate, returnDate].forEach(d => {
             if(!outGroups[d]) outGroups[d] = { names: [], total: 0 };
-            outGroups[d].names.push(`${name}${people}명`);
+            outGroups[d].names.push(`${name} ${people}명`);
             outGroups[d].total += people;
           });
         } else if(pattern === 'ONEWAY_OUT' || pattern === 'ONEWAY_IN'){
           if(!outGroups[regDate]) outGroups[regDate] = { names: [], total: 0 };
-          outGroups[regDate].names.push(`${name}${people}명`);
+          outGroups[regDate].names.push(`${name} ${people}명`);
           outGroups[regDate].total += people;
         }
       });
@@ -1106,28 +1117,24 @@ async function downloadMonthlyExcel(year, month){
 
     const maxRows = Math.max(leftDates.length, rightDates.length);
 
-    // 2. HTML 테이블 생성 (요구사항 2열 맞춤 레이아웃)
+    // 2. HTML 테이블 생성
     let tableHtml = `<table border="1" style="border-collapse:collapse; text-align:center; font-family:맑은 고딕, Arial;">`;
     
-    // 메인 타이틀
+    // 메인 타이틀 (2행 월/수/금 구분행 삭제)
     tableHtml += `
       <tr>
         <th colspan="6" style="font-size:16px; font-weight:bold; background-color:#e2efda; height:40px; border:1px solid black; vertical-align:middle;">
           ${titleText} 단체 운항 현황
         </th>
       </tr>
-      <tr style="font-weight:bold; height:30px;">
-        <th colspan="3" style="border:1px solid black; font-size:13px; background-color:#87CEEB;">월 / 수 / 금</th>
-        <th colspan="3" style="border:1px solid black; font-size:13px; background-color:#FFB6C1;">화 / 목 / 일</th>
-      </tr>
       <tr style="background-color:#f2f2f2; font-weight:bold; height:32px;">
         <!-- 왼쪽: 월,수,금 -->
         <th style="border:1px solid black; width:90px;">날짜</th>
-        <th style="border:1px solid black; width:280px;">한국출발, 중국복귀단체</th>
+        <th style="border:1px solid black; width:320px;">한국출발, 중국복귀단체</th>
         <th style="border:1px solid black; width:70px;">총인원</th>
         <!-- 오른쪽: 화,목,일 -->
         <th style="border:1px solid black; width:90px;">날짜</th>
-        <th style="border:1px solid black; width:280px;">한국복귀, 중국출발단체</th>
+        <th style="border:1px solid black; width:320px;">한국복귀, 중국출발단체</th>
         <th style="border:1px solid black; width:70px;">총인원</th>
       </tr>
     `;
@@ -1138,11 +1145,11 @@ async function downloadMonthlyExcel(year, month){
       const rDate = rightDates[i] || "";
 
       const lDateDisp = lDate ? formatDateMDShort(lDate) : "";
-      const lNamesDisp = (lDate && outGroups[lDate]) ? outGroups[lDate].names.join("<br>") : "";
+      const lNamesDisp = (lDate && outGroups[lDate]) ? formatGroupNames(outGroups[lDate].names) : "";
       const lTotalDisp = (lDate && outGroups[lDate]) ? outGroups[lDate].total : "";
 
       const rDateDisp = rDate ? formatDateMDShort(rDate) : "";
-      const rNamesDisp = (rDate && outGroups[rDate]) ? outGroups[rDate].names.join("<br>") : "";
+      const rNamesDisp = (rDate && outGroups[rDate]) ? formatGroupNames(outGroups[rDate].names) : "";
       const rTotalDisp = (rDate && outGroups[rDate]) ? outGroups[rDate].total : "";
 
       tableHtml += `
@@ -1176,8 +1183,8 @@ async function downloadMonthlyExcel(year, month){
     const wb = XLSX.utils.table_to_book(tableEl, { sheet: "월별단체현황" });
     const ws = wb.Sheets["월별단체현황"];
     ws['!cols'] = [
-      { wch: 13 }, { wch: 40 }, { wch: 10 }, // 왼쪽 3개 열 너비
-      { wch: 13 }, { wch: 40 }, { wch: 10 }  // 오른쪽 3개 열 너비
+      { wch: 13 }, { wch: 45 }, { wch: 10 }, // 왼쪽 3개 열 너비
+      { wch: 13 }, { wch: 45 }, { wch: 10 }  // 오른쪽 3개 열 너비
     ];
 
     XLSX.writeFile(wb, `단동훼리_${year}년${mm}월_단체운항현황.xlsx`);
