@@ -1051,9 +1051,7 @@ async function downloadMonthlyExcel(year, month){
   if(!db){ alert("데이터베이스 연결이 없습니다."); return; }
 
   const mm = String(month).padStart(2, '0');
-  const monthStart = `${year}-${mm}-01`;
   const lastDay = new Date(year, month, 0).getDate();
-  const monthEnd = `${year}-${mm}-${String(lastDay).padStart(2,'0')}`;
 
   const today = new Date();
   const todayStr = `${today.getMonth() + 1}/${today.getDate()}`;
@@ -1076,13 +1074,13 @@ async function downloadMonthlyExcel(year, month){
         const returnDate = getReturnDate(regDate, nights);
 
         if(pattern === 'ROUND'){
-          // 왕복 단체의 출발일과 복귀일 모두 출국 집계
+          // 왕복 단체의 출발일과 복귀일 모두 승선 집계
           [regDate, returnDate].forEach(d => {
             if(!outGroups[d]) outGroups[d] = { names: [], total: 0 };
             outGroups[d].names.push(`${name}${people}명`);
             outGroups[d].total += people;
           });
-        } else if(pattern === 'ONEWAY_OUT'){
+        } else if(pattern === 'ONEWAY_OUT' || pattern === 'ONEWAY_IN'){
           if(!outGroups[regDate]) outGroups[regDate] = { names: [], total: 0 };
           outGroups[regDate].names.push(`${name}${people}명`);
           outGroups[regDate].total += people;
@@ -1090,48 +1088,83 @@ async function downloadMonthlyExcel(year, month){
       });
     });
 
-    let outDatesList = [];
+    // 1. 월, 수, 금 날짜와 화, 목, 일 날짜 분리 (토요일=6 제외)
+    let leftDates = [];  // 월(1), 수(3), 금(5)
+    let rightDates = []; // 화(2), 목(4), 일(0)
+
     for (let day = 1; day <= lastDay; day++) {
       const curDateStr = `${year}-${mm}-${String(day).padStart(2, '0')}`;
-      outDatesList.push(curDateStr);
+      const dow = new Date(curDateStr).getDay();
+
+      if (dow === 1 || dow === 3 || dow === 5) {
+        leftDates.push(curDateStr);
+      } else if (dow === 2 || dow === 4 || dow === 0) {
+        rightDates.push(curDateStr);
+      }
+      // 토요일(6) 제외
     }
 
-    outDatesList.sort();
+    const maxRows = Math.max(leftDates.length, rightDates.length);
 
+    // 2. HTML 테이블 생성 (요구사항 2열 맞춤 레이아웃)
     let tableHtml = `<table border="1" style="border-collapse:collapse; text-align:center; font-family:맑은 고딕, Arial;">`;
     
+    // 메인 타이틀
     tableHtml += `
       <tr>
-        <th colspan="3" style="font-size:16px; font-weight:bold; background-color:#e2efda; height:40px; border:1px solid black; vertical-align:middle;">
-          ${titleText} 단체 출국 현황
+        <th colspan="6" style="font-size:16px; font-weight:bold; background-color:#e2efda; height:40px; border:1px solid black; vertical-align:middle;">
+          ${titleText} 단체 운항 현황
         </th>
       </tr>
-      <tr style="background-color:#f2f2f2; font-weight:bold; height:28px;">
-        <th style="border:1px solid black; width:110px;">출국 날짜</th>
-        <th style="border:1px solid black; width:350px;">단체명 / 인원</th>
-        <th style="border:1px solid black; width:80px;">합계</th>
+      <tr style="font-weight:bold; height:30px;">
+        <th colspan="3" style="border:1px solid black; font-size:13px; background-color:#87CEEB;">월 / 수 / 금</th>
+        <th colspan="3" style="border:1px solid black; font-size:13px; background-color:#FFB6C1;">화 / 목 / 일</th>
+      </tr>
+      <tr style="background-color:#f2f2f2; font-weight:bold; height:32px;">
+        <!-- 왼쪽: 월,수,금 -->
+        <th style="border:1px solid black; width:90px;">날짜</th>
+        <th style="border:1px solid black; width:280px;">한국출발, 중국복귀단체</th>
+        <th style="border:1px solid black; width:70px;">총인원</th>
+        <!-- 오른쪽: 화,목,일 -->
+        <th style="border:1px solid black; width:90px;">날짜</th>
+        <th style="border:1px solid black; width:280px;">한국복귀, 중국출발단체</th>
+        <th style="border:1px solid black; width:70px;">총인원</th>
       </tr>
     `;
 
-    for(let i = 0; i < outDatesList.length; i++){
-      const od = outDatesList[i];
-      const outDateDisp = formatDateMDShort(od);
-      const outNamesDisp = (od && outGroups[od]) ? outGroups[od].names.join("<br>") : "";
-      const outTotalDisp = (od && outGroups[od]) ? outGroups[od].total : "";
+    // 3. 데이터 행 생성
+    for (let i = 0; i < maxRows; i++) {
+      const lDate = leftDates[i] || "";
+      const rDate = rightDates[i] || "";
+
+      const lDateDisp = lDate ? formatDateMDShort(lDate) : "";
+      const lNamesDisp = (lDate && outGroups[lDate]) ? outGroups[lDate].names.join("<br>") : "";
+      const lTotalDisp = (lDate && outGroups[lDate]) ? outGroups[lDate].total : "";
+
+      const rDateDisp = rDate ? formatDateMDShort(rDate) : "";
+      const rNamesDisp = (rDate && outGroups[rDate]) ? outGroups[rDate].names.join("<br>") : "";
+      const rTotalDisp = (rDate && outGroups[rDate]) ? outGroups[rDate].total : "";
 
       tableHtml += `
         <tr>
-          <td style="border:1px solid black; text-align:center; vertical-align:middle; padding:5px;">${outDateDisp}</td>
-          <td style="border:1px solid black; text-align:left; vertical-align:middle; padding:5px 8px; white-space:pre-line;">${outNamesDisp}</td>
-          <td style="border:1px solid black; text-align:right; vertical-align:middle; padding:5px 8px;">${outTotalDisp}</td>
+          <!-- 왼쪽 (월, 수, 금) -->
+          <td style="border:1px solid black; text-align:center; vertical-align:middle; padding:5px;">${lDateDisp}</td>
+          <td style="border:1px solid black; text-align:left; vertical-align:middle; padding:5px 8px; white-space:pre-line;">${lNamesDisp}</td>
+          <td style="border:1px solid black; text-align:right; vertical-align:middle; padding:5px 8px;">${lTotalDisp}</td>
+
+          <!-- 오른쪽 (화, 목, 일) -->
+          <td style="border:1px solid black; text-align:center; vertical-align:middle; padding:5px;">${rDateDisp}</td>
+          <td style="border:1px solid black; text-align:left; vertical-align:middle; padding:5px 8px; white-space:pre-line;">${rNamesDisp}</td>
+          <td style="border:1px solid black; text-align:right; vertical-align:middle; padding:5px 8px;">${rTotalDisp}</td>
         </tr>
       `;
     }
 
+    // 하단 비고
     tableHtml += `
       <tr>
-        <td colspan="3" style="border:1px solid black; text-align:left; font-size:11px; color:#d32f2f; font-weight:bold; height:30px; padding-left:8px; vertical-align:middle;">
-          * 위 예약상황은 모객 중이므로 인원이 변동될 수 있습니다.
+        <td colspan="6" style="border:1px solid black; text-align:left; font-size:11px; color:#d32f2f; font-weight:bold; height:30px; padding-left:8px; vertical-align:middle;">
+          * 위 예약상황은 모객 중이므로 인원이 변동될 수 있습니다. (토요일 휴항 제외)
         </td>
       </tr>
     </table>`;
@@ -1140,15 +1173,14 @@ async function downloadMonthlyExcel(year, month){
     tempDiv.innerHTML = tableHtml;
     const tableEl = tempDiv.querySelector("table");
 
-    const wb = XLSX.utils.table_to_book(tableEl, { sheet: "월별출국현황" });
-    const ws = wb.Sheets["월별출국현황"];
+    const wb = XLSX.utils.table_to_book(tableEl, { sheet: "월별단체현황" });
+    const ws = wb.Sheets["월별단체현황"];
     ws['!cols'] = [
-      { wch: 16 },
-      { wch: 50 },
-      { wch: 12 }
+      { wch: 13 }, { wch: 40 }, { wch: 10 }, // 왼쪽 3개 열 너비
+      { wch: 13 }, { wch: 40 }, { wch: 10 }  // 오른쪽 3개 열 너비
     ];
 
-    XLSX.writeFile(wb, `단동훼리_${year}년${mm}월_단체출국현황.xlsx`);
+    XLSX.writeFile(wb, `단동훼리_${year}년${mm}월_단체운항현황.xlsx`);
 
   } catch(e) {
     console.error(e);
