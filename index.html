@@ -13,6 +13,9 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
+<!-- SheetJS (Excel 다운로드용) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
 <style>
 *{box-sizing:border-box}
 body{margin:0;font-family:Arial,"Malgun Gothic",sans-serif;background:#f4f6f9;color:#202733}
@@ -34,6 +37,7 @@ button{border:0;border-radius:7px;padding:8px 12px;cursor:pointer;font-weight:70
 .secondary{background:#e9eef4;color:#263746}
 .success{background:#2e7d32;color:#fff}
 .danger{background:#fff0f0;color:#b3261e}
+.excel-btn{background:#107c41;color:#fff} /* 엑셀 브랜드 컬러 */
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 .stat{padding:14px;border-radius:9px;background:#f3f6f9;}.stat b{display:block;font-size:22px;margin-top:5px}
 .small{font-size:11px;color:#687583}
@@ -101,7 +105,10 @@ th{background:#f1f4f7}
     <h1 style="display:inline-block; margin-right:15px;">📅 단동훼리 단체 관리</h1>
     <span style="font-size:12px; opacity:0.8; display:block;">출국/입국 스마트 여정 및 객실 관리</span>
   </div>
-  <button style="background:#d32f2f; color:white; padding:9px 15px; font-size:13px;" onclick="openEventModal()">🚫 휴항/메모 별도 등록</button>
+  <div style="display:flex; gap:8px;">
+    <button class="excel-btn" onclick="exportMonthToExcel()">📊 한 달치 엑셀 다운로드</button>
+    <button style="background:#d32f2f; color:white; padding:9px 15px; font-size:13px;" onclick="openEventModal()">🚫 휴항/메모 별도 등록</button>
+  </div>
 </header>
 
 <div class="wrap">
@@ -590,13 +597,11 @@ function addTeam(name="", pattern="KR_ROUND", nights="4", price="", memo="", isS
       <textarea class="teamMemo" placeholder="단체 메모 (특이사항)" rows="1">${esc(memo)}</textarea>
     </div>
 
-    <!-- 일반 객실 컨테이너 -->
     <div class="normalRoomArea ${isSplitRoom?'hidden':''}">
       <div class="roomTypesContainer"></div>
       <button class="secondary" type="button" style="font-size:12px; padding:4px 8px; margin-top:4px;" onclick="addRoomTypeToTeam('${teamId}', 'roomTypesContainer')">+ 객실 추가</button>
     </div>
 
-    <!-- 분리형 객실 컨테이너 -->
     <div class="splitRoomArea ${isSplitRoom?'':'hidden'}">
       <div class="section-subtitle">출국 시 객실 설정</div>
       <div class="outRoomTypesContainer"></div>
@@ -739,307 +744,262 @@ function restoreTeamUI(teamData){
 
 function addRoomTypeToTeam(teamId, containerClass, presetKey="6", assignPeople="", capPerRoom=""){
   const container = document.getElementById(teamId).querySelector("." + containerClass);
-  const typeId = teamId + "_type_" + Date.now() + "_" + Math.floor(Math.random()*1000);
-  const preset = masterRooms[presetKey];
+  const preset = masterRooms[presetKey] || masterRooms["6"];
   const cap = capPerRoom || preset.defaultCapPerRoom;
 
   const div = document.createElement("div");
   div.className = "type-card";
-  div.id = typeId;
   div.innerHTML = `
     <div class="type-grid">
       <div>
-        <label>객실 종류</label>
-        <select class="typeSelect">
-          <option value="6">6인실</option>
-          <option value="4">4인실</option>
-          <option value="2">2인실</option>
-          <option value="dadami24">다다미 24인실</option>
-          <option value="dadami36">다다미 36인실</option>
+        <label>객실 선택</label>
+        <select class="typeSelect" onchange="changeRoomPreset(this)">
+          ${Object.keys(masterRooms).map(k => `<option value="${k}" ${k===presetKey?'selected':''}>${masterRooms[k].label}</option>`).join('')}
         </select>
       </div>
       <div>
-        <label style="color:#0d47a1; font-weight:bold;">배정 인원(명)</label>
-        <input type="number" class="assignPeople" min="1" value="${assignPeople}">
+        <label>배정 인원 (명)</label>
+        <input type="number" class="assignPeople" min="1" value="${assignPeople}" placeholder="예: 40">
       </div>
       <div>
-        <label>객실당 인원</label>
+        <label>실당 인원 (명)</label>
         <input type="number" class="capPerRoom" min="1" value="${cap}">
       </div>
-      <div style="text-align:right; margin-top:16px;">
-        <button class="danger" type="button" style="padding:6px 8px;" onclick="document.getElementById('${typeId}').remove()">✕</button>
+      <div style="font-size:12px; color:#5c6673;">
+        필요 객실<br><b class="needRoomsText" style="color:#1769aa; font-size:14px;">0실</b>
+      </div>
+      <div style="text-align:right;">
+        <button class="danger" type="button" style="padding:4px 8px;" onclick="this.closest('.type-card').remove()">✕</button>
       </div>
     </div>
   `;
   container.appendChild(div);
-  div.querySelector(".typeSelect").value = presetKey;
 }
 
-function extractAllocations(typeDivs) {
-  let totalPeople = 0;
-  let allocations = [];
-  typeDivs.forEach(td => {
-    const key = td.querySelector(".typeSelect").value;
-    const people = parseInt(td.querySelector(".assignPeople").value, 10) || 0;
-    const cap = parseInt(td.querySelector(".capPerRoom").value, 10) || 1;
-
-    if(people > 0){
-      totalPeople += people;
-      const roomsNeeded = Math.ceil(people / cap);
-      allocations.push({ key, label: masterRooms[key].label, people, cap, roomsNeeded, totalRooms: masterRooms[key].totalRooms });
-    }
-  });
-  return { totalPeople, allocations };
+function changeRoomPreset(selectEl){
+  const key = selectEl.value;
+  const card = selectEl.closest('.type-card');
+  if(masterRooms[key]){
+    card.querySelector(".capPerRoom").value = masterRooms[key].defaultCapPerRoom;
+  }
 }
 
-// 계산 로직 (순수 출국 기준으로 수정)
-function runSimulation(shouldSave = true){
+function parseTeamFromCard(teamCard){
+  const name = teamCard.querySelector(".teamName").value.trim() || "무명 단체";
+  const pattern = teamCard.querySelector(".teamPattern").value;
+  const nights = parseInt(teamCard.querySelector(".teamNights").value, 10) || 4;
+  const price = teamCard.querySelector(".teamPrice").value.trim();
+  const memo = teamCard.querySelector(".teamMemo").value.trim();
+  const isSplitRoom = teamCard.querySelector(".splitRoomCheck").checked;
+
+  let allocations = [], outAllocations = [], inAllocations = [];
+  let totalPeople = 0, outPeople = 0, inPeople = 0;
+
+  const parseAllocList = (containerSelector) => {
+    let list = [];
+    let sumPeople = 0;
+    teamCard.querySelectorAll(containerSelector + " .type-card").forEach(tc => {
+      const key = tc.querySelector(".typeSelect").value;
+      const people = parseInt(tc.querySelector(".assignPeople").value, 10) || 0;
+      const cap = parseInt(tc.querySelector(".capPerRoom").value, 10) || 1;
+      const rooms = people > 0 ? Math.ceil(people / cap) : 0;
+      tc.querySelector(".needRoomsText").innerText = rooms + "실";
+      if(people > 0){
+        list.push({ key, people, cap, rooms });
+        sumPeople += people;
+      }
+    });
+    return { list, sumPeople };
+  };
+
+  if(!isSplitRoom) {
+    const res = parseAllocList(".roomTypesContainer");
+    allocations = res.list;
+    totalPeople = res.sumPeople;
+    outPeople = totalPeople;
+    inPeople = totalPeople;
+  } else {
+    const outRes = parseAllocList(".outRoomTypesContainer");
+    outAllocations = outRes.list;
+    outPeople = outRes.sumPeople;
+
+    const inRes = parseAllocList(".inRoomTypesContainer");
+    inAllocations = inRes.list;
+    inPeople = inRes.sumPeople;
+
+    totalPeople = Math.max(outPeople, inPeople);
+  }
+
+  return { name, pattern, nights, price, memo, isSplitRoom, allocations, outAllocations, inAllocations, totalPeople, outPeople, inPeople };
+}
+
+function runSimulation(isSave = false){
   const teamCards = [...document.querySelectorAll("#teamsContainer .team-card")];
+  let teams = [];
+  
+  teamCards.forEach(tc => {
+    teams.push(parseTeamFromCard(tc));
+  });
 
-  let todayTeams = [];
-  let groupRoomUsed = { "6": 0, "4": 0, "2": 0, "dadami24": 0, "dadami36": 0 };
-  let currentInboundTeams = [...allInboundTeams];
-
-  for (let idx = 0; idx < teamCards.length; idx++) {
-    const card = teamCards[idx];
-    const name = card.querySelector(".teamName").value.trim() || `단체 ${idx+1}`;
-    const pattern = card.querySelector(".teamPattern").value;
-    const nights = parseInt(card.querySelector(".teamNights").value, 10) || 4;
-    const price = card.querySelector(".teamPrice").value.trim();
-    const memo = card.querySelector(".teamMemo").value.trim();
-    const isSplitRoom = card.querySelector(".splitRoomCheck").checked;
-
-    let teamTotalPeople = 0;
-    let allocations = [];
-    let outAllocations = [];
-    let inAllocations = [];
-
-    if(!isSplitRoom) {
-      const typeDivs = [...card.querySelectorAll(".normalRoomArea .type-card")];
-      const res = extractAllocations(typeDivs);
-      teamTotalPeople = res.totalPeople;
-      allocations = res.allocations;
-
-      if(teamTotalPeople <= 0 && shouldSave) {
-        alert(`[${name}] 단체의 배정 인원을 입력해주세요.`);
-        card.scrollIntoView({ behavior: 'smooth' });
-        return;
-      }
-      
-      // 출국 패턴인 경우에만 출국 승선 객실에 합산
-      if (pattern === 'KR_ROUND' || pattern === 'ONEWAY_OUT') {
-        allocations.forEach(a => groupRoomUsed[a.key] += a.roomsNeeded);
-      }
-
-    } else {
-      const outDivs = [...card.querySelectorAll(".splitRoomArea .outRoomTypesContainer .type-card")];
-      const inDivs = [...card.querySelectorAll(".splitRoomArea .inRoomTypesContainer .type-card")];
-      const outRes = extractAllocations(outDivs);
-      const inRes = extractAllocations(inDivs);
-      
-      outAllocations = outRes.allocations;
-      inAllocations = inRes.allocations;
-      teamTotalPeople = Math.max(outRes.totalPeople, inRes.totalPeople);
-
-      if((outRes.totalPeople <= 0 || inRes.totalPeople <= 0) && shouldSave) {
-        alert(`[${name}] 단체의 출국 및 입국 배정 인원을 모두 입력해주세요.`);
-        card.scrollIntoView({ behavior: 'smooth' });
-        return;
-      }
-
-      // 출국 패턴인 경우에만 출국 객실 합산
-      if (pattern === 'KR_ROUND' || pattern === 'ONEWAY_OUT') {
-        outAllocations.forEach(a => groupRoomUsed[a.key] += a.roomsNeeded);
-      }
+  // 복귀 단체 추가
+  allInboundTeams = [];
+  teams.forEach(t => {
+    if(t.pattern === 'CN_ROUND' || t.pattern === 'ONEWAY_IN'){
+      allInboundTeams.push({ name: t.name, people: t.inPeople, type: "🇨🇳 중국/입국 단체" });
     }
-
-    const days = nights + 1;
-    const returnDate = addDays(selectedDate, nights);
-    const selShort = formatShortDate(selectedDate);
-    const retShort = formatShortDate(returnDate);
-
-    let itineraryStr = "";
-    if(pattern === 'KR_ROUND') {
-      itineraryStr = `출국: ${selShort} ~ 입국: ${retShort} (${nights}박 ${days}일)`;
-    } else if(pattern === 'CN_ROUND') {
-      itineraryStr = `입국: ${selShort} ~ 출국: ${retShort} (${nights}박 ${days}일)`;
-      currentInboundTeams.push({ name, people: teamTotalPeople, type: "🇨🇳 중국발 입국" });
-    } else if(pattern === 'ONEWAY_OUT') {
-      itineraryStr = `출국: ${selShort} (편도)`;
-    } else {
-      itineraryStr = `입국: ${selShort} (편도)`;
-      currentInboundTeams.push({ name, people: teamTotalPeople, type: "⬅️ 입국 편도" });
+  });
+  linkedReturnTeams.forEach(rt => {
+    if(rt.pattern === 'KR_ROUND'){
+      allInboundTeams.push({ name: rt.name, people: rt.inPeople || rt.totalPeople, type: "🇰🇷 복귀 입국" });
     }
+  });
 
-    todayTeams.push({
-      name, pattern, nights, price, memo, isSplitRoom,
-      totalPeople: teamTotalPeople,
-      allocations, outAllocations, inAllocations,
-      itineraryStr, returnDate,
-      isReturnOnTarget: false
-    });
-  }
-
-  // 과거 날짜에서 넘어온 복귀 단체 중 '출국' 승선 단체만 처리 (중국발 왕복의 복귀 출국)
-  let linkedReturnOutTeams = [];
-  linkedReturnTeams.forEach(t => {
-    if (t.pattern === 'CN_ROUND') {
-      linkedReturnOutTeams.push(t);
-      let targetAlloc = t.isSplitRoom ? (t.outAllocations || []) : (t.allocations || []);
-      targetAlloc.forEach(a => {
-        if(groupRoomUsed[a.key] !== undefined) {
-          groupRoomUsed[a.key] += a.roomsNeeded;
-        }
+  // 오늘 출국 승선 계산
+  let activeOutTeams = teams.filter(t => t.pattern === 'KR_ROUND' || t.pattern === 'ONEWAY_OUT');
+  
+  // 과거에서 넘어온 오늘 출국 승선 단체 (중국발 왕복 복귀)
+  linkedReturnTeams.forEach(rt => {
+    if(rt.pattern === 'CN_ROUND'){
+      activeOutTeams.push({
+        ...rt,
+        outPeople: rt.outPeople || rt.totalPeople,
+        outAllocations: rt.outAllocations || rt.allocations || []
       });
     }
   });
 
-  // 오늘 '출국' 승선 단체만 모음 (신규 한국발/출국편도 + 과거 중국발의 리턴 출국)
-  const todayOutTeams = todayTeams.filter(t => t.pattern === 'KR_ROUND' || t.pattern === 'ONEWAY_OUT');
-  const outBoardingTeams = [...todayOutTeams, ...linkedReturnOutTeams];
+  let totalOutPeople = 0;
+  let roomUsage = {};
+  Object.keys(masterRooms).forEach(k => { roomUsage[k] = 0; });
 
-  const groupTotalPeople = outBoardingTeams.reduce((s,t) => s + t.totalPeople, 0);
-  const groupTotalRooms = Object.values(groupRoomUsed).reduce((a,b)=>a+b, 0);
-
-  let generalTotalPeople = 0;
-  let generalRoomUsed = {};
-
-  Object.keys(masterRooms).forEach(key => {
-    const preset = masterRooms[key];
-    const people = parseInt(preset.generalPeople, 10) || 0;
-    const cap = parseInt(preset.generalCap, 10) || 0;
-    const genRooms = (people > 0 && cap > 0) ? Math.ceil(people / cap) : 0;
-    generalTotalPeople += people;
-    generalRoomUsed[key] = genRooms;
-  });
-
-  const grandTotalPeople = generalTotalPeople + groupTotalPeople;
-
-  // 요약 영역 순수 출국 기준 반영
-  document.getElementById("simStats").innerHTML = `
-    <div class="stat">출국 승선 인원<b>${grandTotalPeople}명</b><span>일반 ${generalTotalPeople}명 + 단체 ${groupTotalPeople}명</span></div>
-    <div class="stat">출국 승선 단체 수<b>${outBoardingTeams.length}개 단체</b><span>신규 ${todayOutTeams.length} + 복귀출국 ${linkedReturnOutTeams.length}</span></div>
-    <div class="stat">출국 승선 객실<b>${groupTotalRooms}개</b><span>출국 단체 객실 합계</span></div>
-  `;
-
-  let totalTypeHtml = `<thead><tr><th>객실 종류</th><th>전체 보유 수</th><th>일반 여객</th><th>단체 출국 승선</th><th>총 사용 객실</th><th>보유 대비 비중</th></tr></thead><tbody>`;
-  let overLimit = false;
-
-  Object.keys(masterRooms).forEach(key => {
-    const preset = masterRooms[key];
-    const total = preset.totalRooms;
-    const genUsed = generalRoomUsed[key];
-    const grpUsed = groupRoomUsed[key];
-    const totalUsed = genUsed + grpUsed;
-    const genPeople = parseInt(preset.generalPeople, 10) || 0;
-    
-    let pctStr = "—";
-    if(total > 0){
-      const pct = (totalUsed / total * 100).toFixed(1);
-      pctStr = `<b>${pct}%</b> (${totalUsed}/${total}개)`;
-      if(totalUsed > total) overLimit = true;
-    }
-
-    totalTypeHtml += `<tr>
-      <td><b>${preset.label}</b></td>
-      <td>${total > 0 ? total + "개" : "무제한"}</td>
-      <td>${genPeople > 0 ? `${genPeople}명 (${genUsed}개)` : "0개"}</td>
-      <td>${grpUsed}개</td>
-      <td class="${total > 0 && totalUsed > total ? 'bad' : ''}"><b>${totalUsed}개</b></td>
-      <td>${pctStr}</td>
-    </tr>`;
-  });
-  totalTypeHtml += `</tbody>`;
-  document.getElementById("totalTypeTable").innerHTML = totalTypeHtml;
-
-  document.getElementById("simWarn").innerHTML = overLimit ? `<div class="warn-box"><span class="bad">⚠ 초과 경고:</span> 총 출국 객실 신청량이 보유 객실 수를 초과했습니다.</div>` : "";
-
-  // 2. 오늘 출국 승선 단체 상세 내역
-  let teamResultsHtml = "";
-  if (outBoardingTeams.length === 0) {
-    teamResultsHtml = `<div style="text-align:center; padding:20px; color:#666;">오늘 출국 승선 예정인 단체가 없습니다.</div>`;
-  } else {
-    outBoardingTeams.forEach(team => {
-      const priceText = team.price ? ` | 💵 ${esc(team.price)}` : '';
-      let patternLabel = "🇰🇷 한국발 왕복";
-      if(team.pattern === 'CN_ROUND') patternLabel = "🇨🇳 중국발 왕복 (복귀 출국)";
-      if(team.pattern === 'ONEWAY_OUT') patternLabel = "➡️ 출국 편도";
-
-      const isReturn = team.isReturnOnTarget;
-      const statusTag = isReturn 
-        ? `<span class="tag-linked">🔄 리턴 출국 (${formatShortDate(team.regDate)} 등록)</span>`
-        : '';
-
-      teamResultsHtml += `<div style="margin-bottom:16px; border-bottom:1px solid #e1e7ef; padding-bottom:12px;">
-        <h3 style="margin-bottom:4px; color:#1769aa;">🚩 ${esc(team.name)} (${team.totalPeople}명) <span class="tag-pattern">${patternLabel}</span> ${statusTag}${priceText}</h3>
-        <div style="font-size:13px; font-weight:bold; color:#2e7d32; margin-bottom:6px;">🗓️ 전체 여정: ${team.itineraryStr}</div>
-        ${team.memo ? `<div class="memo-box"><b>📌 메모:</b> ${esc(team.memo)}</div>` : ''}`;
-
-      let targetAllocations = [];
-      if (!team.isSplitRoom) {
-        targetAllocations = team.allocations || [];
-      } else {
-        targetAllocations = (team.pattern === 'CN_ROUND') ? team.outAllocations : team.outAllocations;
-      }
-
-      const teamTotalRooms = targetAllocations.reduce((s,a)=>s+(a.roomsNeeded||0), 0);
-      
-      teamResultsHtml += `<div class="table-responsive">
-        <table>
-          <thead><tr><th>출국 승선 객실 종류</th><th>인원</th><th>수용 설정</th><th>필요 객실 (${teamTotalRooms}실)</th><th>보유 대비 비중</th></tr></thead>
-          <tbody>`;
-      targetAllocations.forEach(a => {
-        const roomHoldPct = a.totalRooms > 0 ? (a.roomsNeeded / a.totalRooms * 100).toFixed(1) + `% (${a.roomsNeeded}/${a.totalRooms}개)` : "—";
-        teamResultsHtml += `<tr>
-          <td><b>${esc(a.label)}</b></td>
-          <td>${a.people}명</td>
-          <td>${a.cap}명/실</td>
-          <td>${a.roomsNeeded}개</td>
-          <td><b>${roomHoldPct}</b></td>
-        </tr>`;
+  activeOutTeams.forEach(t => {
+    totalOutPeople += t.outPeople;
+    const list = t.isSplitRoom ? t.outAllocations : t.allocations;
+    if(list){
+      list.forEach(a => {
+        if(roomUsage[a.key] !== undefined) roomUsage[a.key] += a.rooms;
       });
-      teamResultsHtml += `</tbody></table></div></div>`;
-    });
-  }
+    }
+  });
 
-  document.getElementById("teamResultsContainer").innerHTML = teamResultsHtml;
+  // 결과 UI 렌더링
+  renderSimResultUI(totalOutPeople, activeOutTeams, roomUsage);
 
-  // 3. 오늘 입국 단체 간략 요약
-  let inTeamSumHtml = "";
-  let inTeamTotalP = 0;
-  if (currentInboundTeams.length > 0) {
-    currentInboundTeams.forEach(t => {
-      inTeamTotalP += t.people;
-      inTeamSumHtml += `<div class="in-team-chip">🚩 <b>${esc(t.name)}</b> : ${t.people}명 <span style="font-size:11px; opacity:0.8;">(${t.type})</span></div>`;
-    });
-  } else {
-    inTeamSumHtml = `<span style="font-size:13px; color:#888;">오늘 입국하는 단체가 없습니다.</span>`;
-  }
-  document.getElementById("inTeamTotalPeople").innerText = inTeamTotalP;
-  document.getElementById("inTeamCount").innerText = currentInboundTeams.length;
-  document.getElementById("inTeamSummaryContainer").innerHTML = inTeamSumHtml;
-
-  document.getElementById("simResult").classList.remove("hidden");
-
-  // 데이터 저장
-  if(shouldSave && db && selectedDate){
+  if(isSave && db && selectedDate){
     db.collection("schedules").doc(selectedDate).set({
-      totalPeople: grandTotalPeople,
-      groupTotalPeople: groupTotalPeople,
-      teamCount: todayTeams.length,
-      masterRooms: masterRooms,
-      teams: todayTeams,
+      masterRooms,
+      teams,
       updatedAt: new Date()
     }).then(() => {
-      alert(`[${selectedDate}] 일정 정보가 저장되었습니다.`);
+      alert(`[${selectedDate}] 데이터가 성공적으로 저장되었습니다.`);
       if(calendar) calendar.refetchEvents();
-    }).catch(err => { alert("저장 실패: " + err); });
+    }).catch(err => {
+      alert("저장 실패: " + err.message);
+    });
+  }
+}
+
+function renderSimResultUI(totalOutPeople, activeOutTeams, roomUsage){
+  document.getElementById("simResult").classList.remove("hidden");
+
+  // 통계 카드
+  const statsDiv = document.getElementById("simStats");
+  statsDiv.innerHTML = `
+    <div class="stat">오늘 출국 총 승선 인원<b>${totalOutPeople.toLocaleString()} 명</b></div>
+    <div class="stat">오늘 출국 단체 수<b>${activeOutTeams.length} 개</b></div>
+    <div class="stat">오늘 입국 총 인원<b>${allInboundTeams.reduce((a,b)=>a+b.people,0).toLocaleString()} 명</b></div>
+  `;
+
+  // 보유 객실 테이블
+  let tableHtml = `<thead><tr><th>객실 타입</th><th>보유 객실</th><th>일반 차감</th><th>단체 사용</th><th>총 사용</th><th>잔여 객실</th><th>상태</th></tr></thead><tbody>`;
+  let warnings = [];
+
+  Object.keys(masterRooms).forEach(k => {
+    const rm = masterRooms[k];
+    const genP = parseInt(rm.generalPeople, 10) || 0;
+    const genCap = parseInt(rm.generalCap, 10) || 0;
+    const genR = (genP > 0 && genCap > 0) ? Math.ceil(genP / genCap) : 0;
+    const teamR = roomUsage[k] || 0;
+    const totalUsed = genR + teamR;
+    const remain = rm.totalRooms - totalUsed;
+
+    const isBad = remain < 0;
+    if(isBad) warnings.push(`⚠️ <b>${rm.label}</b> 객실이 <b>${Math.abs(remain)}실 초과</b>되었습니다.`);
+
+    tableHtml += `
+      <tr>
+        <td><b>${rm.label}</b></td>
+        <td>${rm.totalRooms}실</td>
+        <td>${genR}실 (${genP}명)</td>
+        <td>${teamR}실</td>
+        <td><b>${totalUsed}실</b></td>
+        <td class="${isBad?'bad':''}" style="font-weight:bold;">${remain}실</td>
+        <td>${isBad?'<span class="bad">⚠️ 초과</span>':'<span style="color:#2e7d32;">✅ 양호</span>'}</td>
+      </tr>
+    `;
+  });
+  tableHtml += `</tbody>`;
+  document.getElementById("totalTypeTable").innerHTML = tableHtml;
+
+  // 경고 표시
+  const simWarn = document.getElementById("simWarn");
+  if(warnings.length > 0){
+    simWarn.innerHTML = `<div class="warn-box">${warnings.join('<br>')}</div>`;
+  } else {
+    simWarn.innerHTML = "";
+  }
+
+  // 오늘 출국 단체 상세
+  const teamResContainer = document.getElementById("teamResultsContainer");
+  teamResContainer.innerHTML = "";
+  if(activeOutTeams.length === 0){
+    teamResContainer.innerHTML = `<div class="small" style="padding:10px;">오늘 승선/출국 단체가 없습니다.</div>`;
+  } else {
+    activeOutTeams.forEach(t => {
+      const returnDate = addDays(selectedDate, t.nights || 4);
+      const isLinked = t.isReturnOnTarget || false;
+      const list = t.isSplitRoom ? t.outAllocations : t.allocations;
+      let roomStr = (list && list.length > 0) ? list.map(a => `${masterRooms[a.key]?masterRooms[a.key].label:a.key}: ${a.people}명(${a.rooms}실)`).join(', ') : "객실 설정 없음";
+
+      const div = document.createElement("div");
+      div.className = "memo-box";
+      div.style.marginBottom = "8px";
+      div.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <b>${esc(t.name)}</b> (${t.outPeople}명) 
+            ${isLinked ? `<span class="tag-linked">과거등록 [${formatShortDate(t.regDate)} 출발건]</span>` : `<span class="tag-pattern">${t.pattern} (${t.nights}박 - 복귀: ${returnDate})</span>`}
+          </div>
+          <div style="font-weight:bold; color:#1769aa;">${esc(t.price ? t.price + '원' : '')}</div>
+        </div>
+        <div style="margin-top:4px; font-size:11px; color:#475569;">📍 객실 배정: ${roomStr}</div>
+        ${t.memo ? `<div style="margin-top:20px; font-size:11px; color:#d32f2f;">📝 메모: ${esc(t.memo)}</div>` : ''}
+      `;
+      teamResContainer.appendChild(div);
+    });
+  }
+
+  // 오늘 입국 단체 요약
+  const inContainer = document.getElementById("inTeamSummaryContainer");
+  inContainer.innerHTML = "";
+  document.getElementById("inTeamCount").innerText = allInboundTeams.length;
+  document.getElementById("inTeamTotalPeople").innerText = allInboundTeams.reduce((a,b)=>a+b.people,0).toLocaleString();
+
+  if(allInboundTeams.length === 0){
+    inContainer.innerHTML = `<span class="small">오늘 입국 예정 단체가 없습니다.</span>`;
+  } else {
+    allInboundTeams.forEach(it => {
+      const chip = document.createElement("span");
+      chip.className = "in-team-chip";
+      chip.innerHTML = `<span>${esc(it.name)}</span> <b>${it.people}명</b> <small>(${it.type})</small>`;
+      inContainer.appendChild(chip);
+    });
   }
 }
 
 function deleteDateData(){
   if(!selectedDate) return;
-  if(confirm(`정말로 ${selectedDate} 날짜의 데이터를 삭제하시겠습니까?`)){
+  if(confirm(`정말로 [${selectedDate}] 일자 데이터를 전부 삭제하시겠습니까?`)){
     if(db){
       db.collection("schedules").doc(selectedDate).delete().then(() => {
         alert("삭제되었습니다.");
@@ -1052,12 +1012,199 @@ function deleteDateData(){
 
 function downloadResultImage(){
   const area = document.getElementById("captureArea");
-  html2canvas(area, { scale: 2, backgroundColor: "#f4f6f9" }).then(canvas => {
+  html2canvas(area).then(canvas => {
     const link = document.createElement("a");
-    link.download = `단동훼리_객실배정_${selectedDate}.png`;
-    link.href = canvas.toDataURL("image/png");
+    link.download = `단동훼리_승선요약_${selectedDate}.png`;
+    link.href = canvas.toDataURL();
     link.click();
   });
+}
+
+// --------------------------------------------------------------------------
+// 📊 [신규 기능] 첨부 엑셀 양식 기반 한 달치 엑셀 내보내기 ( SheetJS 활용 )
+// --------------------------------------------------------------------------
+async function exportMonthToExcel(){
+  if(!db) { alert("DB 연결 상태를 확인해주세요."); return; }
+
+  // 현재 FullCalendar에서 보고 있는 연/월 추출
+  const currentDate = calendar ? calendar.getDate() : new Date();
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth() + 1; // 1 ~ 12
+  const monthStr = month < 10 ? `0${month}` : `${month}`;
+  const prefix = `${year}-${monthStr}`; // 예: "2026-09"
+
+  const lastDayNum = new Date(year, month, 0).getDate(); // 해당 월의 마지막 날짜
+
+  alert(`[${year}년 ${month}월] 한 달치 데이터를 추출하여 엑셀 양식 생성을 시작합니다.`);
+
+  try {
+    // 1. 해당 월 전체 데이터 Firestore 검색
+    const schedulesSnap = await db.collection("schedules").get();
+    const eventsSnap = await db.collection("custom_events").get();
+
+    // 일별 OUT(출국), IN(입국) 텍스트 및 합계 인원 정리 객체
+    let monthOutData = {}; // { "01": { text: "...", total: 100 } }
+    let monthInData = {};  // { "01": { text: "...", total: 100 } }
+
+    for(let d = 1; d <= lastDayNum; d++){
+      const dayKey = d < 10 ? `0${d}` : `${d}`;
+      monthOutData[dayKey] = { teams: [], total: 0, custom: "" };
+      monthInData[dayKey] = { teams: [], total: 0, custom: "" };
+    }
+
+    // 휴항/메모 처리
+    eventsSnap.forEach(doc => {
+      if(doc.id.startsWith(prefix)){
+        const dayKey = doc.id.substring(8, 10);
+        const data = doc.data();
+        const label = data.type + (data.title ? ` ${data.title}` : "");
+        if(monthOutData[dayKey]) monthOutData[dayKey].custom = label;
+        if(monthInData[dayKey]) monthInData[dayKey].custom = label;
+      }
+    });
+
+    // 승선/단체 데이터 분개 및 집계
+    schedulesSnap.forEach(doc => {
+      const regDate = doc.id; // 예: "2026-09-02"
+      const data = doc.data();
+      if (!data.teams || data.teams.length === 0) return;
+
+      data.teams.forEach(t => {
+        const p = t.totalPeople || t.outPeople || 0;
+        const inP = t.inPeople || t.totalPeople || 0;
+        const nights = parseInt(t.nights || 4, 10);
+        const pattern = t.pattern || 'KR_ROUND';
+        const returnDate = addDays(regDate, nights);
+
+        // 객실 요약 텍스트
+        let roomSummary = "";
+        const allocs = t.isSplitRoom ? t.outAllocations : t.allocations;
+        if(allocs && allocs.length > 0){
+          roomSummary = "(" + allocs.map(a => `${masterRooms[a.key]?masterRooms[a.key].label:a.key}${a.people}명`).join(', ') + ")";
+        }
+
+        const teamText = `${t.name}${p}명${roomSummary}`;
+
+        // OUT / IN 날짜 분개
+        if (pattern === 'KR_ROUND') {
+          if(regDate.startsWith(prefix)){
+            const d = regDate.substring(8, 10);
+            if(monthOutData[d]){
+              monthOutData[d].teams.push(teamText);
+              monthOutData[d].total += p;
+            }
+          }
+          if(returnDate.startsWith(prefix)){
+            const d = returnDate.substring(8, 10);
+            if(monthInData[d]){
+              const inTeamText = `${t.name}${inP}명`;
+              monthInData[d].teams.push(inTeamText);
+              monthInData[d].total += inP;
+            }
+          }
+        } else if (pattern === 'CN_ROUND') {
+          if(regDate.startsWith(prefix)){
+            const d = regDate.substring(8, 10);
+            if(monthInData[d]){
+              monthInData[d].teams.push(`${t.name}${inP}명`);
+              monthInData[d].total += inP;
+            }
+          }
+          if(returnDate.startsWith(prefix)){
+            const d = returnDate.substring(8, 10);
+            if(monthOutData[d]){
+              monthOutData[d].teams.push(teamText);
+              monthOutData[d].total += p;
+            }
+          }
+        } else if (pattern === 'ONEWAY_OUT') {
+          if(regDate.startsWith(prefix)){
+            const d = regDate.substring(8, 10);
+            if(monthOutData[d]){
+              monthOutData[d].teams.push(teamText);
+              monthOutData[d].total += p;
+            }
+          }
+        } else if (pattern === 'ONEWAY_IN') {
+          if(regDate.startsWith(prefix)){
+            const d = regDate.substring(8, 10);
+            if(monthInData[d]){
+              monthInData[d].teams.push(`${t.name}${inP}명`);
+              monthInData[d].total += inP;
+            }
+          }
+        }
+      });
+    });
+
+    // 2. 엑셀 워크시트 배열 구성 (첨부 엑셀 템플릿과 동일한 구조)
+    const todayStr = new Date().toISOString().split('T')[0].replace(/-/g, '/');
+    let excelRows = [];
+
+    // Title Row
+    excelRows.push([` ${year}년 ${monthStr}월 (${todayStr} 기준)`, "", "", "", "", ""]);
+    // Header Row 2
+    excelRows.push(["OUT(W)", "", "합계", "IN(E)", "", "합계"]);
+
+    let monthTotalOut = 0;
+    let monthTotalIn = 0;
+
+    // 1일부터 말일까지 데이터 바인딩
+    for(let d = 1; d <= lastDayNum; d++){
+      const dayKey = d < 10 ? `0${d}` : `${d}`;
+      const dayTitle = `${dayKey}일`;
+
+      const outObj = monthOutData[dayKey];
+      const inObj = monthInData[dayKey];
+
+      let outStr = outObj.custom ? outObj.custom : outObj.teams.join(', ');
+      let inStr = inObj.custom ? inObj.custom : inObj.teams.join(', ');
+
+      let outTotalVal = outObj.custom ? "" : (outObj.total > 0 ? outObj.total : "");
+      let inTotalVal = inObj.custom ? "" : (inObj.total > 0 ? inObj.total : "");
+
+      if(typeof outTotalVal === "number") monthTotalOut += outTotalVal;
+      if(typeof inTotalVal === "number") monthTotalIn += inTotalVal;
+
+      excelRows.push([
+        dayTitle,
+        outStr,
+        outTotalVal,
+        dayTitle,
+        inStr,
+        inTotalVal
+      ]);
+    }
+
+    // 통계 행 (월간 총 합계 인원 추가)
+    excelRows.push([]);
+    excelRows.push(["[월간 총계]", `총 출국승선: ${monthTotalOut.toLocaleString()}명`, monthTotalOut, "[월간 총계]", `총 입국승선: ${monthTotalIn.toLocaleString()}명`, monthTotalIn]);
+    excelRows.push(["* 위 예약상황은 모객중이므로 인원이 변동될 수 있습니다.", "", "", "", "", ""]);
+
+    // 3. SheetJS를 활용하여 엑셀 문서 생성 및 다운로드
+    const worksheet = XLSX.utils.aoa_to_sheet(excelRows);
+
+    // 컬럼 너비 설정
+    worksheet['!cols'] = [
+      { wch: 8 },  // OUT 날짜
+      { wch: 65 }, // OUT 단체 내용
+      { wch: 10 }, // OUT 합계
+      { wch: 8 },  // IN 날짜
+      { wch: 65 }, // IN 단체 내용
+      { wch: 10 }  // IN 합계
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, `${month}월`);
+
+    // 엑셀 파일 저장
+    const fileName = `${year}년_${monthStr}월_단동훼리_단체현황.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+
+  } catch(e) {
+    console.error(e);
+    alert("엑셀 생성 도중 오류가 발생했습니다: " + e.message);
+  }
 }
 </script>
 </body>
