@@ -56,8 +56,6 @@ th{background:#f1f4f7}
 
 .section-subtitle{font-size:13px; font-weight:bold; color:#1769aa; margin:8px 0 4px 0; border-left:3px solid #1769aa; padding-left:6px;}
 
-.in-team-chip{display:inline-flex; align-items:center; gap:6px; background:#e8f5e9; border:1px solid #c8e6c9; color:#2e7d32; padding:6px 12px; border-radius:20px; font-size:13px; font-weight:bold; margin:4px;}
-
 /* 접기/펼치기 스타일 */
 .collapsible-toggle {
   display: flex;
@@ -178,12 +176,6 @@ th{background:#f1f4f7}
           <h2>2. 오늘 출국 승선 단체 상세 여정</h2>
           <div id="teamResultsContainer"></div>
         </div>
-
-        <!-- 오늘 입국 단체 간략 요약 카드 -->
-        <div class="card">
-          <h2>3. 오늘 입국 단체 요약 (총 <span id="inTeamTotalPeople" style="color:#2e7d32;">0</span>명 / <span id="inTeamCount">0</span>개 단체)</h2>
-          <div id="inTeamSummaryContainer" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;"></div>
-        </div>
       </div>
     </div>
 
@@ -192,7 +184,7 @@ th{background:#f1f4f7}
       <!-- 4. 보유 객실 설정 (접기/펼치기 적용) -->
       <div style="margin-bottom:16px;">
         <button type="button" class="collapsible-toggle" onclick="toggleMasterArea()">
-          <span>⚙️ 4. 선박 전체 보유 객실 및 일반 여객 설정</span>
+          <span>⚙️ 선박 전체 보유 객실 및 일반 여객 설정</span>
           <span id="masterToggleIcon">▼ 열기</span>
         </button>
         <div id="masterAreaContent" class="hidden" style="margin-top:10px;">
@@ -200,7 +192,7 @@ th{background:#f1f4f7}
         </div>
       </div>
 
-      <h2>5. [신규 등록] 출발 단체 및 여정 설정</h2>
+      <h2>[신규 등록] 출발 단체 및 여정 설정</h2>
       <div id="teamsContainer"></div>
       <button class="secondary" style="margin-top:8px" onclick="addTeam()">+ 단체 추가</button>
 
@@ -235,7 +227,6 @@ let selectedDate = "";
 let calendar = null;
 let teamSeq = 0;
 let linkedReturnTeams = []; // 과거 날짜에서 건너온 오늘 승선 단체들
-let allInboundTeams = [];   // 오늘 입국하는 모든 단체
 
 let masterRooms = {
   "6": { label: "6인실", totalRooms: 143, defaultCapPerRoom: 4, generalPeople: 100, generalCap: 3 },
@@ -246,6 +237,14 @@ let masterRooms = {
 };
 
 function esc(s){ return String(s??"").replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m])); }
+
+// 요구사항 5: 출발일 포함 4일째 출국 처리 (예: 월요일 출국 -> 3일 후 목요일 복귀 출국)
+function getReturnDate(dateStr, nights) {
+  const result = new Date(dateStr);
+  const addDaysNum = Math.max(0, parseInt(nights, 10) - 1);
+  result.setDate(result.getDate() + addDaysNum);
+  return result.toISOString().split('T')[0];
+}
 
 function addDays(dateStr, days) {
   const result = new Date(dateStr);
@@ -258,24 +257,22 @@ function formatShortDate(dateStr) {
   return dateStr.substring(5);
 }
 
-// ===== 왕복(출→출) 통합 개념 =====
-// 한국/중국 구분 없이, 날짜의 요일만으로 그 항차가 '출국(한국 출항)'인지 '입국(한국 도착)'인지 자동 판별
-// 출항 스케줄: 월,수,금 = 출국 / 화,목,일 = 입국
-function getVoyageDirection(dateStr){
-  const d = new Date(dateStr);
-  const dow = d.getDay();
-  if (dow === 1 || dow === 3 || dow === 5) return 'OUT';
-  if (dow === 2 || dow === 4 || dow === 0) return 'IN';
-  return 'OUT'; // 정기 항차 외 날짜(토요일 등)에 등록된 경우 기본값
+// 요구사항 3: 요일별 이벤트 색상 지정 (화, 목, 일: 분홍색 / 월, 수, 금: 하늘색)
+function getDayColor(dateStr) {
+  const dow = new Date(dateStr).getDay();
+  if (dow === 2 || dow === 4 || dow === 0) {
+    return '#FFB6C1'; // 화, 목, 일 (분홍색)
+  } else if (dow === 1 || dow === 3 || dow === 5) {
+    return '#87CEEB'; // 월, 수, 금 (하늘색)
+  }
+  return '#1769aa';
 }
 
-// 과거 저장된 KR_ROUND/CN_ROUND 데이터를 통합 ROUND 패턴으로 변환 (하위 호환)
 function normalizePattern(p){
   if (p === 'KR_ROUND' || p === 'CN_ROUND') return 'ROUND';
   return p || 'ROUND';
 }
 
-// 보유 객실 영역 접기/펼치기
 function toggleMasterArea(){
   const content = document.getElementById("masterAreaContent");
   const icon = document.getElementById("masterToggleIcon");
@@ -325,7 +322,6 @@ document.addEventListener('DOMContentLoaded', function() {
         events: function(fetchInfo, successCallback) {
           if(!db) { successCallback([]); return; }
           db.collection("schedules").get().then((querySnapshot) => {
-            // '출→출' 개념: 왕복이든 편도든, 승선하는 모든 날짜를 전부 '출'로 집계 (입국 표시 없음)
             let dailyAll = {};
 
             querySnapshot.forEach((doc) => {
@@ -336,14 +332,12 @@ document.addEventListener('DOMContentLoaded', function() {
                   const p = t.totalPeople || 0;
                   const nights = parseInt(t.nights || 4, 10);
                   const pattern = normalizePattern(t.pattern);
-                  const returnDate = addDays(regDate, nights);
+                  const returnDate = getReturnDate(regDate, nights);
 
                   if (pattern === 'ROUND') {
-                    // 왕복은 등록일/복귀일 두 항차 모두 '출항'이므로 둘 다 출으로 집계
                     dailyAll[regDate] = (dailyAll[regDate] || 0) + p;
                     dailyAll[returnDate] = (dailyAll[returnDate] || 0) + p;
                   } else {
-                    // 편도(출국/입국 전용)도 승선일 자체는 출항이므로 출으로 집계
                     dailyAll[regDate] = (dailyAll[regDate] || 0) + p;
                   }
                 });
@@ -353,7 +347,13 @@ document.addEventListener('DOMContentLoaded', function() {
             let events = [];
             Object.keys(dailyAll).forEach(d => {
               if (dailyAll[d] > 0) {
-                events.push({ title: `출${dailyAll[d]}`, start: d, color: '#1769aa' });
+                // 요구사항 3: 요일별 출국 색상 변경 적용
+                events.push({ 
+                  title: `출${dailyAll[d]}`, 
+                  start: d, 
+                  color: getDayColor(d),
+                  textColor: '#000000'
+                });
               }
             });
 
@@ -453,7 +453,6 @@ async function openDateSim(dateStr){
   document.getElementById("teamsContainer").innerHTML = "";
   document.getElementById("simResult").classList.add("hidden");
   linkedReturnTeams = [];
-  allInboundTeams = [];
 
   if (db) {
     try {
@@ -466,17 +465,15 @@ async function openDateSim(dateStr){
             data.teams.forEach(t => {
               const pattern = normalizePattern(t.pattern);
               const nights = parseInt(t.nights || 4, 10);
-              const retDate = addDays(regDate, nights);
-              if (retDate === dateStr) {
+              // 요구사항 5: 복귀일자 계산
+              const retDate = getReturnDate(regDate, nights);
+              
+              if (retDate === dateStr && pattern === 'ROUND') {
                 linkedReturnTeams.push({
                   ...t,
                   regDate: regDate,
                   isReturnOnTarget: true
                 });
-
-                if (pattern === 'ROUND' && getVoyageDirection(regDate) === 'OUT') {
-                  allInboundTeams.push({ name: t.name, people: t.totalPeople, type: "🔄 복귀 입국" });
-                }
               }
             });
           }
@@ -608,13 +605,11 @@ function addTeam(name="", pattern="ROUND", nights="4", price="", memo="", isSpli
       <textarea class="teamMemo" placeholder="단체 메모 (특이사항)" rows="1">${esc(memo)}</textarea>
     </div>
 
-    <!-- 일반 객실 컨테이너 -->
     <div class="normalRoomArea ${isSplitRoom?'hidden':''}">
       <div class="roomTypesContainer"></div>
       <button class="secondary" type="button" style="font-size:12px; padding:4px 8px; margin-top:4px;" onclick="addRoomTypeToTeam('${teamId}', 'roomTypesContainer')">+ 객실 추가</button>
     </div>
 
-    <!-- 분리형 객실 컨테이너 -->
     <div class="splitRoomArea ${isSplitRoom?'':'hidden'}">
       <div class="section-subtitle">출국 시 객실 설정</div>
       <div class="outRoomTypesContainer"></div>
@@ -810,14 +805,12 @@ function extractAllocations(typeDivs) {
   return { totalPeople, allocations };
 }
 
-// 계산 로직 (순수 출국 기준으로 수정)
+// 계산 로직 (요구사항 1 및 전체 출국 통합 계산 반영)
 function runSimulation(shouldSave = true){
   const teamCards = [...document.querySelectorAll("#teamsContainer .team-card")];
 
   let todayTeams = [];
   let groupRoomUsed = { "6": 0, "4": 0, "2": 0, "dadami24": 0, "dadami36": 0 };
-  let currentInboundTeams = [...allInboundTeams];
-  const todayDir = getVoyageDirection(selectedDate); // 선택 날짜 요일로 출/입 자동 판별
 
   for (let idx = 0; idx < teamCards.length; idx++) {
     const card = teamCards[idx];
@@ -845,8 +838,7 @@ function runSimulation(shouldSave = true){
         return;
       }
       
-      // 출국 방향인 경우에만 출국 승선 객실에 합산 (왕복은 선택일 요일로 판별)
-      if ((pattern === 'ROUND' && todayDir === 'OUT') || pattern === 'ONEWAY_OUT') {
+      if (pattern === 'ROUND' || pattern === 'ONEWAY_OUT') {
         allocations.forEach(a => groupRoomUsed[a.key] += a.roomsNeeded);
       }
 
@@ -866,30 +858,23 @@ function runSimulation(shouldSave = true){
         return;
       }
 
-      // 출국 방향인 경우에만 출국 객실 합산 (왕복은 선택일 요일로 판별)
-      if ((pattern === 'ROUND' && todayDir === 'OUT') || pattern === 'ONEWAY_OUT') {
+      if (pattern === 'ROUND' || pattern === 'ONEWAY_OUT') {
         outAllocations.forEach(a => groupRoomUsed[a.key] += a.roomsNeeded);
       }
     }
 
-    const days = nights + 1;
-    const returnDate = addDays(selectedDate, nights);
+    // 요구사항 5: 4박 선택시 출발일 포함 4일째 출국으로 계산
+    const returnDate = getReturnDate(selectedDate, nights);
     const selShort = formatShortDate(selectedDate);
     const retShort = formatShortDate(returnDate);
 
     let itineraryStr = "";
     if(pattern === 'ROUND') {
-      if(todayDir === 'OUT') {
-        itineraryStr = `출국: ${selShort} ~ 입국: ${retShort} (${nights}박 ${days}일)`;
-      } else {
-        itineraryStr = `입국: ${selShort} ~ 출국: ${retShort} (${nights}박 ${days}일)`;
-        currentInboundTeams.push({ name, people: teamTotalPeople, type: "🔄 왕복 입국" });
-      }
+      itineraryStr = `출국: ${selShort} ~ 복귀출국: ${retShort} (${nights}박)`;
     } else if(pattern === 'ONEWAY_OUT') {
       itineraryStr = `출국: ${selShort} (편도)`;
     } else {
       itineraryStr = `입국: ${selShort} (편도)`;
-      currentInboundTeams.push({ name, people: teamTotalPeople, type: "⬅️ 입국 편도" });
     }
 
     todayTeams.push({
@@ -901,24 +886,19 @@ function runSimulation(shouldSave = true){
     });
   }
 
-  // 과거 날짜에서 넘어온 복귀 단체 중 '출국' 승선 단체만 처리 (왕복 중 입국으로 시작해 오늘 출국으로 돌아오는 경우)
-  let linkedReturnOutTeams = [];
+  // 요구사항 1: 과거 날짜에서 건너와 오늘 돌아가는(복귀) 단체를 출국 집계에 포함
   linkedReturnTeams.forEach(t => {
-    const p = normalizePattern(t.pattern);
-    if (p === 'ROUND' && getVoyageDirection(t.regDate) === 'IN') {
-      linkedReturnOutTeams.push(t);
-      let targetAlloc = t.isSplitRoom ? (t.outAllocations || []) : (t.allocations || []);
-      targetAlloc.forEach(a => {
-        if(groupRoomUsed[a.key] !== undefined) {
-          groupRoomUsed[a.key] += a.roomsNeeded;
-        }
-      });
-    }
+    let targetAlloc = t.isSplitRoom ? (t.inAllocations || t.outAllocations || []) : (t.allocations || []);
+    targetAlloc.forEach(a => {
+      if(groupRoomUsed[a.key] !== undefined) {
+        groupRoomUsed[a.key] += a.roomsNeeded;
+      }
+    });
   });
 
-  // 오늘 '출국' 승선 단체만 모음 (신규 왕복(출국 방향)/출국편도 + 과거 왕복(입국 방향)의 리턴 출국)
-  const todayOutTeams = todayTeams.filter(t => (t.pattern === 'ROUND' && todayDir === 'OUT') || t.pattern === 'ONEWAY_OUT');
-  const outBoardingTeams = [...todayOutTeams, ...linkedReturnOutTeams];
+  // 오늘 신규 출발 출국 단체 + 돌아오는(복귀) 출국 단체 통합
+  const todayOutTeams = todayTeams.filter(t => t.pattern === 'ROUND' || t.pattern === 'ONEWAY_OUT');
+  const outBoardingTeams = [...todayOutTeams, ...linkedReturnTeams];
 
   const groupTotalPeople = outBoardingTeams.reduce((s,t) => s + t.totalPeople, 0);
   const groupTotalRooms = Object.values(groupRoomUsed).reduce((a,b)=>a+b, 0);
@@ -937,10 +917,10 @@ function runSimulation(shouldSave = true){
 
   const grandTotalPeople = generalTotalPeople + groupTotalPeople;
 
-  // 요약 영역 순수 출국 기준 반영
-document.getElementById("simStats").innerHTML = `
+  // 선택 날짜 요약 UI
+  document.getElementById("simStats").innerHTML = `
     <div class="stat">출국 (예상) 총 인원<b>${grandTotalPeople}명</b><span>일반 ${generalTotalPeople}명 + 단체 ${groupTotalPeople}명</span></div>
-    <div class="stat">출국 단체 인원<b>총 ${groupTotalPeople}명</b><span>신규 ${todayOutTeams.length}개 단체 + 복귀 ${linkedReturnOutTeams.length}개 단체</span></div>
+    <div class="stat">출국 단체 인원<b>총 ${groupTotalPeople}명</b><span>신규 ${todayOutTeams.length}개 단체 + 복귀 ${linkedReturnTeams.length}개 단체</span></div>
     <div class="stat">객실 사용량<b>${groupTotalRooms}개</b><span>출국 단체 객실 합계</span></div>
   `;
 
@@ -988,19 +968,19 @@ document.getElementById("simStats").innerHTML = `
 
       const isReturn = team.isReturnOnTarget;
       const statusTag = isReturn 
-        ? `<span class="tag-linked">🔄 리턴 출국 (${formatShortDate(team.regDate)} 등록)</span>`
+        ? `<span class="tag-linked">🔄 복귀 출국 (${formatShortDate(team.regDate)} 등록)</span>`
         : '';
 
       teamResultsHtml += `<div style="margin-bottom:16px; border-bottom:1px solid #e1e7ef; padding-bottom:12px;">
         <h3 style="margin-bottom:4px; color:#1769aa;">🚩 ${esc(team.name)} (${team.totalPeople}명) <span class="tag-pattern">${patternLabel}</span> ${statusTag}${priceText}</h3>
-        <div style="font-size:13px; font-weight:bold; color:#2e7d32; margin-bottom:6px;">🗓️ 전체 여정: ${team.itineraryStr}</div>
+        <div style="font-size:13px; font-weight:bold; color:#2e7d32; margin-bottom:6px;">🗓️ 여정 정보: ${team.itineraryStr || (isReturn ? `복귀 출국일: ${formatShortDate(selectedDate)}` : '')}</div>
         ${team.memo ? `<div class="memo-box"><b>📌 메모:</b> ${esc(team.memo)}</div>` : ''}`;
 
       let targetAllocations = [];
-      if (!team.isSplitRoom) {
-        targetAllocations = team.allocations || [];
+      if (isReturn) {
+        targetAllocations = team.isSplitRoom ? (team.inAllocations || team.outAllocations || []) : (team.allocations || []);
       } else {
-        targetAllocations = team.outAllocations || [];
+        targetAllocations = team.isSplitRoom ? (team.outAllocations || []) : (team.allocations || []);
       }
 
       const teamTotalRooms = targetAllocations.reduce((s,a)=>s+(a.roomsNeeded||0), 0);
@@ -1024,22 +1004,6 @@ document.getElementById("simStats").innerHTML = `
   }
 
   document.getElementById("teamResultsContainer").innerHTML = teamResultsHtml;
-
-  // 3. 오늘 입국 단체 간략 요약
-  let inTeamSumHtml = "";
-  let inTeamTotalP = 0;
-  if (currentInboundTeams.length > 0) {
-    currentInboundTeams.forEach(t => {
-      inTeamTotalP += t.people;
-      inTeamSumHtml += `<div class="in-team-chip">🚩 <b>${esc(t.name)}</b> : ${t.people}명 <span style="font-size:11px; opacity:0.8;">(${t.type})</span></div>`;
-    });
-  } else {
-    inTeamSumHtml = `<span style="font-size:13px; color:#888;">오늘 입국하는 단체가 없습니다.</span>`;
-  }
-  document.getElementById("inTeamTotalPeople").innerText = inTeamTotalP;
-  document.getElementById("inTeamCount").innerText = currentInboundTeams.length;
-  document.getElementById("inTeamSummaryContainer").innerHTML = inTeamSumHtml;
-
   document.getElementById("simResult").classList.remove("hidden");
 
   // 데이터 저장
@@ -1071,10 +1035,9 @@ function deleteDateData(){
   }
 }
 
-// ===== 달력 버튼: 한 달치 단체 이름/인원 엑셀 다운로드 =====
+// ===== 달력 버튼: 한 달치 단체 현황 엑셀 다운로드 =====
 const WEEKDAYS_KR = ['일','월','화','수','목','금','토'];
 
-// 날짜 포맷 (예: "2026-09-02" -> "9-2(수)")
 function formatDateMDShort(dateStr){
   if(!dateStr) return "";
   const d = new Date(dateStr);
@@ -1092,7 +1055,6 @@ async function downloadMonthlyExcel(year, month){
   const lastDay = new Date(year, month, 0).getDate();
   const monthEnd = `${year}-${mm}-${String(lastDay).padStart(2,'0')}`;
 
-  // 현재 다운로드 수행 날짜 (기준일)
   const today = new Date();
   const todayStr = `${today.getMonth() + 1}/${today.getDate()}`;
   const titleText = `${year}년 ${month}월 (${todayStr} 기준)`;
@@ -1100,7 +1062,6 @@ async function downloadMonthlyExcel(year, month){
   try {
     const querySnapshot = await db.collection("schedules").get();
     let outGroups = {}; 
-    let inGroups = {};  
 
     querySnapshot.forEach(doc => {
       const regDate = doc.id;
@@ -1112,156 +1073,82 @@ async function downloadMonthlyExcel(year, month){
         const people = parseInt(t.totalPeople || 0, 10);
         const nights = parseInt(t.nights || 4, 10);
         const pattern = normalizePattern(t.pattern);
-        const returnDate = addDays(regDate, nights);
-
-        let outDate = "";
-        let inDate = "";
+        const returnDate = getReturnDate(regDate, nights);
 
         if(pattern === 'ROUND'){
-          if(getVoyageDirection(regDate) === 'OUT'){
-            outDate = regDate;
-            inDate = returnDate;
-          } else {
-            inDate = regDate;
-            outDate = returnDate;
-          }
+          // 왕복 단체의 출발일과 복귀일 모두 출국 집계
+          [regDate, returnDate].forEach(d => {
+            if(!outGroups[d]) outGroups[d] = { names: [], total: 0 };
+            outGroups[d].names.push(`${name}${people}명`);
+            outGroups[d].total += people;
+          });
         } else if(pattern === 'ONEWAY_OUT'){
-          outDate = regDate;
-        } else if(pattern === 'ONEWAY_IN'){
-          inDate = regDate;
-        }
-
-        // 출국 데이터 집계
-        if(outDate){
-          if(!outGroups[outDate]) outGroups[outDate] = { names: [], total: 0 };
-          outGroups[outDate].names.push(`${name}${people}명`);
-          outGroups[outDate].total += people;
-        }
-
-        // 입국(돌아오는 단체) 데이터 집계
-        if(inDate){
-          if(!inGroups[inDate]) inGroups[inDate] = { names: [], total: 0 };
-          inGroups[inDate].names.push(`${name}${people}명`);
-          inGroups[inDate].total += people;
+          if(!outGroups[regDate]) outGroups[regDate] = { names: [], total: 0 };
+          outGroups[regDate].names.push(`${name}${people}명`);
+          outGroups[regDate].total += people;
         }
       });
     });
 
-    // 이번 달 항차 날짜 배열 생성
-    // OUT : 월(1), 수(3), 금(5)
-    // IN  : 화(2), 목(4), 일(0)
     let outDatesList = [];
-    let inDatesList = [];
-
     for (let day = 1; day <= lastDay; day++) {
       const curDateStr = `${year}-${mm}-${String(day).padStart(2, '0')}`;
-      const d = new Date(year, month - 1, day);
-      const dayOfWeek = d.getDay(); 
-
-      if (dayOfWeek === 1 || dayOfWeek === 3 || dayOfWeek === 5) {
-        outDatesList.push(curDateStr);
-      } else if (dayOfWeek === 2 || dayOfWeek === 4 || dayOfWeek === 0) {
-        inDatesList.push(curDateStr);
-      }
+      outDatesList.push(curDateStr);
     }
 
-    // 기본 항차 외 날짜에 등록된 데이터가 있을 경우 추가
-    Object.keys(outGroups).forEach(d => {
-      if(d >= monthStart && d <= monthEnd && !outDatesList.includes(d)){
-        outDatesList.push(d);
-      }
-    });
-    Object.keys(inGroups).forEach(d => {
-      if(d >= monthStart && d <= monthEnd && !inDatesList.includes(d)){
-        inDatesList.push(d);
-      }
-    });
-
     outDatesList.sort();
-    inDatesList.sort();
 
-    const maxLen = Math.max(outDatesList.length, inDatesList.length);
-
-    // HTML 테이블을 생성하여 셀 스타일, 너비, 줄바꿈(white-space) 지정
     let tableHtml = `<table border="1" style="border-collapse:collapse; text-align:center; font-family:맑은 고딕, Arial;">`;
     
-    // 1행: 제목 행
     tableHtml += `
       <tr>
-        <th colspan="6" style="font-size:16px; font-weight:bold; background-color:#e2efda; height:40px; border:1px solid black; vertical-align:middle;">
-          ${titleText}
+        <th colspan="3" style="font-size:16px; font-weight:bold; background-color:#e2efda; height:40px; border:1px solid black; vertical-align:middle;">
+          ${titleText} 단체 출국 현황
         </th>
       </tr>
-    `;
-
-    // 2행: 헤더 행
-    tableHtml += `
       <tr style="background-color:#f2f2f2; font-weight:bold; height:28px;">
-        <th style="border:1px solid black; width:90px;">OUT 날짜</th>
-        <th style="border:1px solid black; width:300px;">단체명 / 인원</th>
-        <th style="border:1px solid black; width:70px;">합계</th>
-        <th style="border:1px solid black; width:90px;">IN 날짜</th>
-        <th style="border:1px solid black; width:300px;">단체명 / 인원</th>
-        <th style="border:1px solid black; width:70px;">합계</th>
+        <th style="border:1px solid black; width:110px;">출국 날짜</th>
+        <th style="border:1px solid black; width:350px;">단체명 / 인원</th>
+        <th style="border:1px solid black; width:80px;">합계</th>
       </tr>
     `;
 
-    // 데이터 행 출력
-    for(let i=0; i<maxLen; i++){
+    for(let i = 0; i < outDatesList.length; i++){
       const od = outDatesList[i];
-      const id = inDatesList[i];
-
-      const outDateDisp = od ? formatDateMDShort(od) : "";
-      // 단체명 간 구분 기호를 줄바꿈(<br>)으로 연결
+      const outDateDisp = formatDateMDShort(od);
       const outNamesDisp = (od && outGroups[od]) ? outGroups[od].names.join("<br>") : "";
       const outTotalDisp = (od && outGroups[od]) ? outGroups[od].total : "";
-
-      // IN 의 경우 전날 날짜/요일로 변환하여 표시 (예: 9-2(수) -> 9-1(화))
-      const inDateDisp = id ? formatDateMDShort(id) : "";
-      const inNamesDisp = (id && inGroups[id]) ? inGroups[id].names.join("<br>") : "";
-      const inTotalDisp = (id && inGroups[id]) ? inGroups[id].total : "";
 
       tableHtml += `
         <tr>
           <td style="border:1px solid black; text-align:center; vertical-align:middle; padding:5px;">${outDateDisp}</td>
           <td style="border:1px solid black; text-align:left; vertical-align:middle; padding:5px 8px; white-space:pre-line;">${outNamesDisp}</td>
           <td style="border:1px solid black; text-align:right; vertical-align:middle; padding:5px 8px;">${outTotalDisp}</td>
-          <td style="border:1px solid black; text-align:center; vertical-align:middle; padding:5px;">${inDateDisp}</td>
-          <td style="border:1px solid black; text-align:left; vertical-align:middle; padding:5px 8px; white-space:pre-line;">${inNamesDisp}</td>
-          <td style="border:1px solid black; text-align:right; vertical-align:middle; padding:5px 8px;">${inTotalDisp}</td>
         </tr>
       `;
     }
 
-    // 하단 주의사항 문구 행 추가
     tableHtml += `
       <tr>
-        <td colspan="6" style="border:1px solid black; text-align:left; font-size:11px; color:#d32f2f; font-weight:bold; height:30px; padding-left:8px; vertical-align:middle;">
-          *위 예약상황은 모객중이므로 인원이 많이 변동될수 있습니다.
+        <td colspan="3" style="border:1px solid black; text-align:left; font-size:11px; color:#d32f2f; font-weight:bold; height:30px; padding-left:8px; vertical-align:middle;">
+          * 위 예약상황은 모객 중이므로 인원이 변동될 수 있습니다.
         </td>
       </tr>
-    `;
-
-    tableHtml += `</table>`;
+    </table>`;
 
     const tempDiv = document.createElement("div");
     tempDiv.innerHTML = tableHtml;
     const tableEl = tempDiv.querySelector("table");
 
-    const wb = XLSX.utils.table_to_book(tableEl, { sheet: "월별현황" });
-
-    // 엑셀 열 너비(Col Width) 자동 넉넉하게 재설정 (가려짐 방지)
-    const ws = wb.Sheets["월별현황"];
+    const wb = XLSX.utils.table_to_book(tableEl, { sheet: "월별출국현황" });
+    const ws = wb.Sheets["월별출국현황"];
     ws['!cols'] = [
-      { wch: 14 }, // OUT 날짜
-      { wch: 48 }, // 단체명 / 인원
-      { wch: 10 }, // 합계
-      { wch: 14 }, // IN 날짜
-      { wch: 48 }, // 단체명 / 인원
-      { wch: 10 }  // 합계
+      { wch: 16 },
+      { wch: 50 },
+      { wch: 12 }
     ];
 
-    XLSX.writeFile(wb, `단동훼리_${year}년${mm}월_단체현황.xlsx`);
+    XLSX.writeFile(wb, `단동훼리_${year}년${mm}월_단체출국현황.xlsx`);
 
   } catch(e) {
     console.error(e);
