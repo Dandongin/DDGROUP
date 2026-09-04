@@ -258,6 +258,23 @@ function formatShortDate(dateStr) {
   return dateStr.substring(5);
 }
 
+// ===== 왕복(출→출) 통합 개념 =====
+// 한국/중국 구분 없이, 날짜의 요일만으로 그 항차가 '출국(한국 출항)'인지 '입국(한국 도착)'인지 자동 판별
+// 출항 스케줄: 월,수,금 = 출국 / 화,목,일 = 입국
+function getVoyageDirection(dateStr){
+  const d = new Date(dateStr);
+  const dow = d.getDay();
+  if (dow === 1 || dow === 3 || dow === 5) return 'OUT';
+  if (dow === 2 || dow === 4 || dow === 0) return 'IN';
+  return 'OUT'; // 정기 항차 외 날짜(토요일 등)에 등록된 경우 기본값
+}
+
+// 과거 저장된 KR_ROUND/CN_ROUND 데이터를 통합 ROUND 패턴으로 변환 (하위 호환)
+function normalizePattern(p){
+  if (p === 'KR_ROUND' || p === 'CN_ROUND') return 'ROUND';
+  return p || 'ROUND';
+}
+
 // 보유 객실 영역 접기/펼치기
 function toggleMasterArea(){
   const content = document.getElementById("masterAreaContent");
@@ -318,21 +335,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 data.teams.forEach(t => {
                   const p = t.totalPeople || 0;
                   const nights = parseInt(t.nights || 4, 10);
-                  const pattern = t.pattern || 'KR_ROUND';
+                  const pattern = normalizePattern(t.pattern);
                   const returnDate = addDays(regDate, nights);
 
-                  if (pattern === 'KR_ROUND') {
-                    dailyOut[regDate] = (dailyOut[regDate] || 0) + p;
-                    dailyIn[returnDate] = (dailyIn[returnDate] || 0) + p;
-                  } else if (pattern === 'CN_ROUND') {
-                    dailyIn[regDate] = (dailyIn[regDate] || 0) + p;
-                    dailyOut[returnDate] = (dailyOut[returnDate] || 0) + p;
-                  } else {
-                    if (t.pattern === 'ONEWAY_IN') {
-                      dailyIn[regDate] = (dailyIn[regDate] || 0) + p;
-                    } else {
+                  if (pattern === 'ROUND') {
+                    if (getVoyageDirection(regDate) === 'OUT') {
                       dailyOut[regDate] = (dailyOut[regDate] || 0) + p;
+                      dailyIn[returnDate] = (dailyIn[returnDate] || 0) + p;
+                    } else {
+                      dailyIn[regDate] = (dailyIn[regDate] || 0) + p;
+                      dailyOut[returnDate] = (dailyOut[returnDate] || 0) + p;
                     }
+                  } else if (pattern === 'ONEWAY_IN') {
+                    dailyIn[regDate] = (dailyIn[regDate] || 0) + p;
+                  } else {
+                    dailyOut[regDate] = (dailyOut[regDate] || 0) + p;
                   }
                 });
               }
@@ -457,6 +474,7 @@ async function openDateSim(dateStr){
           const data = doc.data();
           if (data.teams && data.teams.length > 0) {
             data.teams.forEach(t => {
+              const pattern = normalizePattern(t.pattern);
               const nights = parseInt(t.nights || 4, 10);
               const retDate = addDays(regDate, nights);
               if (retDate === dateStr) {
@@ -466,8 +484,8 @@ async function openDateSim(dateStr){
                   isReturnOnTarget: true
                 });
 
-                if (t.pattern === 'KR_ROUND') {
-                  allInboundTeams.push({ name: t.name, people: t.totalPeople, type: "🇰🇷 복귀 입국" });
+                if (pattern === 'ROUND' && getVoyageDirection(regDate) === 'OUT') {
+                  allInboundTeams.push({ name: t.name, people: t.totalPeople, type: "🔄 복귀 입국" });
                 }
               }
             });
@@ -567,23 +585,23 @@ function updateMasterRoom(key){
   document.getElementById(`calc_remain_room_${key}`).innerText = remainRooms;
 }
 
-function addTeam(name="", pattern="KR_ROUND", nights="4", price="", memo="", isSplitRoom=false){
+function addTeam(name="", pattern="ROUND", nights="4", price="", memo="", isSplitRoom=false){
   const teamId = "team_" + (teamSeq++);
   const teamDiv = document.createElement("div");
   teamDiv.className = "team-card";
   teamDiv.id = teamId;
+  const _p = normalizePattern(pattern);
   
   teamDiv.innerHTML = `
     <div class="team-head">
       <input type="text" class="teamName" placeholder="단체명" value="${esc(name)}" style="max-width:160px; font-weight:bold;">
       <select class="teamPattern" style="max-width:180px;" onchange="togglePatternUI('${teamId}')">
-        <option value="KR_ROUND" ${pattern==='KR_ROUND'?'selected':''}>🇰🇷 한국발 왕복 (출➔입)</option>
-        <option value="CN_ROUND" ${pattern==='CN_ROUND'?'selected':''}>🇨🇳 중국발 왕복 (입➔출)</option>
-        <option value="ONEWAY_OUT" ${pattern==='ONEWAY_OUT'?'selected':''}>➡️ 출국 전용 (편도)</option>
-        <option value="ONEWAY_IN" ${pattern==='ONEWAY_IN'?'selected':''}>⬅️ 입국 전용 (편도)</option>
+        <option value="ROUND" ${_p==='ROUND'?'selected':''}>🔄 왕복 (출→출)</option>
+        <option value="ONEWAY_OUT" ${_p==='ONEWAY_OUT'?'selected':''}>➡️ 출국 전용 (편도)</option>
+        <option value="ONEWAY_IN" ${_p==='ONEWAY_IN'?'selected':''}>⬅️ 입국 전용 (편도)</option>
       </select>
       
-      <div class="nightsBox" style="display:${pattern.includes('ROUND')?'flex':'none'}; align-items:center; gap:4px;">
+      <div class="nightsBox" style="display:${_p==='ROUND'?'flex':'none'}; align-items:center; gap:4px;">
         <input type="number" class="teamNights" value="${nights}" style="width:55px;" min="1">
         <span style="font-size:12px; font-weight:bold;">박</span>
       </div>
@@ -631,7 +649,7 @@ function togglePatternUI(teamId) {
   const card = document.getElementById(teamId);
   const pattern = card.querySelector(".teamPattern").value;
   const nightsBox = card.querySelector(".nightsBox");
-  if(pattern.includes('ROUND')) {
+  if(normalizePattern(pattern) === 'ROUND') {
     nightsBox.style.display = 'flex';
   } else {
     nightsBox.style.display = 'none';
@@ -688,18 +706,18 @@ function restoreTeamUI(teamData){
   teamDiv.className = "team-card";
   teamDiv.id = teamId;
   const isSplit = teamData.isSplitRoom || false;
+  const _p = normalizePattern(teamData.pattern);
 
   teamDiv.innerHTML = `
     <div class="team-head">
       <input type="text" class="teamName" placeholder="단체명" value="${esc(teamData.name)}" style="max-width:160px; font-weight:bold;">
       <select class="teamPattern" style="max-width:180px;" onchange="togglePatternUI('${teamId}')">
-        <option value="KR_ROUND" ${teamData.pattern==='KR_ROUND'?'selected':''}>🇰🇷 한국발 왕복 (출➔입)</option>
-        <option value="CN_ROUND" ${teamData.pattern==='CN_ROUND'?'selected':''}>🇨🇳 중국발 왕복 (입➔출)</option>
-        <option value="ONEWAY_OUT" ${teamData.pattern==='ONEWAY_OUT'?'selected':''}>➡️ 출국 전용 (편도)</option>
-        <option value="ONEWAY_IN" ${teamData.pattern==='ONEWAY_IN'?'selected':''}>⬅️ 입국 전용 (편도)</option>
+        <option value="ROUND" ${_p==='ROUND'?'selected':''}>🔄 왕복 (출→출)</option>
+        <option value="ONEWAY_OUT" ${_p==='ONEWAY_OUT'?'selected':''}>➡️ 출국 전용 (편도)</option>
+        <option value="ONEWAY_IN" ${_p==='ONEWAY_IN'?'selected':''}>⬅️ 입국 전용 (편도)</option>
       </select>
       
-      <div class="nightsBox" style="display:${(teamData.pattern||'').includes('ROUND')?'flex':'none'}; align-items:center; gap:4px;">
+      <div class="nightsBox" style="display:${_p==='ROUND'?'flex':'none'}; align-items:center; gap:4px;">
         <input type="number" class="teamNights" value="${teamData.nights||4}" style="width:55px;" min="1">
         <span style="font-size:12px; font-weight:bold;">박</span>
       </div>
@@ -809,11 +827,12 @@ function runSimulation(shouldSave = true){
   let todayTeams = [];
   let groupRoomUsed = { "6": 0, "4": 0, "2": 0, "dadami24": 0, "dadami36": 0 };
   let currentInboundTeams = [...allInboundTeams];
+  const todayDir = getVoyageDirection(selectedDate); // 선택 날짜 요일로 출/입 자동 판별
 
   for (let idx = 0; idx < teamCards.length; idx++) {
     const card = teamCards[idx];
     const name = card.querySelector(".teamName").value.trim() || `단체 ${idx+1}`;
-    const pattern = card.querySelector(".teamPattern").value;
+    const pattern = normalizePattern(card.querySelector(".teamPattern").value);
     const nights = parseInt(card.querySelector(".teamNights").value, 10) || 4;
     const price = card.querySelector(".teamPrice").value.trim();
     const memo = card.querySelector(".teamMemo").value.trim();
@@ -836,8 +855,8 @@ function runSimulation(shouldSave = true){
         return;
       }
       
-      // 출국 패턴인 경우에만 출국 승선 객실에 합산
-      if (pattern === 'KR_ROUND' || pattern === 'ONEWAY_OUT') {
+      // 출국 방향인 경우에만 출국 승선 객실에 합산 (왕복은 선택일 요일로 판별)
+      if ((pattern === 'ROUND' && todayDir === 'OUT') || pattern === 'ONEWAY_OUT') {
         allocations.forEach(a => groupRoomUsed[a.key] += a.roomsNeeded);
       }
 
@@ -857,8 +876,8 @@ function runSimulation(shouldSave = true){
         return;
       }
 
-      // 출국 패턴인 경우에만 출국 객실 합산
-      if (pattern === 'KR_ROUND' || pattern === 'ONEWAY_OUT') {
+      // 출국 방향인 경우에만 출국 객실 합산 (왕복은 선택일 요일로 판별)
+      if ((pattern === 'ROUND' && todayDir === 'OUT') || pattern === 'ONEWAY_OUT') {
         outAllocations.forEach(a => groupRoomUsed[a.key] += a.roomsNeeded);
       }
     }
@@ -869,11 +888,13 @@ function runSimulation(shouldSave = true){
     const retShort = formatShortDate(returnDate);
 
     let itineraryStr = "";
-    if(pattern === 'KR_ROUND') {
-      itineraryStr = `출국: ${selShort} ~ 입국: ${retShort} (${nights}박 ${days}일)`;
-    } else if(pattern === 'CN_ROUND') {
-      itineraryStr = `입국: ${selShort} ~ 출국: ${retShort} (${nights}박 ${days}일)`;
-      currentInboundTeams.push({ name, people: teamTotalPeople, type: "🇨🇳 중국발 입국" });
+    if(pattern === 'ROUND') {
+      if(todayDir === 'OUT') {
+        itineraryStr = `출국: ${selShort} ~ 입국: ${retShort} (${nights}박 ${days}일)`;
+      } else {
+        itineraryStr = `입국: ${selShort} ~ 출국: ${retShort} (${nights}박 ${days}일)`;
+        currentInboundTeams.push({ name, people: teamTotalPeople, type: "🔄 왕복 입국" });
+      }
     } else if(pattern === 'ONEWAY_OUT') {
       itineraryStr = `출국: ${selShort} (편도)`;
     } else {
@@ -890,10 +911,11 @@ function runSimulation(shouldSave = true){
     });
   }
 
-  // 과거 날짜에서 넘어온 복귀 단체 중 '출국' 승선 단체만 처리 (중국발 왕복의 복귀 출국)
+  // 과거 날짜에서 넘어온 복귀 단체 중 '출국' 승선 단체만 처리 (왕복 중 입국으로 시작해 오늘 출국으로 돌아오는 경우)
   let linkedReturnOutTeams = [];
   linkedReturnTeams.forEach(t => {
-    if (t.pattern === 'CN_ROUND') {
+    const p = normalizePattern(t.pattern);
+    if (p === 'ROUND' && getVoyageDirection(t.regDate) === 'IN') {
       linkedReturnOutTeams.push(t);
       let targetAlloc = t.isSplitRoom ? (t.outAllocations || []) : (t.allocations || []);
       targetAlloc.forEach(a => {
@@ -904,8 +926,8 @@ function runSimulation(shouldSave = true){
     }
   });
 
-  // 오늘 '출국' 승선 단체만 모음 (신규 한국발/출국편도 + 과거 중국발의 리턴 출국)
-  const todayOutTeams = todayTeams.filter(t => t.pattern === 'KR_ROUND' || t.pattern === 'ONEWAY_OUT');
+  // 오늘 '출국' 승선 단체만 모음 (신규 왕복(출국 방향)/출국편도 + 과거 왕복(입국 방향)의 리턴 출국)
+  const todayOutTeams = todayTeams.filter(t => (t.pattern === 'ROUND' && todayDir === 'OUT') || t.pattern === 'ONEWAY_OUT');
   const outBoardingTeams = [...todayOutTeams, ...linkedReturnOutTeams];
 
   const groupTotalPeople = outBoardingTeams.reduce((s,t) => s + t.totalPeople, 0);
@@ -971,8 +993,7 @@ document.getElementById("simStats").innerHTML = `
   } else {
     outBoardingTeams.forEach(team => {
       const priceText = team.price ? ` | 💵 ${esc(team.price)}` : '';
-      let patternLabel = "🇰🇷 한국발 왕복";
-      if(team.pattern === 'CN_ROUND') patternLabel = "🇨🇳 중국발 왕복 (복귀 출국)";
+      let patternLabel = "🔄 왕복";
       if(team.pattern === 'ONEWAY_OUT') patternLabel = "➡️ 출국 편도";
 
       const isReturn = team.isReturnOnTarget;
@@ -989,7 +1010,7 @@ document.getElementById("simStats").innerHTML = `
       if (!team.isSplitRoom) {
         targetAllocations = team.allocations || [];
       } else {
-        targetAllocations = (team.pattern === 'CN_ROUND') ? team.outAllocations : team.outAllocations;
+        targetAllocations = team.outAllocations || [];
       }
 
       const teamTotalRooms = targetAllocations.reduce((s,a)=>s+(a.roomsNeeded||0), 0);
@@ -1111,18 +1132,20 @@ async function downloadMonthlyExcel(year, month){
         const name = t.name || "";
         const people = parseInt(t.totalPeople || 0, 10);
         const nights = parseInt(t.nights || 4, 10);
-        const pattern = t.pattern || 'KR_ROUND';
+        const pattern = normalizePattern(t.pattern);
         const returnDate = addDays(regDate, nights);
 
         let outDate = "";
         let inDate = "";
 
-        if(pattern === 'KR_ROUND'){
-          outDate = regDate;
-          inDate = returnDate;
-        } else if(pattern === 'CN_ROUND'){
-          inDate = regDate;
-          outDate = returnDate;
+        if(pattern === 'ROUND'){
+          if(getVoyageDirection(regDate) === 'OUT'){
+            outDate = regDate;
+            inDate = returnDate;
+          } else {
+            inDate = regDate;
+            outDate = returnDate;
+          }
         } else if(pattern === 'ONEWAY_OUT'){
           outDate = regDate;
         } else if(pattern === 'ONEWAY_IN'){
@@ -1147,7 +1170,7 @@ async function downloadMonthlyExcel(year, month){
 
     // 이번 달 항차 날짜 배열 생성
     // OUT : 월(1), 수(3), 금(5)
-    // IN  : 화(2), 목(4), 토(6)
+    // IN  : 화(2), 목(4), 일(0)
     let outDatesList = [];
     let inDatesList = [];
 
@@ -1158,7 +1181,7 @@ async function downloadMonthlyExcel(year, month){
 
       if (dayOfWeek === 1 || dayOfWeek === 3 || dayOfWeek === 5) {
         outDatesList.push(curDateStr);
-      } else if (dayOfWeek === 2 || dayOfWeek === 4 || dayOfWeek === 6) {
+      } else if (dayOfWeek === 2 || dayOfWeek === 4 || dayOfWeek === 0) {
         inDatesList.push(curDateStr);
       }
     }
