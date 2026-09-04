@@ -325,8 +325,8 @@ document.addEventListener('DOMContentLoaded', function() {
         events: function(fetchInfo, successCallback) {
           if(!db) { successCallback([]); return; }
           db.collection("schedules").get().then((querySnapshot) => {
-            let dailyOut = {}; 
-            let dailyIn = {};  
+            // '출→출' 개념: 왕복이든 편도든, 승선하는 모든 날짜를 전부 '출'로 집계 (입국 표시 없음)
+            let dailyAll = {};
 
             querySnapshot.forEach((doc) => {
               const regDate = doc.id;
@@ -339,31 +339,21 @@ document.addEventListener('DOMContentLoaded', function() {
                   const returnDate = addDays(regDate, nights);
 
                   if (pattern === 'ROUND') {
-                    if (getVoyageDirection(regDate) === 'OUT') {
-                      dailyOut[regDate] = (dailyOut[regDate] || 0) + p;
-                      dailyIn[returnDate] = (dailyIn[returnDate] || 0) + p;
-                    } else {
-                      dailyIn[regDate] = (dailyIn[regDate] || 0) + p;
-                      dailyOut[returnDate] = (dailyOut[returnDate] || 0) + p;
-                    }
-                  } else if (pattern === 'ONEWAY_IN') {
-                    dailyIn[regDate] = (dailyIn[regDate] || 0) + p;
+                    // 왕복은 등록일/복귀일 두 항차 모두 '출항'이므로 둘 다 출으로 집계
+                    dailyAll[regDate] = (dailyAll[regDate] || 0) + p;
+                    dailyAll[returnDate] = (dailyAll[returnDate] || 0) + p;
                   } else {
-                    dailyOut[regDate] = (dailyOut[regDate] || 0) + p;
+                    // 편도(출국/입국 전용)도 승선일 자체는 출항이므로 출으로 집계
+                    dailyAll[regDate] = (dailyAll[regDate] || 0) + p;
                   }
                 });
               }
             });
 
             let events = [];
-            Object.keys(dailyOut).forEach(d => {
-              if (dailyOut[d] > 0) {
-                events.push({ title: `출${dailyOut[d]}`, start: d, color: '#1769aa' });
-              }
-            });
-            Object.keys(dailyIn).forEach(d => {
-              if (dailyIn[d] > 0) {
-                events.push({ title: `입${dailyIn[d]}`, start: d, color: '#2e7d32' });
+            Object.keys(dailyAll).forEach(d => {
+              if (dailyAll[d] > 0) {
+                events.push({ title: `출${dailyAll[d]}`, start: d, color: '#1769aa' });
               }
             });
 
@@ -1094,17 +1084,6 @@ function formatDateMDShort(dateStr){
   return `${mm}-${dd}(${wd})`;
 }
 
-// 하루 전 날짜 구하기 및 포맷팅 (IN용: 예 - 9/2(수) -> 9/1(화))
-function formatPrevDayMDShort(dateStr){
-  if(!dateStr) return "";
-  const d = new Date(dateStr);
-  d.setDate(d.getDate() - 1);
-  const mm = d.getMonth() + 1;
-  const dd = d.getDate();
-  const wd = WEEKDAYS_KR[d.getDay()];
-  return `${mm}-${dd}(${wd})`;
-}
-
 async function downloadMonthlyExcel(year, month){
   if(!db){ alert("데이터베이스 연결이 없습니다."); return; }
 
@@ -1238,7 +1217,7 @@ async function downloadMonthlyExcel(year, month){
       const outTotalDisp = (od && outGroups[od]) ? outGroups[od].total : "";
 
       // IN 의 경우 전날 날짜/요일로 변환하여 표시 (예: 9-2(수) -> 9-1(화))
-      const inDateDisp = id ? formatPrevDayMDShort(id) : "";
+      const inDateDisp = id ? formatDateMDShort(id) : "";
       const inNamesDisp = (id && inGroups[id]) ? inGroups[id].names.join("<br>") : "";
       const inTotalDisp = (id && inGroups[id]) ? inGroups[id].total : "";
 
