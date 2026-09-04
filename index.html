@@ -1,1060 +1,459 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>단동훼리 단체 관리 시스템</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>단체 출입국 일정 및 통계 관리 System</title>
+    <!-- SheetJS (엑셀 다운로드용 라이브러리) CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --bg-color: #f8f9fa;
+            --border-color: #e9ecef;
+            --sat-color: #0056b3; /* 토요일 파란색 */
+            --sun-color: #d9534f; /* 일요일 빨간색 */
+        }
 
-<!-- FullCalendar -->
-<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
 
-<!-- Firebase SDK -->
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+        body {
+            background-color: var(--bg-color);
+            color: #333;
+            padding: 20px;
+        }
 
-<style>
-*{box-sizing:border-box}
-body{margin:0;font-family:Arial,"Malgun Gothic",sans-serif;background:#f4f6f9;color:#202733}
-header{background:#17324d;color:white;padding:18px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
-header h1{margin:0;font-size:20px}
-.wrap{max-width:1100px;margin:20px auto;padding:0 18px}
-.card{background:white;border-radius:12px;padding:18px;margin-bottom:16px;box-shadow:0 2px 9px #0000000d}
-#calendar{background:white;padding:20px;border-radius:12px;}
-.date-title{font-size:18px;font-weight:bold;color:#17324d;margin-bottom:15px;display:flex;align-items:center;gap:10px;}
-.team-card{border:1px solid #c3d1e0;background:#f8fafc;border-radius:10px;padding:16px;margin-bottom:16px}
-.team-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:2px solid #e1e7ef;padding-bottom:10px;gap:8px;flex-wrap:wrap;}
-h2{font-size:16px;margin:0 0 12px}
-label{font-size:12px;color:#5c6673;display:block;margin-bottom:4px}
-input,select,button,textarea{font:inherit}
-input,select,textarea{width:100%;padding:8px 10px;border:1px solid #ccd3dc;border-radius:7px;background:white}
-input.assignPeople{background:#e3f2fd !important; border:1px solid #90caf9 !important; font-weight:bold; color:#0d47a1;}
-button{border:0;border-radius:7px;padding:8px 12px;cursor:pointer;font-weight:700}
-.primary{background:#1769aa;color:#fff}
-.secondary{background:#e9eef4;color:#263746}
-.success{background:#2e7d32;color:#fff}
-.danger{background:#fff0f0;color:#b3261e}
-.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-.stat{padding:14px;border-radius:9px;background:#f3f6f9;}.stat b{display:block;font-size:22px;margin-top:5px}
-.small{font-size:11px;color:#687583}
-.hidden{display:none!important}
-.warn-box{padding:10px 12px;background:#fff0f0;border:1px solid #f3c2c2;border-radius:8px;font-size:13px;margin-top:12px}
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
 
-.table-responsive{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-top:8px;}
-table{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap;}
-th,td{padding:9px;border-bottom:1px solid #e4e8ed;text-align:left}
-th{background:#f1f4f7}
-.bad{color:#b3261e;font-weight:700}
-.type-card{border:1px solid #dde3ea;border-radius:8px;padding:10px;margin-bottom:8px;background:white}
-.type-grid{display:grid;grid-template-columns:2fr 1.5fr 1.5fr 1.5fr 40px;gap:8px;align-items:center}
-.master-grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:10px;background:#f0f4f8;padding:12px;border-radius:8px;}
-.master-card{background:white;padding:10px;border-radius:8px;border:1px solid #dcdfe6;}
-.memo-box{background:#fff; border:1px dashed #cbd5e1; padding:8px 10px; border-radius:6px; margin-top:8px; font-size:12px; color:#334155;}
-.tag-pattern{background:#e3f2fd; color:#0d47a1; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:bold;}
-.tag-linked{background:#e8f5e9; color:#2e7d32; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:bold;}
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--primary-color);
+        }
 
-.section-subtitle{font-size:13px; font-weight:bold; color:#1769aa; margin:8px 0 4px 0; border-left:3px solid #1769aa; padding-left:6px;}
+        h1 {
+            font-size: 24px;
+            color: var(--primary-color);
+        }
 
-.in-team-chip{display:inline-flex; align-items:center; gap:6px; background:#e8f5e9; border:1px solid #c8e6c9; color:#2e7d32; padding:6px 12px; border-radius:20px; font-size:13px; font-weight:bold; margin:4px;}
+        .main-layout {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 20px;
+        }
 
-/* 접기/펼치기 스타일 */
-.collapsible-toggle {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-  background: #f0f4f8;
-  border: 1px solid #dcdfe6;
-  padding: 10px 14px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: bold;
-  color: #17324d;
-  transition: background 0.2s;
-}
-.collapsible-toggle:hover {
-  background: #e2e8f0;
-}
+        @media (max-width: 900px) {
+            .main-layout {
+                grid-template-columns: 1fr;
+            }
+        }
 
-@media (max-width: 768px) {
-  header{padding:12px 16px;}
-  header h1{font-size:16px;}
-  .wrap{padding:0 10px; margin:10px auto;}
-  .card{padding:12px; margin-bottom:12px;}
-  #calendar{padding:10px;}
-  .fc .fc-toolbar-title{font-size:15px;}
-  .fc .fc-button{padding:4px 6px; font-size:11px;}
-  .stats{grid-template-columns:1fr;}
-  .stat{padding:10px;}
-  .stat b{font-size:18px;}
-  .type-grid{grid-template-columns:1fr 1fr; gap:6px;}
-  .type-grid > div:last-child{grid-column: span 2; text-align:right;}
-  .master-grid{grid-template-columns:1fr 1fr;}
-  button{padding:7px 10px; font-size:12px;}
-}
-</style>
+        .card {
+            background: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+
+        .card h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: var(--primary-color);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+        }
+
+        /* Form Styles */
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .btn {
+            display: inline-block;
+            width: 100%;
+            padding: 10px;
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn:hover {
+            background-color: #2980b9;
+        }
+
+        .btn-excel {
+            background-color: #27ae60;
+            width: auto;
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+
+        .btn-excel:hover {
+            background-color: #219150;
+        }
+
+        /* Calendar Controls & Styles */
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .calendar-nav {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .calendar-nav button {
+            background: none;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            border-top: 1px solid var(--border-color);
+            border-left: 1px solid var(--border-color);
+        }
+
+        .day-header {
+            background-color: #f1f3f5;
+            text-align: center;
+            padding: 10px 0;
+            font-weight: bold;
+            font-size: 14px;
+            border-right: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        /* 요일 색상 설정 */
+        .day-header.sat { color: var(--sat-color); }
+        .day-header.sun { color: var(--sun-color); }
+
+        .day-cell {
+            min-height: 100px;
+            background: #fff;
+            padding: 5px;
+            border-right: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+            position: relative;
+        }
+
+        .day-cell.other-month {
+            background-color: #fafafa;
+            opacity: 0.5;
+        }
+
+        .day-number {
+            font-weight: bold;
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+
+        /* 달력 토/일 색상 반영 */
+        .day-cell.sat .day-number { color: var(--sat-color); }
+        .day-cell.sun .day-number { color: var(--sun-color); }
+
+        .group-tag {
+            font-size: 11px;
+            padding: 3px 5px;
+            border-radius: 3px;
+            margin-bottom: 3px;
+            color: white;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .tag-out { background-color: #e67e22; } /* 출국(1차/2차) */
+    </style>
 </head>
 <body>
 
-<header>
-  <div>
-    <h1 style="display:inline-block; margin-right:15px;">📅 단동훼리 단체 관리</h1>
-    <span style="font-size:12px; opacity:0.8; display:block;">출국/입국 스마트 여정 및 객실 관리</span>
-  </div>
-  <button style="background:#d32f2f; color:white; padding:9px 15px; font-size:13px;" onclick="openEventModal()">🚫 휴항/메모 별도 등록</button>
-</header>
+<div class="container">
+    <header>
+        <h1>단체 출입국 관리 시스템</h1>
+    </header>
 
-<div class="wrap">
-  <!-- 달력 -->
-  <div class="card">
-    <div id="calendar"></div>
-  </div>
-
-  <!-- 1. 별도 휴항/메모 등록 카드 -->
-  <div id="eventSection" class="hidden card" style="border: 2px solid #d32f2f;">
-    <div class="date-title">
-      <span>🚫 [휴항 및 메모 등록]</span>
-      <button class="secondary" style="font-size:12px; margin-left:auto;" onclick="closeEventSection()">닫기 ✕</button>
-    </div>
-    <div style="display:grid; gap:12px; max-width:600px;">
-      <div>
-        <label style="font-weight:bold;">날짜 선택</label>
-        <input type="date" id="eventDate" onchange="loadEventDataForDate(this.value)">
-      </div>
-      <div>
-        <label style="font-weight:bold;">표시 구분</label>
-        <select id="eventType">
-          <option value="⛔ 휴항">⛔ 휴항</option>
-          <option value="🔧 정기점검">🔧 정기점검</option>
-          <option value="✏️ 메모">✏️ 일반 메모</option>
-        </select>
-      </div>
-      <div>
-        <label style="font-weight:bold;">상세 메모/내용</label>
-        <input type="text" id="eventTitle" placeholder="내용 입력">
-      </div>
-      <div>
-        <label style="font-weight:bold;">배경 색상</label>
-        <select id="eventColor">
-          <option value="#d32f2f">빨간색 (휴항)</option>
-          <option value="#ed6c02">주황색 (점검)</option>
-          <option value="#0288d1">파란색 (메모)</option>
-        </select>
-      </div>
-      <div style="display:flex; gap:10px; margin-top:10px;">
-        <button class="primary" style="background:#d32f2f;" onclick="saveCustomEvent()">저장하기</button>
-        <button class="danger" onclick="deleteCustomEvent()">삭제</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 2. 선택 날짜 시뮬레이터 -->
-  <div id="simSection" class="hidden">
-    <div class="card" style="border: 2px solid #1769aa; margin-bottom: 16px;">
-      <div class="date-title" style="margin-bottom:0;">
-        <span>📌 선택 날짜: <span id="selectedDateText" style="color:#1769aa;"></span></span>
-        <button class="secondary" style="font-size:12px; margin-left:auto;" onclick="closeSimSection()">닫기 ✕</button>
-      </div>
-    </div>
-
-    <!-- 시뮬레이션 결과 요약 -->
-    <div id="simResult" class="hidden">
-      <div style="text-align:right; margin-bottom:10px;">
-        <button class="success" onclick="downloadResultImage()">📸 결과 이미지 다운로드 (PNG)</button>
-      </div>
-      <div id="captureArea" style="background:#f4f6f9; padding:10px; border-radius:12px; margin-bottom: 16px;">
-        <div class="card">
-          <h2>1. 선택 날짜 출국 승선 요약</h2>
-          <div class="stats" id="simStats"></div>
-          <h3 style="margin-top:20px; margin-bottom:10px; font-size:14px;">보유 객실 대비 사용 비중 (출국 승선 기준)</h3>
-          <div class="table-responsive">
-            <table id="totalTypeTable"></table>
-          </div>
-          <div id="simWarn"></div>
+    <div class="main-layout">
+        <!-- Sidebar: 신규 등록 메뉴 -->
+        <div class="sidebar">
+            <div class="card">
+                <h2>신규 등록 (출발 단체 및 여정)</h2>
+                <form id="groupForm">
+                    <div class="form-group">
+                        <label for="groupName">단체명</label>
+                        <input type="text" id="groupName" class="form-control" placeholder="예: A투어 1팀" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="memberCount">인원 (명)</label>
+                        <input type="number" id="memberCount" class="form-control" placeholder="예: 25" min="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="departureDate">출국일 (1차)</label>
+                        <input type="date" id="departureDate" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="durationSelect">여정 선택 (x박 y일)</label>
+                        <select id="durationSelect" class="form-control" required>
+                            <option value="3">3박 4일 (4일 뒤 다시 출국)</option>
+                            <option value="4" selected>4박 5일 (5일 뒤 다시 출국)</option>
+                            <option value="5">5박 6일 (6일 뒤 다시 출국)</option>
+                            <option value="6">6박 7일 (7일 뒤 다시 출국)</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn">단체 등록하기</button>
+                </form>
+            </div>
         </div>
 
-        <div class="card">
-          <h2>2. 오늘 출국 승선 단체 상세 여정</h2>
-          <div id="teamResultsContainer"></div>
-        </div>
+        <!-- Main Content: 달력 및 엑셀 다운로드 -->
+        <div class="content">
+            <div class="card">
+                <div class="calendar-header">
+                    <div class="calendar-nav">
+                        <button id="prevMonth">&lt;</button>
+                        <h2 id="currentMonthTitle" style="margin: 0; border: none; padding: 0;">2026년 09월</h2>
+                        <button id="nextMonth">&gt;</button>
+                    </div>
+                    <!-- 한 달치 요약 통계 엑셀 다운로드 버튼 -->
+                    <button id="downloadExcelBtn" class="btn btn-excel">📊 한 달치 요약 통계 엑셀 다운로드</button>
+                </div>
 
-        <!-- 오늘 입국 단체 간략 요약 카드 -->
-        <div class="card">
-          <h2>3. 오늘 입국 단체 요약 (총 <span id="inTeamTotalPeople" style="color:#2e7d32;">0</span>명 / <span id="inTeamCount">0</span>개 단체)</h2>
-          <div id="inTeamSummaryContainer" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;"></div>
+                <div class="calendar-grid" id="calendarGrid">
+                    <!-- 요일 헤더 -->
+                    <div class="day-header sun">일</div>
+                    <div class="day-header">월</div>
+                    <div class="day-header">화</div>
+                    <div class="day-header">수</div>
+                    <div class="day-header">목</div>
+                    <div class="day-header">금</div>
+                    <div class="day-header sat">토</div>
+
+                    <!-- 날짜 셀들이 JS에 의해 동적으로 들어갑니다 -->
+                </div>
+            </div>
         </div>
-      </div>
     </div>
-
-    <!-- 입력 및 설정 영역 -->
-    <div class="card">
-      <!-- 4. 보유 객실 설정 (접기/펼치기 적용) -->
-      <div style="margin-bottom:16px;">
-        <button type="button" class="collapsible-toggle" onclick="toggleMasterArea()">
-          <span>⚙️ 4. 선박 전체 보유 객실 및 일반 여객 설정</span>
-          <span id="masterToggleIcon">▼ 열기</span>
-        </button>
-        <div id="masterAreaContent" class="hidden" style="margin-top:10px;">
-          <div class="master-grid" id="masterRoomsContainer"></div>
-        </div>
-      </div>
-
-      <h2>5. [신규 등록] 출발 단체 및 여정 설정</h2>
-      <div id="teamsContainer"></div>
-      <button class="secondary" style="margin-top:8px" onclick="addTeam()">+ 단체 추가</button>
-
-      <div style="margin-top:20px; border-top:1px solid #eee; padding-top:16px; display:flex; gap:10px;">
-        <button class="primary" style="font-size:15px;padding:12px 20px" onclick="runSimulation(true)">계산 및 서버 저장</button>
-        <button class="danger" onclick="deleteDateData()">이 날짜 데이터 삭제</button>
-      </div>
-    </div>
-  </div>
 </div>
 
 <script>
-// Firebase 설정
-const firebaseConfig = {
-  apiKey: "AIzaSyCxQ8kYN_VL6-_8oqhrUv3TjV-Yjpimo00",
-  authDomain: "dd-group-2c8e8.firebaseapp.com",
-  projectId: "dd-group-2c8e8",
-  storageBucket: "dd-group-2c8e8.firebasestorage.app",
-  messagingSenderId: "35622249443",
-  appId: "1:35622249443:web:ee7e139f1ca0e3792af6d6"
-};
+    // 1. 상태 데이터 관리
+    let currentDate = new Date();
+    let groups = [
+        // 샘플 데이터
+        { id: 1, name: "하나투어 A팀", count: 20, dep1: "2026-09-07", dep2: "2026-09-11" }, // 월(출국) -> 금(출국)
+        { id: 2, name: "모두투어 B팀", count: 15, dep1: "2026-09-08", dep2: "2026-09-12" }  // 화(출국) -> 토(출국)
+    ];
 
-let db = null;
-try {
-  if (typeof firebase !== 'undefined') {
-    firebase.initializeApp(firebaseConfig);
-    db = firebase.firestore();
-  }
-} catch(e) { console.log(e); }
-
-let selectedDate = "";
-let calendar = null;
-let teamSeq = 0;
-let linkedReturnTeams = []; // 과거 날짜에서 건너온 오늘 승선 단체들
-let allInboundTeams = [];   // 오늘 입국하는 모든 단체
-
-let masterRooms = {
-  "6": { label: "6인실", totalRooms: 143, defaultCapPerRoom: 4, generalPeople: 100, generalCap: 3 },
-  "4": { label: "4인실", totalRooms: 124, defaultCapPerRoom: 4, generalPeople: 50, generalCap: 2 },
-  "2": { label: "2인실", totalRooms: 15, defaultCapPerRoom: 2, generalPeople: "", generalCap: "" },
-  "dadami24": { label: "다다미 24인실", totalRooms: 2, defaultCapPerRoom: 24, generalPeople: "", generalCap: "" },
-  "dadami36": { label: "다다미 36인실", totalRooms: 1, defaultCapPerRoom: 36, generalPeople: "", generalCap: "" }
-};
-
-function esc(s){ return String(s??"").replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m])); }
-
-function addDays(dateStr, days) {
-  const result = new Date(dateStr);
-  result.setDate(result.getDate() + parseInt(days, 10));
-  return result.toISOString().split('T')[0];
-}
-
-function formatShortDate(dateStr) {
-  if (!dateStr || dateStr.length < 10) return dateStr;
-  return dateStr.substring(5);
-}
-
-// 보유 객실 영역 접기/펼치기
-function toggleMasterArea(){
-  const content = document.getElementById("masterAreaContent");
-  const icon = document.getElementById("masterToggleIcon");
-  if(content.classList.contains("hidden")){
-    content.classList.remove("hidden");
-    icon.innerText = "▲ 접기";
-  } else {
-    content.classList.add("hidden");
-    icon.innerText = "▼ 열기";
-  }
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-  const calendarEl = document.getElementById('calendar');
-  calendar = new FullCalendar.Calendar(calendarEl, {
-    initialView: 'dayGridMonth',
-    locale: 'ko',
-    headerToolbar: { left: 'prev,next today', center: 'title', right: '' },
-    dateClick: function(info) {
-      closeEventSection();
-      openDateSim(info.dateStr);
-    },
-    eventSources: [
-      {
-        events: async function(fetchInfo, successCallback) {
-          try {
-            const year = fetchInfo.start.getFullYear();
-            const res = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/KR`);
-            const holidays = await res.json();
-            successCallback(holidays.map(h => ({
-              title: `🔴 ${h.localName}`, start: h.date, allDay: true,
-              backgroundColor: '#fff0f0', borderColor: '#f3c2c2', textColor: '#d32f2f'
-            })));
-          } catch(e) { successCallback([]); }
-        }
-      },
-      {
-        events: function(fetchInfo, successCallback) {
-          if(!db) { successCallback([]); return; }
-          db.collection("schedules").get().then((querySnapshot) => {
-            let dailyOut = {}; 
-            let dailyIn = {};  
-
-            querySnapshot.forEach((doc) => {
-              const regDate = doc.id;
-              const data = doc.data();
-              if (data.teams && data.teams.length > 0) {
-                data.teams.forEach(t => {
-                  const p = t.totalPeople || 0;
-                  const nights = parseInt(t.nights || 4, 10);
-                  const pattern = t.pattern || 'KR_ROUND';
-                  const returnDate = addDays(regDate, nights);
-
-                  if (pattern === 'KR_ROUND') {
-                    dailyOut[regDate] = (dailyOut[regDate] || 0) + p;
-                    dailyIn[returnDate] = (dailyIn[returnDate] || 0) + p;
-                  } else if (pattern === 'CN_ROUND') {
-                    dailyIn[regDate] = (dailyIn[regDate] || 0) + p;
-                    dailyOut[returnDate] = (dailyOut[returnDate] || 0) + p;
-                  } else {
-                    if (t.pattern === 'ONEWAY_IN') {
-                      dailyIn[regDate] = (dailyIn[regDate] || 0) + p;
-                    } else {
-                      dailyOut[regDate] = (dailyOut[regDate] || 0) + p;
-                    }
-                  }
-                });
-              }
-            });
-
-            let events = [];
-            Object.keys(dailyOut).forEach(d => {
-              if (dailyOut[d] > 0) {
-                events.push({ title: `출${dailyOut[d]}`, start: d, color: '#1769aa' });
-              }
-            });
-            Object.keys(dailyIn).forEach(d => {
-              if (dailyIn[d] > 0) {
-                events.push({ title: `입${dailyIn[d]}`, start: d, color: '#2e7d32' });
-              }
-            });
-
-            successCallback(events);
-          }).catch(() => successCallback([]));
-        }
-      },
-      {
-        events: function(fetchInfo, successCallback) {
-          if(!db) { successCallback([]); return; }
-          db.collection("custom_events").get().then((querySnapshot) => {
-            let events = [];
-            querySnapshot.forEach((doc) => {
-              const data = doc.data();
-              events.push({
-                id: "ce_" + doc.id,
-                title: data.type === "✏️ 메모" ? (data.title ? `✏️ ${data.title}` : "✏️ 메모") : `${data.type} ${data.title ? '- ' + data.title : ''}`,
-                start: doc.id,
-                color: data.color || '#d32f2f'
-              });
-            });
-            successCallback(events);
-          }).catch(() => successCallback([]));
-        }
-      }
-    ]
-  });
-  calendar.render();
-});
-
-function openEventModal(){
-  closeSimSection();
-  const eventSection = document.getElementById("eventSection");
-  eventSection.classList.remove("hidden");
-  const today = new Date().toISOString().split('T')[0];
-  document.getElementById("eventDate").value = today;
-  loadEventDataForDate(today);
-  eventSection.scrollIntoView({ behavior: 'smooth' });
-}
-
-function loadEventDataForDate(dateStr){
-  if(!dateStr) return;
-  document.getElementById("eventType").value = "⛔ 휴항";
-  document.getElementById("eventTitle").value = "";
-  document.getElementById("eventColor").value = "#d32f2f";
-  if(db){
-    db.collection("custom_events").doc(dateStr).get().then(doc => {
-      if(doc.exists){
-        const data = doc.data();
-        document.getElementById("eventType").value = data.type || "⛔ 휴항";
-        document.getElementById("eventTitle").value = data.title || "";
-        document.getElementById("eventColor").value = data.color || "#d32f2f";
-      }
-    });
-  }
-}
-
-function closeEventSection(){ document.getElementById("eventSection").classList.add("hidden"); }
-
-function saveCustomEvent(){
-  const dateStr = document.getElementById("eventDate").value;
-  if(!dateStr){ alert("날짜를 선택해주세요."); return; }
-  const type = document.getElementById("eventType").value;
-  const title = document.getElementById("eventTitle").value.trim();
-  const color = document.getElementById("eventColor").value;
-
-  if(db){
-    db.collection("custom_events").doc(dateStr).set({ type, title, color, updatedAt: new Date() }).then(() => {
-      alert(`[${dateStr}] 일정이 저장되었습니다.`);
-      closeEventSection();
-      if(calendar) calendar.refetchEvents();
-    });
-  }
-}
-
-function deleteCustomEvent(){
-  const dateStr = document.getElementById("eventDate").value;
-  if(!dateStr) return;
-  if(confirm(`정말로 ${dateStr} 일정을 삭제하시겠습니까?`)){
-    if(db){
-      db.collection("custom_events").doc(dateStr).delete().then(() => {
-        alert("삭제되었습니다.");
-        closeEventSection();
-        if(calendar) calendar.refetchEvents();
-      });
+    // YYYY-MM-DD 스트링 변환 helper
+    function formatDate(dateObj) {
+        const y = dateObj.getFullYear();
+        const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const d = String(dateObj.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
     }
-  }
-}
 
-// 선택 날짜 오픈
-async function openDateSim(dateStr){
-  selectedDate = dateStr;
-  document.getElementById("selectedDateText").innerText = dateStr;
-  document.getElementById("simSection").classList.remove("hidden");
-  
-  resetMasterData();
-  document.getElementById("teamsContainer").innerHTML = "";
-  document.getElementById("simResult").classList.add("hidden");
-  linkedReturnTeams = [];
-  allInboundTeams = [];
+    // 2. 단체 등록 이벤트 (왕복 출국일 자동 계산 포함)
+    document.getElementById('groupForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const name = document.getElementById('groupName').value;
+        const count = parseInt(document.getElementById('memberCount').value, 10);
+        const dep1Str = document.getElementById('departureDate').value;
+        const daysToAdd = parseInt(document.getElementById('durationSelect').value, 10);
 
-  if (db) {
-    try {
-      const allDocs = await db.collection("schedules").get();
-      allDocs.forEach(doc => {
-        const regDate = doc.id;
-        if (regDate !== dateStr) {
-          const data = doc.data();
-          if (data.teams && data.teams.length > 0) {
-            data.teams.forEach(t => {
-              const nights = parseInt(t.nights || 4, 10);
-              const retDate = addDays(regDate, nights);
-              if (retDate === dateStr) {
-                linkedReturnTeams.push({
-                  ...t,
-                  regDate: regDate,
-                  isReturnOnTarget: true
-                });
+        // 출국일 기준 N일 후 다시 출국 계산 (예: 월요일 + 4일 = 목요일)
+        const dep1Date = new Date(dep1Str);
+        const dep2Date = new Date(dep1Date);
+        dep2Date.setDate(dep1Date.getDate() + daysToAdd);
 
-                if (t.pattern === 'KR_ROUND') {
-                  allInboundTeams.push({ name: t.name, people: t.totalPeople, type: "🇰🇷 복귀 입국" });
+        const newGroup = {
+            id: Date.now(),
+            name: name,
+            count: count,
+            dep1: dep1Str,
+            dep2: formatDate(dep2Date)
+        };
+
+        groups.push(newGroup);
+        alert(`단체 [${name}] 등록이 완료되었습니다.\n2차 출국일: ${newGroup.dep2}`);
+        
+        this.reset();
+        renderCalendar();
+    });
+
+    // 3. 달력 렌더링 함수
+    function renderCalendar() {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+
+        document.getElementById('currentMonthTitle').innerText = `${year}년 ${String(month + 1).padStart(2, '0')}월`;
+
+        const calendarGrid = document.getElementById('calendarGrid');
+        
+        // 기존 요일 헤더 외 날짜 셀 제거
+        const dayHeaders = calendarGrid.querySelectorAll('.day-header');
+        calendarGrid.innerHTML = '';
+        dayHeaders.forEach(header => calendarGrid.appendChild(header));
+
+        const firstDay = new Date(year, month, 1).getDay();
+        const lastDate = new Date(year, month + 1, 0).getDate();
+        const prevLastDate = new Date(year, month, 0).getDate();
+
+        // 이전 달 날짜 채우기
+        for (let i = firstDay - 1; i >= 0; i--) {
+            const cell = document.createElement('div');
+            cell.className = 'day-cell other-month';
+            cell.innerHTML = `<div class="day-number">${prevLastDate - i}</div>`;
+            calendarGrid.appendChild(cell);
+        }
+
+        // 이번 달 날짜 채우기
+        for (let day = 1; day <= lastDate; day++) {
+            const cell = document.createElement('div');
+            const dayOfWeek = (firstDay + day - 1) % 7; // 0: 일, 6: 토
+            
+            let classNames = 'day-cell';
+            if (dayOfWeek === 0) classNames += ' sun'; // 일요일 빨간색
+            if (dayOfWeek === 6) classNames += ' sat'; // 토요일 파란색
+            cell.className = classNames;
+
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            
+            let cellHTML = `<div class="day-number">${day}</div>`;
+
+            // 해당 날짜에 해당하는 단체 검색 (1차/2차 출국 모두 표시)
+            groups.forEach(g => {
+                if (g.dep1 === dateStr) {
+                    cellHTML += `<div class="group-tag tag-out" title="${g.name} (${g.count}명)">[출국1] ${g.name} (${g.count}명)</div>`;
                 }
-              }
+                if (g.dep2 === dateStr) {
+                    cellHTML += `<div class="group-tag tag-out" title="${g.name} (${g.count}명)">[출국2] ${g.name} (${g.count}명)</div>`;
+                }
             });
-          }
+
+            cell.innerHTML = cellHTML;
+            calendarGrid.appendChild(cell);
         }
-      });
-    } catch(e) { console.error("복귀 단체 조회 오류", e); }
-  }
 
-  if(db){
-    db.collection("schedules").doc(dateStr).get().then((doc) => {
-      if(doc.exists){
-        const data = doc.data();
-        if(data.masterRooms) masterRooms = data.masterRooms;
-        initMasterRoomsUI();
-        if(data.teams && data.teams.length > 0){
-          data.teams.forEach(t => restoreTeamUI(t));
-        } else { addTeam(); }
-        runSimulation(false);
-      } else {
-        initMasterRoomsUI();
-        addTeam();
-      }
-    }).catch(() => {
-      initMasterRoomsUI();
-      addTeam();
-    });
-  } else {
-    initMasterRoomsUI();
-    addTeam();
-  }
-
-  document.getElementById("simSection").scrollIntoView({ behavior: 'smooth' });
-}
-
-function closeSimSection(){ document.getElementById("simSection").classList.add("hidden"); }
-
-function resetMasterData(){
-  masterRooms = {
-    "6": { label: "6인실", totalRooms: 143, defaultCapPerRoom: 4, generalPeople: 100, generalCap: 3 },
-    "4": { label: "4인실", totalRooms: 124, defaultCapPerRoom: 4, generalPeople: 50, generalCap: 2 },
-    "2": { label: "2인실", totalRooms: 15, defaultCapPerRoom: 2, generalPeople: "", generalCap: "" },
-    "dadami24": { label: "다다미 24인실", totalRooms: 2, defaultCapPerRoom: 24, generalPeople: "", generalCap: "" },
-    "dadami36": { label: "다다미 36인실", totalRooms: 1, defaultCapPerRoom: 36, generalPeople: "", generalCap: "" }
-  };
-}
-
-function initMasterRoomsUI(){
-  const container = document.getElementById("masterRoomsContainer");
-  container.innerHTML = "";
-  Object.keys(masterRooms).forEach(key => {
-    const room = masterRooms[key];
-    const people = parseInt(room.generalPeople, 10) || 0;
-    const cap = parseInt(room.generalCap, 10) || 0;
-    const genRooms = (people > 0 && cap > 0) ? Math.ceil(people / cap) : 0;
-    const remainRooms = Math.max(0, room.totalRooms - genRooms);
-
-    const div = document.createElement("div");
-    div.className = "master-card";
-    div.innerHTML = `
-      <div style="font-weight:bold; font-size:13px; margin-bottom:6px; color:#17324d;">${room.label}</div>
-      <div style="margin-bottom:4px;">
-        <label>보유 수</label>
-        <input type="number" id="master_room_${key}" min="0" value="${room.totalRooms}" onchange="updateMasterRoom('${key}')">
-      </div>
-      <div style="margin-bottom:4px;">
-        <label>일반 인원</label>
-        <input type="number" id="master_gen_people_${key}" min="0" placeholder="공란" value="${room.generalPeople}" onchange="updateMasterRoom('${key}')">
-      </div>
-      <div style="margin-bottom:4px;">
-        <label>객실 당 인원</label>
-        <input type="number" id="master_gen_cap_${key}" min="1" placeholder="공란" value="${room.generalCap}" onchange="updateMasterRoom('${key}')">
-      </div>
-      <div class="small" style="background:#f5f5f5; padding:4px; border-radius:4px; margin-top:4px;">
-        차감: <b id="calc_gen_room_${key}">${genRooms}</b>실 | 잔여: <b id="calc_remain_room_${key}" style="color:#1769aa;">${remainRooms}</b>실
-      </div>
-    `;
-    container.appendChild(div);
-  });
-}
-
-function updateMasterRoom(key){
-  const totalVal = parseInt(document.getElementById(`master_room_${key}`).value, 10);
-  const peopleVal = parseInt(document.getElementById(`master_gen_people_${key}`).value, 10);
-  const capVal = parseInt(document.getElementById(`master_gen_cap_${key}`).value, 10);
-
-  masterRooms[key].totalRooms = isNaN(totalVal) ? 0 : Math.max(0, totalVal);
-  masterRooms[key].generalPeople = isNaN(peopleVal) ? "" : Math.max(0, peopleVal);
-  masterRooms[key].generalCap = isNaN(capVal) ? "" : Math.max(0, capVal);
-
-  const people = parseInt(masterRooms[key].generalPeople, 10) || 0;
-  const cap = parseInt(masterRooms[key].generalCap, 10) || 0;
-  const genRooms = (people > 0 && cap > 0) ? Math.ceil(people / cap) : 0;
-  const remainRooms = Math.max(0, masterRooms[key].totalRooms - genRooms);
-
-  document.getElementById(`calc_gen_room_${key}`).innerText = genRooms;
-  document.getElementById(`calc_remain_room_${key}`).innerText = remainRooms;
-}
-
-function addTeam(name="", pattern="KR_ROUND", nights="4", price="", memo="", isSplitRoom=false){
-  const teamId = "team_" + (teamSeq++);
-  const teamDiv = document.createElement("div");
-  teamDiv.className = "team-card";
-  teamDiv.id = teamId;
-  
-  teamDiv.innerHTML = `
-    <div class="team-head">
-      <input type="text" class="teamName" placeholder="단체명" value="${esc(name)}" style="max-width:160px; font-weight:bold;">
-      <select class="teamPattern" style="max-width:180px;" onchange="togglePatternUI('${teamId}')">
-        <option value="KR_ROUND" ${pattern==='KR_ROUND'?'selected':''}>🇰🇷 한국발 왕복 (출➔입)</option>
-        <option value="CN_ROUND" ${pattern==='CN_ROUND'?'selected':''}>🇨🇳 중국발 왕복 (입➔출)</option>
-        <option value="ONEWAY_OUT" ${pattern==='ONEWAY_OUT'?'selected':''}>➡️ 출국 전용 (편도)</option>
-        <option value="ONEWAY_IN" ${pattern==='ONEWAY_IN'?'selected':''}>⬅️ 입국 전용 (편도)</option>
-      </select>
-      
-      <div class="nightsBox" style="display:${pattern.includes('ROUND')?'flex':'none'}; align-items:center; gap:4px;">
-        <input type="number" class="teamNights" value="${nights}" style="width:55px;" min="1">
-        <span style="font-size:12px; font-weight:bold;">박</span>
-      </div>
-      
-      <input type="text" class="teamPrice" placeholder="금액" value="${esc(price)}" style="max-width:90px;">
-      
-      <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; margin:0; font-weight:bold; color:#1769aa;">
-        <input type="checkbox" class="splitRoomCheck" onchange="toggleRoomSplitUI('${teamId}')" ${isSplitRoom?'checked':''}> 입/출국 객실 분리
-      </label>
-
-      <button class="danger" type="button" onclick="document.getElementById('${teamId}').remove()" style="margin-left:auto;">삭제</button>
-    </div>
-    <div style="margin-bottom:10px;">
-      <textarea class="teamMemo" placeholder="단체 메모 (특이사항)" rows="1">${esc(memo)}</textarea>
-    </div>
-
-    <!-- 일반 객실 컨테이너 -->
-    <div class="normalRoomArea ${isSplitRoom?'hidden':''}">
-      <div class="roomTypesContainer"></div>
-      <button class="secondary" type="button" style="font-size:12px; padding:4px 8px; margin-top:4px;" onclick="addRoomTypeToTeam('${teamId}', 'roomTypesContainer')">+ 객실 추가</button>
-    </div>
-
-    <!-- 분리형 객실 컨테이너 -->
-    <div class="splitRoomArea ${isSplitRoom?'':'hidden'}">
-      <div class="section-subtitle">출국 시 객실 설정</div>
-      <div class="outRoomTypesContainer"></div>
-      <button class="secondary" type="button" style="font-size:12px; padding:4px 8px; margin-top:4px;" onclick="addRoomTypeToTeam('${teamId}', 'outRoomTypesContainer')">+ 출국 객실 추가</button>
-
-      <div class="section-subtitle" style="margin-top:12px;">입국 시 객실 설정</div>
-      <div class="inRoomTypesContainer"></div>
-      <button class="secondary" type="button" style="font-size:12px; padding:4px 8px; margin-top:4px;" onclick="addRoomTypeToTeam('${teamId}', 'inRoomTypesContainer')">+ 입국 객실 추가</button>
-    </div>
-  `;
-  document.getElementById("teamsContainer").appendChild(teamDiv);
-  
-  if(!isSplitRoom) {
-    addRoomTypeToTeam(teamId, "roomTypesContainer", "6", "", 4);
-  } else {
-    addRoomTypeToTeam(teamId, "outRoomTypesContainer", "6", "", 4);
-    addRoomTypeToTeam(teamId, "inRoomTypesContainer", "6", "", 4);
-  }
-}
-
-function togglePatternUI(teamId) {
-  const card = document.getElementById(teamId);
-  const pattern = card.querySelector(".teamPattern").value;
-  const nightsBox = card.querySelector(".nightsBox");
-  if(pattern.includes('ROUND')) {
-    nightsBox.style.display = 'flex';
-  } else {
-    nightsBox.style.display = 'none';
-  }
-}
-
-function toggleRoomSplitUI(teamId) {
-  const card = document.getElementById(teamId);
-  const isChecked = card.querySelector(".splitRoomCheck").checked;
-  const normalArea = card.querySelector(".normalRoomArea");
-  const splitArea = card.querySelector(".splitRoomArea");
-
-  if(isChecked) {
-    normalArea.classList.add("hidden");
-    splitArea.classList.remove("hidden");
-
-    const outContainer = card.querySelector(".outRoomTypesContainer");
-    const inContainer = card.querySelector(".inRoomTypesContainer");
-    
-    const normalDivs = [...card.querySelectorAll(".roomTypesContainer .type-card")];
-    if(normalDivs.length > 0 && !outContainer.children.length) {
-      outContainer.innerHTML = "";
-      normalDivs.forEach(td => {
-        const key = td.querySelector(".typeSelect").value;
-        const people = td.querySelector(".assignPeople").value;
-        const cap = td.querySelector(".capPerRoom").value;
-        addRoomTypeToTeam(teamId, "outRoomTypesContainer", key, people, cap);
-      });
-    } else if(!outContainer.children.length) {
-      addRoomTypeToTeam(teamId, "outRoomTypesContainer", "6", "", 4);
-    }
-
-    inContainer.innerHTML = "";
-    const outDivs = [...outContainer.querySelectorAll(".type-card")];
-    outDivs.forEach(td => {
-      const key = td.querySelector(".typeSelect").value;
-      const people = td.querySelector(".assignPeople").value;
-      const cap = td.querySelector(".capPerRoom").value;
-      addRoomTypeToTeam(teamId, "inRoomTypesContainer", key, people, cap);
-    });
-
-  } else {
-    normalArea.classList.remove("hidden");
-    splitArea.classList.add("hidden");
-    if(!card.querySelector(".roomTypesContainer").children.length) {
-      addRoomTypeToTeam(teamId, "roomTypesContainer", "6", "", 4);
-    }
-  }
-}
-
-function restoreTeamUI(teamData){
-  const teamId = "team_" + (teamSeq++);
-  const teamDiv = document.createElement("div");
-  teamDiv.className = "team-card";
-  teamDiv.id = teamId;
-  const isSplit = teamData.isSplitRoom || false;
-
-  teamDiv.innerHTML = `
-    <div class="team-head">
-      <input type="text" class="teamName" placeholder="단체명" value="${esc(teamData.name)}" style="max-width:160px; font-weight:bold;">
-      <select class="teamPattern" style="max-width:180px;" onchange="togglePatternUI('${teamId}')">
-        <option value="KR_ROUND" ${teamData.pattern==='KR_ROUND'?'selected':''}>🇰🇷 한국발 왕복 (출➔입)</option>
-        <option value="CN_ROUND" ${teamData.pattern==='CN_ROUND'?'selected':''}>🇨🇳 중국발 왕복 (입➔출)</option>
-        <option value="ONEWAY_OUT" ${teamData.pattern==='ONEWAY_OUT'?'selected':''}>➡️ 출국 전용 (편도)</option>
-        <option value="ONEWAY_IN" ${teamData.pattern==='ONEWAY_IN'?'selected':''}>⬅️ 입국 전용 (편도)</option>
-      </select>
-      
-      <div class="nightsBox" style="display:${(teamData.pattern||'').includes('ROUND')?'flex':'none'}; align-items:center; gap:4px;">
-        <input type="number" class="teamNights" value="${teamData.nights||4}" style="width:55px;" min="1">
-        <span style="font-size:12px; font-weight:bold;">박</span>
-      </div>
-      
-      <input type="text" class="teamPrice" placeholder="금액" value="${esc(teamData.price||'')}" style="max-width:90px;">
-      
-      <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; margin:0; font-weight:bold; color:#1769aa;">
-        <input type="checkbox" class="splitRoomCheck" onchange="toggleRoomSplitUI('${teamId}')" ${isSplit?'checked':''}> 입/출국 객실 분리
-      </label>
-
-      <button class="danger" type="button" onclick="document.getElementById('${teamId}').remove()" style="margin-left:auto;">삭제</button>
-    </div>
-    <div style="margin-bottom:10px;">
-      <textarea class="teamMemo" placeholder="단체 메모" rows="1">${esc(teamData.memo||'')}</textarea>
-    </div>
-
-    <div class="normalRoomArea ${isSplit?'hidden':''}">
-      <div class="roomTypesContainer"></div>
-      <button class="secondary" type="button" style="font-size:12px; padding:4px 8px; margin-top:4px;" onclick="addRoomTypeToTeam('${teamId}', 'roomTypesContainer')">+ 객실 추가</button>
-    </div>
-
-    <div class="splitRoomArea ${isSplit?'':'hidden'}">
-      <div class="section-subtitle">출국 시 객실 설정</div>
-      <div class="outRoomTypesContainer"></div>
-      <button class="secondary" type="button" style="font-size:12px; padding:4px 8px; margin-top:4px;" onclick="addRoomTypeToTeam('${teamId}', 'outRoomTypesContainer')">+ 출국 객실 추가</button>
-
-      <div class="section-subtitle" style="margin-top:12px;">입국 시 객실 설정</div>
-      <div class="inRoomTypesContainer"></div>
-      <button class="secondary" type="button" style="font-size:12px; padding:4px 8px; margin-top:4px;" onclick="addRoomTypeToTeam('${teamId}', 'inRoomTypesContainer')">+ 입국 객실 추가</button>
-    </div>
-  `;
-  document.getElementById("teamsContainer").appendChild(teamDiv);
-
-  if(!isSplit) {
-    if(teamData.allocations){
-      teamData.allocations.forEach(a => addRoomTypeToTeam(teamId, "roomTypesContainer", a.key, a.people, a.cap));
-    }
-  } else {
-    if(teamData.outAllocations){
-      teamData.outAllocations.forEach(a => addRoomTypeToTeam(teamId, "outRoomTypesContainer", a.key, a.people, a.cap));
-    }
-    if(teamData.inAllocations){
-      teamData.inAllocations.forEach(a => addRoomTypeToTeam(teamId, "inRoomTypesContainer", a.key, a.people, a.cap));
-    }
-  }
-}
-
-function addRoomTypeToTeam(teamId, containerClass, presetKey="6", assignPeople="", capPerRoom=""){
-  const container = document.getElementById(teamId).querySelector("." + containerClass);
-  const typeId = teamId + "_type_" + Date.now() + "_" + Math.floor(Math.random()*1000);
-  const preset = masterRooms[presetKey];
-  const cap = capPerRoom || preset.defaultCapPerRoom;
-
-  const div = document.createElement("div");
-  div.className = "type-card";
-  div.id = typeId;
-  div.innerHTML = `
-    <div class="type-grid">
-      <div>
-        <label>객실 종류</label>
-        <select class="typeSelect" onchange="onTypeSelectChange('${typeId}')">
-          ${Object.keys(masterRooms).map(k => `<option value="${k}" ${k===presetKey?'selected':''}>${masterRooms[k].label}</option>`).join('')}
-        </select>
-      </div>
-      <div>
-        <label>배정 인원</label>
-        <input type="number" class="assignPeople" min="1" placeholder="인원수" value="${assignPeople}">
-      </div>
-      <div>
-        <label>방당 인원</label>
-        <input type="number" class="capPerRoom" min="1" value="${cap}">
-      </div>
-      <div>
-        <label>필요 방수</label>
-        <input type="text" class="calcRoomsResult" readonly placeholder="자동계산" style="background:#f0f4f8; font-weight:bold;">
-      </div>
-      <div>
-        <button class="danger" type="button" style="padding:6px; margin-top:16px;" onclick="document.getElementById('${typeId}').remove()">✕</button>
-      </div>
-    </div>
-  `;
-  container.appendChild(div);
-}
-
-function onTypeSelectChange(typeId){
-  const card = document.getElementById(typeId);
-  const key = card.querySelector(".typeSelect").value;
-  card.querySelector(".capPerRoom").value = masterRooms[key].defaultCapPerRoom;
-}
-
-function collectTeamAllocations(containerDiv){
-  const results = [];
-  const cards = containerDiv.querySelectorAll(".type-card");
-  cards.forEach(card => {
-    const key = card.querySelector(".typeSelect").value;
-    const people = parseInt(card.querySelector(".assignPeople").value, 10) || 0;
-    const cap = parseInt(card.querySelector(".capPerRoom").value, 10) || 1;
-    const rooms = (people > 0 && cap > 0) ? Math.ceil(people / cap) : 0;
-    card.querySelector(".calcRoomsResult").value = rooms > 0 ? `${rooms}실` : "";
-    if(people > 0){
-      results.push({ key, label: masterRooms[key].label, people, cap, rooms });
-    }
-  });
-  return results;
-}
-
-function runSimulation(shouldSave = false){
-  const teamCards = document.querySelectorAll("#teamsContainer .team-card");
-  let teamsData = [];
-  let currentDayOutPeople = 0;
-  let currentDayOutTeamsCount = 0;
-  let currentDayOutRooms = { "6":0, "4":0, "2":0, "dadami24":0, "dadami36":0 };
-
-  // 복귀 승선 단체 (과거에서 넘어온 오늘 출국 승선 건)
-  linkedReturnTeams.forEach(t => {
-    let allocs = t.isSplitRoom ? (t.outAllocations || []) : (t.allocations || []);
-    let tPeople = t.totalPeople || 0;
-    
-    // CN_ROUND의 출국 승선은 targetDate 시점
-    if (t.pattern === 'CN_ROUND') {
-      currentDayOutPeople += tPeople;
-      currentDayOutTeamsCount++;
-      allocs.forEach(a => {
-        const r = (a.people > 0 && a.cap > 0) ? Math.ceil(a.people / a.cap) : 0;
-        if (currentDayOutRooms[a.key] !== undefined) {
-          currentDayOutRooms[a.key] += r;
+        // 다음 달 날짜 채우기 (총 6주 Grid 맞춤)
+        const totalCellsAdded = firstDay + lastDate;
+        const nextDays = (42 - totalCellsAdded) % 7; 
+        for (let i = 1; i <= nextDays; i++) {
+            const cell = document.createElement('div');
+            cell.className = 'day-cell other-month';
+            cell.innerHTML = `<div class="day-number">${i}</div>`;
+            calendarGrid.appendChild(cell);
         }
-      });
-    }
-  });
-
-  // 오늘 신규 등록 단체
-  teamCards.forEach(card => {
-    const name = card.querySelector(".teamName").value.trim() || "무명 단체";
-    const pattern = card.querySelector(".teamPattern").value;
-    const nights = card.querySelector(".teamNights").value || "4";
-    const price = card.querySelector(".teamPrice").value || "";
-    const memo = card.querySelector(".teamMemo").value || "";
-    const isSplitRoom = card.querySelector(".splitRoomCheck").checked;
-
-    let allocs = [], outAllocs = [], inAllocs = [];
-    let totalPeople = 0;
-
-    if(!isSplitRoom){
-      allocs = collectTeamAllocations(card.querySelector(".roomTypesContainer"));
-      totalPeople = allocs.reduce((sum, a) => sum + a.people, 0);
-    } else {
-      outAllocs = collectTeamAllocations(card.querySelector(".outRoomTypesContainer"));
-      inAllocs = collectTeamAllocations(card.querySelector(".inRoomTypesContainer"));
-      const outP = outAllocs.reduce((sum, a) => sum + a.people, 0);
-      const inP = inAllocs.reduce((sum, a) => sum + a.people, 0);
-      totalPeople = Math.max(outP, inP);
     }
 
-    const tObj = { name, pattern, nights, price, memo, isSplitRoom, totalPeople, allocations: allocs, outAllocations: outAllocs, inAllocations: inAllocs };
-    teamsData.push(tObj);
+    // 4. 월 이동 네비게이션
+    document.getElementById('prevMonth').addEventListener('click', () => {
+        currentDate.setMonth(currentDate.getMonth() - 1);
+        renderCalendar();
+    });
 
-    // 출국 승선 집계 (KR_ROUND 또는 ONEWAY_OUT)
-    if(pattern === 'KR_ROUND' || pattern === 'ONEWAY_OUT') {
-      currentDayOutPeople += totalPeople;
-      currentDayOutTeamsCount++;
-      const curAllocs = isSplitRoom ? outAllocs : allocs;
-      curAllocs.forEach(a => {
-        if(currentDayOutRooms[a.key] !== undefined) {
-          currentDayOutRooms[a.key] += a.rooms;
+    document.getElementById('nextMonth').addEventListener('click', () => {
+        currentDate.setMonth(currentDate.getMonth() + 1);
+        renderCalendar();
+    });
+
+    // 5. 한 달치 요약 통계 엑셀 다운로드 기능
+    document.getElementById('downloadExcelBtn').addEventListener('click', () => {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+
+        // 엑셀에 들어갈 데이터 구조
+        const excelData = [
+            ["날짜", "요일", "구분", "단체 이름", "인원(명)"]
+        ];
+
+        let grandTotalPeople = 0;
+        const lastDate = new Date(year, month + 1, 0).getDate();
+
+        for (let day = 1; day <= lastDate; day++) {
+            const dateObj = new Date(year, month, day);
+            const dateStr = formatDate(dateObj);
+            const dayIdx = dateObj.getDay(); // 0:일, 1:월, 2:화, 3:수, 4:목, 5:금, 6:토
+            
+            const dayNames = ["일", "월", "화", "수", "목", "금", "토"];
+            const dayName = dayNames[dayIdx];
+
+            // 규칙 설정: 월(1), 수(3), 금(5) -> 출국(out) / 화(2), 목(4), 토(6) -> 입국(in) / 일(0) -> -
+            let typeLabel = "-";
+            if ([1, 3, 5].includes(dayIdx)) {
+                typeLabel = "출국(out)";
+            } else if ([2, 4, 6].includes(dayIdx)) {
+                typeLabel = "입국(in)";
+            }
+
+            // 해당 일자에 dep1 또는 dep2로 걸려있는 단체 조회
+            const dayGroups = groups.filter(g => g.dep1 === dateStr || g.dep2 === dateStr);
+
+            if (dayGroups.length > 0) {
+                dayGroups.forEach(g => {
+                    excelData.push([dateStr, dayName, typeLabel, g.name, g.count]);
+                    grandTotalPeople += g.count;
+                });
+            }
         }
-      });
-    }
 
-    // 오늘 신규 입국 집계
-    if(pattern === 'CN_ROUND' || pattern === 'ONEWAY_IN') {
-      allInboundTeams.push({ name, people: totalPeople, type: pattern === 'CN_ROUND' ? "🇨🇳 중국발 입국" : "⬅️ 편도 입국" });
-    }
-  });
+        // 총 합계 행 추가
+        excelData.push([]);
+        excelData.push(["총 합계", "", "", "", grandTotalPeople]);
 
-  // UI 렌더링
-  document.getElementById("simResult").classList.remove("hidden");
+        // SheetJS를 사용하여 엑셀 파일 생성
+        const worksheet = XLSX.utils.aoa_to_sheet(excelData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, `${month + 1}월 요약`);
 
-  // 요약 통계
-  const statsDiv = document.getElementById("simStats");
-  statsDiv.innerHTML = `
-    <div class="stat"><span>오늘 출국 승선 총인원</span><b>${currentDayOutPeople} 명</b></div>
-    <div class="stat"><span>오늘 출국 단체 수</span><b>${currentDayOutTeamsCount} 개</b></div>
-    <div class="stat"><span>기준 날짜</span><b style="font-size:16px; margin-top:8px;">${selectedDate}</b></div>
-  `;
-
-  // 객실 현황 테이블
-  let tableHtml = `
-    <thead>
-      <tr>
-        <th>객실 종류</th>
-        <th>총 보유 객실</th>
-        <th>일반 차감실</th>
-        <th>단체 사용실</th>
-        <th>총 잔여 객실</th>
-        <th>상태</th>
-      </tr>
-    </thead>
-    <tbody>
-  `;
-
-  let warnings = [];
-  Object.keys(masterRooms).forEach(k => {
-    const m = masterRooms[k];
-    const genP = parseInt(m.generalPeople, 10) || 0;
-    const genC = parseInt(m.generalCap, 10) || 0;
-    const genR = (genP > 0 && genC > 0) ? Math.ceil(genP / genC) : 0;
-    const teamR = currentDayOutRooms[k] || 0;
-    const remain = m.totalRooms - genR - teamR;
-    const isOver = remain < 0;
-
-    if(isOver) warnings.push(`⚠️ <b>${m.label}</b> 객실이 <b>${Math.abs(remain)}실 부족</b>합니다.`);
-
-    tableHtml += `
-      <tr>
-        <td><b>${m.label}</b></td>
-        <td>${m.totalRooms}실</td>
-        <td>${genR}실 (${genP}명)</td>
-        <td><b>${teamR}실</b></td>
-        <td class="${isOver?'bad':''}" style="font-weight:bold;">${remain}실</td>
-        <td>${isOver ? '<span class="bad">초과!</span>' : '여유'}</td>
-      </tr>
-    `;
-  });
-  tableHtml += "</tbody>";
-  document.getElementById("totalTypeTable").innerHTML = tableHtml;
-
-  const simWarn = document.getElementById("simWarn");
-  if(warnings.length > 0){
-    simWarn.innerHTML = `<div class="warn-box">${warnings.join('<br>')}</div>`;
-  } else {
-    simWarn.innerHTML = "";
-  }
-
-  // 2. 단체 상세 여정 출력
-  const teamResContainer = document.getElementById("teamResultsContainer");
-  teamResContainer.innerHTML = "";
-
-  let allDisplayTeams = [];
-  
-  // 연동되어 출국하는 단체
-  linkedReturnTeams.forEach(t => {
-    if (t.pattern === 'CN_ROUND') {
-      allDisplayTeams.push({ ...t, isLinked: true });
-    }
-  });
-
-  // 오늘 신규 출발 단체중 출국 승선자
-  teamsData.forEach(t => {
-    if (t.pattern === 'KR_ROUND' || t.pattern === 'ONEWAY_OUT') {
-      allDisplayTeams.push({ ...t, isLinked: false });
-    }
-  });
-
-  if(allDisplayTeams.length === 0){
-    teamResContainer.innerHTML = "<div style='color:#777; font-size:13px;'>오늘 출국 승선하는 단체가 없습니다.</div>";
-  } else {
-    allDisplayTeams.forEach(t => {
-      const isRound = (t.pattern || '').includes('ROUND');
-      const retDate = isRound ? addDays(t.isLinked ? t.regDate : selectedDate, t.nights || 4) : "-";
-      
-      let patternTag = "";
-      if(t.pattern === 'KR_ROUND') patternTag = '<span class="tag-pattern">🇰🇷 한국발 왕복</span>';
-      else if(t.pattern === 'CN_ROUND') patternTag = '<span class="tag-pattern">🇨🇳 중국발 왕복</span>';
-      else if(t.pattern === 'ONEWAY_OUT') patternTag = '<span class="tag-pattern">➡️ 출국 편도</span>';
-
-      let linkedTag = t.isLinked ? `<span class="tag-linked">🔗 ${t.regDate} 등록건 복귀출국</span>` : '';
-
-      let allocText = "";
-      const curAllocs = t.isSplitRoom ? t.outAllocations : t.allocations;
-      if(curAllocs && curAllocs.length > 0){
-        allocText = curAllocs.map(a => `${a.label || masterRooms[a.key]?.label}: ${a.people}명 (${a.rooms || Math.ceil(a.people/a.cap)}실)`).join(' / ');
-      }
-
-      const div = document.createElement("div");
-      div.className = "type-card";
-      div.style.background = "#fff";
-      div.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
-          <div>
-            <b style="font-size:15px; color:#17324d;">${esc(t.name)}</b>
-            <span style="font-size:13px; color:#1769aa; font-weight:bold; margin-left:6px;">(${t.totalPeople}명)</span>
-            ${patternTag} ${linkedTag}
-          </div>
-          <div style="font-size:12px; color:#5c6673;">
-            ${isRound ? `<b>여정:</b> ${t.isLinked ? t.regDate : selectedDate} 출국 ➔ <b>${retDate} 입국</b> (${t.nights}박)` : '<b>여정:</b> 편도 출국'}
-            ${t.price ? ` | <b>금액:</b> ${esc(t.price)}` : ''}
-          </div>
-        </div>
-        <div style="font-size:12px; margin-top:6px; color:#334155;"><b>방 배정:</b> ${allocText || '없음'}</div>
-        ${t.memo ? `<div class="memo-box"><b>📝 메모:</b> ${esc(t.memo)}</div>` : ''}
-      `;
-      teamResContainer.appendChild(div);
+        // 파일 저장 (예: 2026년_09월_출입국_요약.xlsx)
+        const filename = `${year}년_${String(month + 1).padStart(2, '0')}월_출입국_요약통계.xlsx`;
+        XLSX.writeFile(workbook, filename);
     });
-  }
 
-  // 3. 오늘 입국 단체 요약 출력
-  const inContainer = document.getElementById("inTeamSummaryContainer");
-  inContainer.innerHTML = "";
-  
-  let totalInPeople = 0;
-  // 중복 제거 및 정제
-  let uniqueInTeams = [];
-  let seenKeys = new Set();
-
-  allInboundTeams.forEach(t => {
-    let key = `${t.name}_${t.people}_${t.type}`;
-    if (!seenKeys.has(key)) {
-      seenKeys.add(key);
-      uniqueInTeams.push(t);
-      totalInPeople += t.people;
-    }
-  });
-
-  document.getElementById("inTeamTotalPeople").innerText = totalInPeople;
-  document.getElementById("inTeamCount").innerText = uniqueInTeams.length;
-
-  if (uniqueInTeams.length === 0) {
-    inContainer.innerHTML = "<span style='font-size:12px; color:#888;'>오늘 입국하는 단체가 없습니다.</span>";
-  } else {
-    uniqueInTeams.forEach(t => {
-      const span = document.createElement("span");
-      span.className = "in-team-chip";
-      span.innerHTML = `🛬 <b>${esc(t.name)}</b> (${t.people}명) <small style="opacity:0.8;">[${t.type}]</small>`;
-      inContainer.appendChild(span);
-    });
-  }
-
-  // Firebase 저장
-  if(shouldSave && db){
-    db.collection("schedules").doc(selectedDate).set({
-      masterRooms: masterRooms,
-      teams: teamsData,
-      updatedAt: new Date()
-    }).then(() => {
-      alert(`[${selectedDate}] 데이터가 저장되었습니다.`);
-      if(calendar) calendar.refetchEvents();
-    }).catch(e => {
-      alert("저장 오류: " + e.message);
-    });
-  }
-}
-
-function deleteDateData(){
-  if(!selectedDate) return;
-  if(confirm(`정말로 ${selectedDate} 의 저장된 단체 데이터를 삭제하시겠습니까?`)){
-    if(db){
-      db.collection("schedules").doc(selectedDate).delete().then(() => {
-        alert("삭제되었습니다.");
-        closeSimSection();
-        if(calendar) calendar.refetchEvents();
-      });
-    }
-  }
-}
-
-function downloadResultImage(){
-  const captureArea = document.getElementById("captureArea");
-  html2canvas(captureArea, { scale: 2 }).then(canvas => {
-    const link = document.createElement('a');
-    link.download = `단동훼리_현황_${selectedDate}.png`;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
-  });
-}
+    // 초기 렌더링
+    renderCalendar();
 </script>
+
 </body>
 </html>
