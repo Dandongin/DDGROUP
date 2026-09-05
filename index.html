@@ -136,12 +136,13 @@ th{background:#f1f4f7}
         <label style="font-weight:bold;">상세 메모/내용</label>
         <input type="text" id="eventTitle" placeholder="내용 입력">
       </div>
-      <div>
+<div>
         <label style="font-weight:bold;">배경 색상</label>
         <select id="eventColor">
           <option value="#fffde7">옅은 노란색 (휴항)</option>
           <option value="#9e9e9e">회색 (점검)</option>
           <option value="#aed581">연두색 (메모)</option>
+          <option value="#e1bee7">연보라색 (🇨🇳 중국 명절/메모)</option>
         </select>
       </div>
       <div style="display:flex; gap:10px; margin-top:10px;">
@@ -413,17 +414,29 @@ document.addEventListener('DOMContentLoaded', function() {
               let evtColor = data.color || '#fffde7';
               let txtColor = '#000000';
 
-              // 휴항 / 메모 / 점검별 스타일 설정
-              if (data.type === "휴항" || evtColor === '#fffde7') {
+// 휴항 / 메모 / 점검 / 연보라색(중국메모) 스타일 처리
+              let displayTitle = data.title || data.type || "";
+              if (evtColor === '#e1bee7') {
+                displayTitle = `🇨🇳 ${displayTitle}`;
+                txtColor = '#4a148c';
+              } else if (data.type === "정기점검" || data.type === "점검" || evtColor === '#9e9e9e') {
+                evtColor = '#9e9e9e'; // 회색
+                txtColor = '#ffffff';
+              } else if (data.type === "휴항" || evtColor === '#fffde7') {
                 evtColor = '#fffde7'; // 옅은 노란색
                 txtColor = '#f57f17';
-              } else if (data.type === "정기점검" || data.type === "점검" || evtColor === '#9e9e9e') {
-  evtColor = '#9e9e9e'; // 회색
-  txtColor = '#ffffff'; // 흰색 글자
-} else if (data.type === "메모" || evtColor === '#aed581') {
-  evtColor = '#aed581';
-  txtColor = '#1b5e20';
-}
+              } else if (data.type === "메모" || evtColor === '#aed581') {
+                evtColor = '#aed581'; // 연두색
+                txtColor = '#1b5e20';
+              }
+
+              events.push({
+                id: "ce_" + doc.id,
+                title: displayTitle,
+                start: doc.id,
+                color: evtColor,
+                textColor: txtColor
+              });
 
               events.push({
                 id: "ce_" + doc.id,
