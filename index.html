@@ -791,8 +791,7 @@ function restoreTeamUI(teamData){
       <input type="text" class="teamName" placeholder="단체명" value="${esc(teamData.name)}" style="max-width:160px; font-weight:bold;">
       <select class="teamPattern" style="max-width:180px;" onchange="togglePatternUI('${teamId}')">
         <option value="ROUND" ${_p==='ROUND'?'selected':''}>🔄 왕복 (출→출)</option>
-        <option value="ONEWAY_OUT" ${_p==='ONEWAY_OUT'?'selected':''}>➡️ 출국 전용 (편도)</option>
-        <option value="ONEWAY_IN" ${_p==='ONEWAY_IN'?'selected':''}>⬅️ 입국 전용 (편도)</option>
+        <option value="ONEWAY_OUT" ${_p==='ONEWAY_OUT'?'selected':''}>➡️ 편도 출국</option>
       </select>
       
       <div class="nightsBox" style="display:${_p==='ROUND'?'flex':'none'}; align-items:center; gap:4px;">
