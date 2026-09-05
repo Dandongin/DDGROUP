@@ -1117,25 +1117,28 @@ async function downloadMonthlyExcel(year, month){
 
     const maxRows = Math.max(leftDates.length, rightDates.length);
 
+    // 공통 셀 스타일 (검은색 테두리 + 세로 가운데 정렬)
+    const cellStyle = "border:1px solid #000000; vertical-align:middle; valig:middle;";
+
     // 2. HTML 테이블 생성
     let tableHtml = `<table border="1" style="border-collapse:collapse; text-align:center; font-family:맑은 고딕, Arial;">`;
     
-    // 메인 타이틀 (2행 월/수/금 구분행 삭제)
+    // 메인 타이틀
     tableHtml += `
       <tr>
-        <th colspan="6" style="font-size:16px; font-weight:bold; background-color:#e2efda; height:40px; border:1px solid black; vertical-align:middle;">
+        <th colspan="6" style="${cellStyle} font-size:16px; font-weight:bold; background-color:#e2efda; height:40px;">
           ${titleText} 단체 운항 현황
         </th>
       </tr>
       <tr style="background-color:#f2f2f2; font-weight:bold; height:32px;">
         <!-- 왼쪽: 월,수,금 -->
-        <th style="border:1px solid black; width:90px;">날짜</th>
-        <th style="border:1px solid black; width:320px;">한국출발, 중국복귀단체</th>
-        <th style="border:1px solid black; width:70px;">총인원</th>
+        <th style="${cellStyle} width:90px;">날짜</th>
+        <th style="${cellStyle} width:320px;">한국출발, 중국복귀단체</th>
+        <th style="${cellStyle} width:70px;">총인원</th>
         <!-- 오른쪽: 화,목,일 -->
-        <th style="border:1px solid black; width:90px;">날짜</th>
-        <th style="border:1px solid black; width:320px;">한국복귀, 중국출발단체</th>
-        <th style="border:1px solid black; width:70px;">총인원</th>
+        <th style="${cellStyle} width:90px;">날짜</th>
+        <th style="${cellStyle} width:320px;">한국복귀, 중국출발단체</th>
+        <th style="${cellStyle} width:70px;">총인원</th>
       </tr>
     `;
 
@@ -1155,14 +1158,14 @@ async function downloadMonthlyExcel(year, month){
       tableHtml += `
         <tr>
           <!-- 왼쪽 (월, 수, 금) -->
-          <td style="border:1px solid black; text-align:center; vertical-align:middle; padding:5px;">${lDateDisp}</td>
-          <td style="border:1px solid black; text-align:left; vertical-align:middle; padding:5px 8px; white-space:pre-line;">${lNamesDisp}</td>
-          <td style="border:1px solid black; text-align:right; vertical-align:middle; padding:5px 8px;">${lTotalDisp}</td>
+          <td style="${cellStyle} text-align:center; padding:5px;">${lDateDisp}</td>
+          <td style="${cellStyle} text-align:left; padding:5px 8px; white-space:pre-line;">${lNamesDisp}</td>
+          <td style="${cellStyle} text-align:right; padding:5px 8px;">${lTotalDisp}</td>
 
           <!-- 오른쪽 (화, 목, 일) -->
-          <td style="border:1px solid black; text-align:center; vertical-align:middle; padding:5px;">${rDateDisp}</td>
-          <td style="border:1px solid black; text-align:left; vertical-align:middle; padding:5px 8px; white-space:pre-line;">${rNamesDisp}</td>
-          <td style="border:1px solid black; text-align:right; vertical-align:middle; padding:5px 8px;">${rTotalDisp}</td>
+          <td style="${cellStyle} text-align:center; padding:5px;">${rDateDisp}</td>
+          <td style="${cellStyle} text-align:left; padding:5px 8px; white-space:pre-line;">${rNamesDisp}</td>
+          <td style="${cellStyle} text-align:right; padding:5px 8px;">${rTotalDisp}</td>
         </tr>
       `;
     }
@@ -1170,7 +1173,7 @@ async function downloadMonthlyExcel(year, month){
     // 하단 비고
     tableHtml += `
       <tr>
-        <td colspan="6" style="border:1px solid black; text-align:left; font-size:11px; color:#d32f2f; font-weight:bold; height:30px; padding-left:8px; vertical-align:middle;">
+        <td colspan="6" style="${cellStyle} text-align:left; font-size:11px; color:#d32f2f; font-weight:bold; height:30px; padding-left:8px;">
           * 위 예약상황은 모객 중이므로 인원이 변동될 수 있습니다. (토요일 휴항 제외)
         </td>
       </tr>
