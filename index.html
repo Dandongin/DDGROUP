@@ -5,10 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>단동훼리 단체 관리 시스템</title>
 
-<!-- FullCalendar -->
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
 
-<!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -29,7 +27,15 @@ h2{font-size:16px;margin:0 0 12px}
 label{font-size:12px;color:#5c6673;display:block;margin-bottom:4px}
 input,select,button,textarea{font:inherit}
 input,select,textarea{width:100%;padding:8px 10px;border:1px solid #ccd3dc;border-radius:7px;background:white}
-input.assignPeople{background:#e3f2fd !important; border:1px solid #90caf9 !important; font-weight:bold; color:#0d47a1;}
+
+/* 배정 인원, 박수, 객실 종류에 강조 하늘색 스타일 적용 */
+input.assignPeople, input.teamNights, select.typeSelect {
+  background:#e3f2fd !important; 
+  border:1px solid #90caf9 !important; 
+  font-weight:bold; 
+  color:#0d47a1;
+}
+
 button{border:0;border-radius:7px;padding:8px 12px;cursor:pointer;font-weight:700}
 .primary{background:#1769aa;color:#fff}
 .secondary{background:#e9eef4;color:#263746}
@@ -52,7 +58,7 @@ th{background:#f1f4f7}
 .master-card{background:white;padding:10px;border-radius:8px;border:1px solid #dcdfe6;}
 .memo-box{background:#fff; border:1px dashed #cbd5e1; padding:8px 10px; border-radius:6px; margin-top:8px; font-size:12px; color:#334155;}
 .tag-pattern{background:#e3f2fd; color:#0d47a1; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:bold;}
-.tag-linked{background:#; color:#2e7d32; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:bold;}
+.tag-linked{background:#e8f5e9; color:#2e7d32; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:bold;}
 
 .section-subtitle{font-size:13px; font-weight:bold; color:#1769aa; margin:8px 0 4px 0; border-left:3px solid #1769aa; padding-left:6px;}
 
@@ -108,12 +114,10 @@ th{background:#f1f4f7}
 </header>
 
 <div class="wrap">
-  <!-- 달력 -->
   <div class="card">
     <div id="calendar"></div>
   </div>
 
-  <!-- 1. 메모 등록 -->
   <div id="eventSection" class="hidden card" style="border: 2px solid #d32f2f;">
     <div class="date-title">
       <span>[메모 등록]</span>
@@ -145,7 +149,6 @@ th{background:#f1f4f7}
     </div>
   </div>
 
-  <!-- 2. 선택 날짜 시뮬레이터 -->
   <div id="simSection" class="hidden">
     <div class="card" style="border: 2px solid #1769aa; margin-bottom: 16px;">
       <div class="date-title" style="margin-bottom:0;">
@@ -154,7 +157,6 @@ th{background:#f1f4f7}
       </div>
     </div>
 
-    <!-- 시뮬레이션 결과 요약 -->
     <div id="simResult" class="hidden">
       <div style="text-align:right; margin-bottom:10px;">
         <button class="success" onclick="downloadResultImage()">📸 결과 이미지 다운로드 (PNG)</button>
@@ -177,7 +179,6 @@ th{background:#f1f4f7}
       </div>
     </div>
 
-    <!-- 입력 및 설정 영역 -->
     <div class="card">
       <div style="margin-bottom:16px;">
         <button type="button" class="collapsible-toggle" onclick="toggleMasterArea()">
@@ -261,6 +262,16 @@ function getDayColor(dateStr) {
     return '#87CEEB'; // 월, 수, 금 (하늘색)
   }
   return '#1769aa';
+}
+
+// 선택 날짜의 요일을 파악하여 수, 목, 금요일이면 5박, 나머지는 4박 반환
+function getDefaultNightsByDate(dateStr) {
+  if (!dateStr) return "4";
+  const dow = new Date(dateStr).getDay(); // 3: 수, 4: 목, 5: 금
+  if (dow === 3 || dow === 4 || dow === 5) {
+    return "5";
+  }
+  return "4";
 }
 
 function normalizePattern(p){
@@ -384,7 +395,8 @@ document.addEventListener('DOMContentLoaded', function() {
               if (data.teams && data.teams.length > 0) {
                 data.teams.forEach(t => {
                   const p = t.totalPeople || 0;
-                  const nights = parseInt(t.nights || 4, 10);
+                  const defaultNights = getDefaultNightsByDate(regDate);
+                  const nights = parseInt(t.nights || defaultNights, 10);
                   const pattern = normalizePattern(t.pattern);
                   const returnDate = getReturnDate(regDate, nights);
 
@@ -535,7 +547,8 @@ async function openDateSim(dateStr){
           if (data.teams && data.teams.length > 0) {
             data.teams.forEach(t => {
               const pattern = normalizePattern(t.pattern);
-              const nights = parseInt(t.nights || 4, 10);
+              const defaultNights = getDefaultNightsByDate(regDate);
+              const nights = parseInt(t.nights || defaultNights, 10);
               const retDate = getReturnDate(regDate, nights);
               
               if (retDate === dateStr && pattern === 'ROUND') {
@@ -645,13 +658,17 @@ function updateMasterRoom(key){
   document.getElementById(`calc_remain_room_${key}`).innerText = remainRooms;
 }
 
-function addTeam(name="", pattern="ROUND", nights="4", price="", memo="", isSplitRoom=false){
+function addTeam(name="", pattern="ROUND", nights="", price="", memo="", isSplitRoom=false){
   const teamId = "team_" + (teamSeq++);
   const teamDiv = document.createElement("div");
   teamDiv.className = "team-card";
   teamDiv.id = teamId;
   const _p = normalizePattern(pattern);
   
+  // 날짜 선택 조건에 맞춰 기본 박수 지정 (수,목,금=5박, 기타=4박)
+  const defaultNights = getDefaultNightsByDate(selectedDate);
+  const finalNights = nights !== "" ? nights : defaultNights;
+
   teamDiv.innerHTML = `
     <div class="team-head">
       <input type="text" class="teamName" placeholder="단체명" value="${esc(name)}" style="max-width:160px; font-weight:bold;">
@@ -662,7 +679,7 @@ function addTeam(name="", pattern="ROUND", nights="4", price="", memo="", isSpli
       </select>
       
       <div class="nightsBox" style="display:${_p==='ROUND'?'flex':'none'}; align-items:center; gap:4px;">
-        <input type="number" class="teamNights" value="${nights}" style="width:55px;" min="1">
+        <input type="number" class="teamNights" value="${finalNights}" style="width:55px;" min="1">
         <span style="font-size:12px; font-weight:bold;">박</span>
       </div>
       
@@ -766,6 +783,10 @@ function restoreTeamUI(teamData){
   const isSplit = teamData.isSplitRoom || false;
   const _p = normalizePattern(teamData.pattern);
 
+  // 데이터가 별도 존재하지 않을 경우 요일 기준 기본 박수 할당
+  const defaultNights = getDefaultNightsByDate(selectedDate);
+  const finalNights = teamData.nights || defaultNights;
+
   teamDiv.innerHTML = `
     <div class="team-head">
       <input type="text" class="teamName" placeholder="단체명" value="${esc(teamData.name)}" style="max-width:160px; font-weight:bold;">
@@ -776,7 +797,7 @@ function restoreTeamUI(teamData){
       </select>
       
       <div class="nightsBox" style="display:${_p==='ROUND'?'flex':'none'}; align-items:center; gap:4px;">
-        <input type="number" class="teamNights" value="${teamData.nights||4}" style="width:55px;" min="1">
+        <input type="number" class="teamNights" value="${finalNights}" style="width:55px;" min="1">
         <span style="font-size:12px; font-weight:bold;">박</span>
       </div>
       
@@ -885,11 +906,13 @@ function runSimulation(shouldSave = true){
   let groupRoomUsed = { "6": 0, "4": 0, "2": 0, "dadami24": 0, "dadami36": 0 };
   let groupPeopleUsed = { "6": 0, "4": 0, "2": 0, "dadami24": 0, "dadami36": 0 };
 
+  const defaultNights = getDefaultNightsByDate(selectedDate);
+
   for (let idx = 0; idx < teamCards.length; idx++) {
     const card = teamCards[idx];
     const name = card.querySelector(".teamName").value.trim();
     const pattern = normalizePattern(card.querySelector(".teamPattern").value);
-    const nights = parseInt(card.querySelector(".teamNights").value, 10) || 4;
+    const nights = parseInt(card.querySelector(".teamNights").value, 10) || parseInt(defaultNights, 10);
     const price = card.querySelector(".teamPrice").value.trim();
     const memo = card.querySelector(".teamMemo").value.trim();
     const isSplitRoom = card.querySelector(".splitRoomCheck").checked;
@@ -1170,7 +1193,8 @@ async function downloadMonthlyExcel(year, month){
       data.teams.forEach(t => {
         const name = t.name || "";
         const people = parseInt(t.totalPeople || 0, 10);
-        const nights = parseInt(t.nights || 4, 10);
+        const defaultNights = getDefaultNightsByDate(regDate);
+        const nights = parseInt(t.nights || defaultNights, 10);
         const pattern = normalizePattern(t.pattern);
         const returnDate = getReturnDate(regDate, nights);
 
