@@ -305,6 +305,7 @@ document.addEventListener('DOMContentLoaded', function() {
       openDateSim(info.dateStr);
     },
     eventSources: [
+      /* 한국 공휴일 자동 연동 (빨간색 바탕 + 🇰🇷 태극기) */
       {
         events: async function(fetchInfo, successCallback) {
           try {
@@ -312,8 +313,30 @@ document.addEventListener('DOMContentLoaded', function() {
             const res = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/KR`);
             const holidays = await res.json();
             successCallback(holidays.map(h => ({
-              title: `🔴 ${h.localName}`, start: h.date, allDay: true,
-              backgroundColor: '#fff0f0', borderColor: '#f3c2c2', textColor: '#d32f2f'
+              title: `🇰🇷 ${h.localName}`,
+              start: h.date,
+              allDay: true,
+              backgroundColor: '#d32f2f',
+              borderColor: '#b71c1c',
+              textColor: '#ffffff'
+            })));
+          } catch(e) { successCallback([]); }
+        }
+      },
+      /* 중국 공휴일 자동 연동 (연보라색 바탕 + 🇨🇳 오성홍기) */
+      {
+        events: async function(fetchInfo, successCallback) {
+          try {
+            const year = fetchInfo.start.getFullYear();
+            const res = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/CN`);
+            const holidays = await res.json();
+            successCallback(holidays.map(h => ({
+              title: `🇨🇳 ${h.localName}`,
+              start: h.date,
+              allDay: true,
+              backgroundColor: '#e1bee7',
+              borderColor: '#ce93d8',
+              textColor: '#4a148c'
             })));
           } catch(e) { successCallback([]); }
         }
