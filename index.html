@@ -113,7 +113,7 @@ th{background:#f1f4f7}
     <div id="calendar"></div>
   </div>
 
-  <!-- 1. 별도 휴항/메모 등록 카드 (표시 구분 제거, 색상 및 이모지 확장) -->
+  <!-- 1. 별도 휴항/메모 등록 카드 -->
   <div id="eventSection" class="hidden card" style="border: 2px solid #d32f2f;">
     <div class="date-title">
       <span>[휴항 및 메모 등록]</span>
@@ -299,6 +299,14 @@ document.addEventListener('DOMContentLoaded', function() {
       closeEventSection();
       openDateSim(info.dateStr);
     },
+    /* 개선사항 2: 공휴일/메모 등 이미 얹어진 이벤트를 클릭했을 때도 해당 날짜 인식 */
+    eventClick: function(info) {
+      closeEventSection();
+      const dateStr = info.event.startStr ? info.event.startStr.split('T')[0] : null;
+      if (dateStr) {
+        openDateSim(dateStr);
+      }
+    },
     eventSources: [
       /* 1. 한국 공휴일 연동 (태극기 🇰🇷) */
       {
@@ -407,7 +415,7 @@ document.addEventListener('DOMContentLoaded', function() {
           }).catch(() => successCallback([]));
         }
       },
-      /* 4. 사용자 지정 메모/일정 (중복 처리 제거 단일화) */
+      /* 4. 사용자 지정 메모/일정 */
       {
         events: function(fetchInfo, successCallback) {
           if(!db) { successCallback([]); return; }
@@ -419,18 +427,17 @@ document.addEventListener('DOMContentLoaded', function() {
               let txtColor = '#000000';
               let titleText = data.title || "메모";
 
-              // 선택된 바탕색 및 이모지 자동 스타일링
               if (evtColor === '#fffde7') {
-                txtColor = '#f57f17'; // 옅은 노란색
+                txtColor = '#f57f17';
               } else if (evtColor === '#9e9e9e') {
-                txtColor = '#ffffff'; // 회색
+                txtColor = '#ffffff';
               } else if (evtColor === '#aed581') {
-                txtColor = '#1b5e20'; // 연두색
+                txtColor = '#1b5e20';
               } else if (evtColor === '#e1bee7') {
-                txtColor = '#4a148c'; // 연보라색
+                txtColor = '#4a148c';
                 if (!titleText.startsWith("🇨🇳")) titleText = `🇨🇳 ${titleText}`;
               } else if (evtColor === '#f57c00') {
-                txtColor = '#ffffff'; // 주황색
+                txtColor = '#ffffff';
                 if (!titleText.startsWith("🇰🇷")) titleText = `🇰🇷 ${titleText}`;
               }
 
@@ -559,14 +566,17 @@ async function openDateSim(dateStr){
       } else {
         initMasterRoomsUI();
         addTeam();
+        runSimulation(false); // 리턴 단체 수량 반영을 위해 새로 등록 데이터가 없어도 실행
       }
     }).catch(() => {
       initMasterRoomsUI();
       addTeam();
+      runSimulation(false);
     });
   } else {
     initMasterRoomsUI();
     addTeam();
+    runSimulation(false);
   }
 
   document.getElementById("simSection").scrollIntoView({ behavior: 'smooth' });
@@ -877,12 +887,15 @@ function runSimulation(shouldSave = true){
 
   for (let idx = 0; idx < teamCards.length; idx++) {
     const card = teamCards[idx];
-    const name = card.querySelector(".teamName").value.trim() || `단체 ${idx+1}`;
+    const name = card.querySelector(".teamName").value.trim();
     const pattern = normalizePattern(card.querySelector(".teamPattern").value);
     const nights = parseInt(card.querySelector(".teamNights").value, 10) || 4;
     const price = card.querySelector(".teamPrice").value.trim();
     const memo = card.querySelector(".teamMemo").value.trim();
     const isSplitRoom = card.querySelector(".splitRoomCheck").checked;
+
+    // 이름도 없고 객실 설정도 없는 미입력 카드는 건너뜀
+    if (!name && !card.querySelector(".assignPeople")?.value) continue;
 
     let teamTotalPeople = 0;
     let allocations = [];
@@ -896,7 +909,7 @@ function runSimulation(shouldSave = true){
       allocations = res.allocations;
 
       if(teamTotalPeople <= 0 && shouldSave) {
-        alert(`[${name}] 단체의 배정 인원을 입력해주세요.`);
+        alert(`[${name || '단체'}] 단체의 배정 인원을 입력해주세요.`);
         card.scrollIntoView({ behavior: 'smooth' });
         return;
       }
@@ -916,7 +929,7 @@ function runSimulation(shouldSave = true){
       teamTotalPeople = Math.max(outRes.totalPeople, inRes.totalPeople);
 
       if((outRes.totalPeople <= 0 || inRes.totalPeople <= 0) && shouldSave) {
-        alert(`[${name}] 단체의 출국 및 입국 배정 인원을 모두 입력해주세요.`);
+        alert(`[${name || '단체'}] 단체의 출국 및 입국 배정 인원을 모두 입력해주세요.`);
         card.scrollIntoView({ behavior: 'smooth' });
         return;
       }
@@ -940,7 +953,8 @@ function runSimulation(shouldSave = true){
     }
 
     todayTeams.push({
-      name, pattern, nights, price, memo, isSplitRoom,
+      name: name || `단체 ${idx+1}`,
+      pattern, nights, price, memo, isSplitRoom,
       totalPeople: teamTotalPeople,
       allocations, outAllocations, inAllocations,
       itineraryStr, returnDate,
@@ -948,6 +962,7 @@ function runSimulation(shouldSave = true){
     });
   }
 
+  /* 개선사항 1: 리턴(복귀) 단체의 사용 객실 수량 합산 반영 */
   linkedReturnTeams.forEach(t => {
     let targetAlloc = t.isSplitRoom ? (t.inAllocations || t.outAllocations || []) : (t.allocations || []);
     targetAlloc.forEach(a => {
@@ -1015,6 +1030,7 @@ function runSimulation(shouldSave = true){
 
   document.getElementById("simWarn").innerHTML = overLimit ? `<div class="warn-box"><span class="bad">⚠ 초과 경고:</span> 총 출국 객실 신청량이 보유 객실 수를 초과했습니다.</div>` : "";
 
+  /* 개선사항 1: 복귀 단체를 포함하여 상세 여정 리스트 구성 */
   let teamResultsHtml = "";
   if (outBoardingTeams.length === 0) {
     teamResultsHtml = `<div style="text-align:center; padding:20px; color:#666;">오늘 출국 승선 예정인 단체가 없습니다.</div>`;
@@ -1031,7 +1047,7 @@ function runSimulation(shouldSave = true){
 
       teamResultsHtml += `<div style="margin-bottom:16px; border-bottom:1px solid #e1e7ef; padding-bottom:12px;">
         <h3 style="margin-bottom:4px; color:#1769aa;">🚩 ${esc(team.name)} (${team.totalPeople}명) <span class="tag-pattern">${patternLabel}</span> ${statusTag}${priceText}</h3>
-        <div style="font-size:13px; font-weight:bold; color:#2e7d32; margin-bottom:6px;">🗓️ 여정 정보: ${team.itineraryStr || (isReturn ? `복귀 출국일: ${formatShortDate(selectedDate)}` : '')}</div>
+        <div style="font-size:13px; font-weight:bold; color:#2e7d32; margin-bottom:6px;">🗓️ 여정 정보: ${team.itineraryStr || (isReturn ? `복귀 출국일: ${formatShortDate(selectedDate)} (원출발: ${formatShortDate(team.regDate)})` : '')}</div>
         ${team.memo ? `<div class="memo-box"><b>📌 메모:</b> ${esc(team.memo)}</div>` : ''}`;
 
       let targetAllocations = [];
