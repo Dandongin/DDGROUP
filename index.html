@@ -113,7 +113,7 @@ th{background:#f1f4f7}
     <div id="calendar"></div>
   </div>
 
-  <!-- 1. 별도 휴항/메모 등록 카드 -->
+  <!-- 1. 별도 휴항/메모 등록 카드 (표시 구분 제거, 색상 및 이모지 확장) -->
   <div id="eventSection" class="hidden card" style="border: 2px solid #d32f2f;">
     <div class="date-title">
       <span>[휴항 및 메모 등록]</span>
@@ -125,24 +125,17 @@ th{background:#f1f4f7}
         <input type="date" id="eventDate" onchange="loadEventDataForDate(this.value)">
       </div>
       <div>
-        <label style="font-weight:bold;">표시 구분</label>
-        <select id="eventType">
-          <option value="휴항">휴항</option>
-          <option value="정기점검">정기점검</option>
-          <option value="메모">일반 메모</option>
-        </select>
+        <label style="font-weight:bold;">상세 메모/내용</label>
+        <input type="text" id="eventTitle" placeholder="내용 입력 (예: 휴항, 정기점검, 독도행 등)">
       </div>
       <div>
-        <label style="font-weight:bold;">상세 메모/내용</label>
-        <input type="text" id="eventTitle" placeholder="내용 입력">
-      </div>
-<div>
-        <label style="font-weight:bold;">배경 색상</label>
+        <label style="font-weight:bold;">배경 색상 및 태그</label>
         <select id="eventColor">
           <option value="#fffde7">옅은 노란색 (휴항)</option>
           <option value="#9e9e9e">회색 (점검)</option>
-          <option value="#aed581">연두색 (메모)</option>
-          <option value="#e1bee7">연보라색 (🇨🇳 중국 명절/메모)</option>
+          <option value="#aed581">연두색 (일반 메모)</option>
+          <option value="#e1bee7">연보라색 (🇨🇳 오성홍기)</option>
+          <option value="#f57c00">주황색 (🇰🇷 태극기)</option>
         </select>
       </div>
       <div style="display:flex; gap:10px; margin-top:10px;">
@@ -186,7 +179,6 @@ th{background:#f1f4f7}
 
     <!-- 입력 및 설정 영역 -->
     <div class="card">
-      <!-- 4. 보유 객실 설정 (접기/펼치기 적용) -->
       <div style="margin-bottom:16px;">
         <button type="button" class="collapsible-toggle" onclick="toggleMasterArea()">
           <span>⚙️ 선박 전체 보유 객실 및 일반 여객 설정</span>
@@ -231,7 +223,7 @@ try {
 let selectedDate = "";
 let calendar = null;
 let teamSeq = 0;
-let linkedReturnTeams = []; // 과거 날짜에서 건너온 오늘 승선 단체들
+let linkedReturnTeams = [];
 
 let masterRooms = {
   "6": { label: "6인실", totalRooms: 143, defaultCapPerRoom: 4, generalPeople: 100, generalCap: 3 },
@@ -308,8 +300,7 @@ document.addEventListener('DOMContentLoaded', function() {
       openDateSim(info.dateStr);
     },
     eventSources: [
-
-      /* 한국 공휴일 자동 연동 (태극기 이모지 복구) */
+      /* 1. 한국 공휴일 연동 (태극기 🇰🇷) */
       {
         events: async function(fetchInfo, successCallback) {
           try {
@@ -327,41 +318,53 @@ document.addEventListener('DOMContentLoaded', function() {
           } catch(e) { successCallback([]); }
         }
       },
-      /* 중국 공휴일 자동 연동 (연속 연휴 다중 날짜 분할 및 표기) */
+      /* 2. 중국 주요 명절 지정 연동 (오성홍기 🇨🇳) */
       {
-        events: async function(fetchInfo, successCallback) {
-          try {
-            const year = fetchInfo.start.getFullYear();
-            const res = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/CN`);
-            const holidays = await res.json();
-            let expandedEvents = [];
+        events: function(fetchInfo, successCallback) {
+          const year = fetchInfo.start.getFullYear();
+          const cnHolidays = {
+            2025: [
+              { name: "원단", start: "2025-01-01", end: "2025-01-03" },
+              { name: "춘절", start: "2025-01-28", end: "2025-02-04" },
+              { name: "청명절", start: "2025-04-04", end: "2025-04-06" },
+              { name: "노동절", start: "2025-05-01", end: "2025-05-05" },
+              { name: "단오절", start: "2025-05-31", end: "2025-06-02" },
+              { name: "국경절/추석", start: "2025-10-01", end: "2025-10-08" }
+            ],
+            2026: [
+              { name: "원단", start: "2026-01-01", end: "2026-01-03" },
+              { name: "춘절", start: "2026-02-15", end: "2026-02-23" },
+              { name: "청명절", start: "2026-04-04", end: "2026-04-06" },
+              { name: "노동절", start: "2026-05-01", end: "2026-05-05" },
+              { name: "단오절", start: "2026-06-19", end: "2026-06-21" },
+              { name: "추석", start: "2026-09-25", end: "2026-09-27" },
+              { name: "국경절", start: "2026-10-01", end: "2026-10-07" }
+            ]
+          };
 
-            holidays.forEach(h => {
-              // Nager.Date API 기준, 연휴 항목의 count(연속 휴무일수) 정보를 반영하여 날짜 확장
-              const count = h.count || 1;
-              const startDate = new Date(h.date);
+          let events = [];
+          const list = cnHolidays[year] || [];
 
-              for (let i = 0; i < count; i++) {
-                const curDate = new Date(startDate);
-                curDate.setDate(startDate.getDate() + i);
-                const dateStr = curDate.toISOString().split('T')[0];
-
-                expandedEvents.push({
-                  title: `🇨🇳 ${h.localName}`,
-                  start: dateStr,
-                  allDay: true,
-                  backgroundColor: '#e1bee7',
-                  borderColor: '#ce93d8',
-                  textColor: '#4a148c'
-                });
-              }
-            });
-
-            successCallback(expandedEvents);
-          } catch(e) { successCallback([]); }
+          list.forEach(h => {
+            let cur = new Date(h.start);
+            const end = new Date(h.end);
+            while (cur <= end) {
+              const dateStr = cur.toISOString().split('T')[0];
+              events.push({
+                title: `🇨🇳 ${h.name}`,
+                start: dateStr,
+                allDay: true,
+                backgroundColor: '#e1bee7',
+                borderColor: '#ce93d8',
+                textColor: '#4a148c'
+              });
+              cur.setDate(cur.getDate() + 1);
+            }
+          });
+          successCallback(events);
         }
       },
-      ,
+      /* 3. 승선 인원 요약 */
       {
         events: function(fetchInfo, successCallback) {
           if(!db) { successCallback([]); return; }
@@ -404,6 +407,7 @@ document.addEventListener('DOMContentLoaded', function() {
           }).catch(() => successCallback([]));
         }
       },
+      /* 4. 사용자 지정 메모/일정 (중복 처리 제거 단일화) */
       {
         events: function(fetchInfo, successCallback) {
           if(!db) { successCallback([]); return; }
@@ -413,44 +417,26 @@ document.addEventListener('DOMContentLoaded', function() {
               const data = doc.data();
               let evtColor = data.color || '#fffde7';
               let txtColor = '#000000';
+              let titleText = data.title || "메모";
 
-// 1. 기본 제목 세팅 (타이틀이 있으면 타이틀만, 없으면 구분값만 사용해 중복 방지)
-              let rawTitle = data.title ? data.title.trim() : "";
-              let typeName = data.type || "";
-              let displayTitle = "";
-
-              if (rawTitle && typeName && rawTitle !== typeName) {
-                displayTitle = `${typeName} - ${rawTitle}`;
-              } else {
-                displayTitle = rawTitle || typeName || "메모";
-              }
-
-              // 2. 색상 및 이모지 스타일 지정
-              if (evtColor === '#e1bee7') {
-                displayTitle = displayTitle.startsWith("🇨🇳") ? displayTitle : `🇨🇳 ${displayTitle}`;
-                txtColor = '#4a148c';
-              } else if (data.type === "정기점검" || data.type === "점검" || evtColor === '#9e9e9e') {
-                evtColor = '#9e9e9e';
-                txtColor = '#ffffff';
-              } else if (data.type === "휴항" || evtColor === '#fffde7') {
-                evtColor = '#fffde7';
-                txtColor = '#f57f17';
-              } else if (data.type === "메모" || evtColor === '#aed581') {
-                evtColor = '#aed581';
-                txtColor = '#1b5e20';
+              // 선택된 바탕색 및 이모지 자동 스타일링
+              if (evtColor === '#fffde7') {
+                txtColor = '#f57f17'; // 옅은 노란색
+              } else if (evtColor === '#9e9e9e') {
+                txtColor = '#ffffff'; // 회색
+              } else if (evtColor === '#aed581') {
+                txtColor = '#1b5e20'; // 연두색
+              } else if (evtColor === '#e1bee7') {
+                txtColor = '#4a148c'; // 연보라색
+                if (!titleText.startsWith("🇨🇳")) titleText = `🇨🇳 ${titleText}`;
+              } else if (evtColor === '#f57c00') {
+                txtColor = '#ffffff'; // 주황색
+                if (!titleText.startsWith("🇰🇷")) titleText = `🇰🇷 ${titleText}`;
               }
 
               events.push({
                 id: "ce_" + doc.id,
-                title: displayTitle,
-                start: doc.id,
-                color: evtColor,
-                textColor: txtColor
-              });
-
-              events.push({
-                id: "ce_" + doc.id,
-                title: data.type === "메모" ? (data.title ? `${data.title}` : "메모") : `${data.type} ${data.title ? '- ' + data.title : ''}`,
+                title: titleText,
                 start: doc.id,
                 color: evtColor,
                 textColor: txtColor
@@ -477,14 +463,12 @@ function openEventModal(){
 
 function loadEventDataForDate(dateStr){
   if(!dateStr) return;
-  document.getElementById("eventType").value = "휴항";
   document.getElementById("eventTitle").value = "";
   document.getElementById("eventColor").value = "#fffde7";
   if(db){
     db.collection("custom_events").doc(dateStr).get().then(doc => {
       if(doc.exists){
         const data = doc.data();
-        document.getElementById("eventType").value = data.type || "휴항";
         document.getElementById("eventTitle").value = data.title || "";
         document.getElementById("eventColor").value = data.color || "#fffde7";
       }
@@ -497,12 +481,13 @@ function closeEventSection(){ document.getElementById("eventSection").classList.
 function saveCustomEvent(){
   const dateStr = document.getElementById("eventDate").value;
   if(!dateStr){ alert("날짜를 선택해주세요."); return; }
-  const type = document.getElementById("eventType").value;
   const title = document.getElementById("eventTitle").value.trim();
   const color = document.getElementById("eventColor").value;
 
+  if(!title){ alert("내용을 입력해주세요."); return; }
+
   if(db){
-    db.collection("custom_events").doc(dateStr).set({ type, title, color, updatedAt: new Date() }).then(() => {
+    db.collection("custom_events").doc(dateStr).set({ title, color, updatedAt: new Date() }).then(() => {
       alert(`[${dateStr}] 일정이 저장되었습니다.`);
       closeEventSection();
       if(calendar) calendar.refetchEvents();
