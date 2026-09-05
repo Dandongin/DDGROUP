@@ -288,7 +288,7 @@ document.addEventListener('DOMContentLoaded', function() {
     headerToolbar: { left: 'prev,next today', center: 'title', right: 'monthlyExport' },
     customButtons: {
       monthlyExport: {
-        text: '📥 이번달 다운로드',
+        text: '📥 이번 달 (단체)',
         click: function() {
           const viewStart = calendar.view.currentStart;
           downloadMonthlyExcel(viewStart.getFullYear(), viewStart.getMonth() + 1);
