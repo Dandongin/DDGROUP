@@ -161,7 +161,7 @@ th{background:#f1f4f7}
       </div>
       <div id="captureArea" style="background:#f4f6f9; padding:10px; border-radius:12px; margin-bottom: 16px;">
         <div class="card">
-          <h2>1. 선택 날짜 출국 승선 요약</h2>
+          <h2>1. 출국 요약</h2>
           <div class="stats" id="simStats"></div>
           <h3 style="margin-top:20px; margin-bottom:10px; font-size:14px;">보유 객실 대비 사용 비중 (출국 승선 기준)</h3>
           <div class="table-responsive">
@@ -171,7 +171,7 @@ th{background:#f1f4f7}
         </div>
 
         <div class="card">
-          <h2>2. 오늘 출국 승선 단체 상세 여정</h2>
+          <h2>2. 출국 단체 상세 </h2>
           <div id="teamResultsContainer"></div>
         </div>
       </div>
@@ -181,7 +181,7 @@ th{background:#f1f4f7}
     <div class="card">
       <div style="margin-bottom:16px;">
         <button type="button" class="collapsible-toggle" onclick="toggleMasterArea()">
-          <span>⚙️ 선박 전체 보유 객실 및 일반 여객 설정</span>
+          <span>⚙️ 객실 및 일반 여객 설정</span>
           <span id="masterToggleIcon">▼ 열기</span>
         </button>
         <div id="masterAreaContent" class="hidden" style="margin-top:10px;">
@@ -189,12 +189,12 @@ th{background:#f1f4f7}
         </div>
       </div>
 
-      <h2>[신규 등록] 출발 단체 및 여정 설정</h2>
+      <h2>[신규 등록] 출발 단체 및 여정 </h2>
       <div id="teamsContainer"></div>
       <button class="secondary" style="margin-top:8px" onclick="addTeam()">+ 단체 추가</button>
 
       <div style="margin-top:20px; border-top:1px solid #eee; padding-top:16px; display:flex; gap:10px;">
-        <button class="primary" style="font-size:15px;padding:12px 20px" onclick="runSimulation(true)">계산 및 서버 저장</button>
+        <button class="primary" style="font-size:15px;padding:12px 20px" onclick="runSimulation(true)">기록 및 서버 저장</button>
         <button class="danger" onclick="deleteDateData()">이 날짜 데이터 삭제</button>
       </div>
     </div>
