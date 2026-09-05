@@ -36,7 +36,7 @@ button{border:0;border-radius:7px;padding:8px 12px;cursor:pointer;font-weight:70
 .success{background:#2e7d32;color:#fff}
 .danger{background:#fff0f0;color:#b3261e}
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-.stat{padding:14px;border-radius:9px;background:#f3f6f9;}.stat b{display:block;font-size:22px;margin-top:5px}
+.stat{padding:14px;border-radius:99px;background:#f3f6f9;}.stat b{display:block;font-size:22px;margin-top:5px}
 .small{font-size:11px;color:#687583}
 .hidden{display:none!important}
 .warn-box{padding:10px 12px;background:#fff0f0;border:1px solid #f3c2c2;border-radius:8px;font-size:13px;margin-top:12px}
@@ -299,7 +299,6 @@ document.addEventListener('DOMContentLoaded', function() {
       closeEventSection();
       openDateSim(info.dateStr);
     },
-    /* 개선사항 2: 공휴일/메모 등 이미 얹어진 이벤트를 클릭했을 때도 해당 날짜 인식 */
     eventClick: function(info) {
       closeEventSection();
       const dateStr = info.event.startStr ? info.event.startStr.split('T')[0] : null;
@@ -566,7 +565,7 @@ async function openDateSim(dateStr){
       } else {
         initMasterRoomsUI();
         addTeam();
-        runSimulation(false); // 리턴 단체 수량 반영을 위해 새로 등록 데이터가 없어도 실행
+        runSimulation(false);
       }
     }).catch(() => {
       initMasterRoomsUI();
@@ -884,6 +883,7 @@ function runSimulation(shouldSave = true){
 
   let todayTeams = [];
   let groupRoomUsed = { "6": 0, "4": 0, "2": 0, "dadami24": 0, "dadami36": 0 };
+  let groupPeopleUsed = { "6": 0, "4": 0, "2": 0, "dadami24": 0, "dadami36": 0 };
 
   for (let idx = 0; idx < teamCards.length; idx++) {
     const card = teamCards[idx];
@@ -894,7 +894,6 @@ function runSimulation(shouldSave = true){
     const memo = card.querySelector(".teamMemo").value.trim();
     const isSplitRoom = card.querySelector(".splitRoomCheck").checked;
 
-    // 이름도 없고 객실 설정도 없는 미입력 카드는 건너뜀
     if (!name && !card.querySelector(".assignPeople")?.value) continue;
 
     let teamTotalPeople = 0;
@@ -915,7 +914,10 @@ function runSimulation(shouldSave = true){
       }
       
       if (pattern === 'ROUND' || pattern === 'ONEWAY_OUT') {
-        allocations.forEach(a => groupRoomUsed[a.key] += a.roomsNeeded);
+        allocations.forEach(a => {
+          groupRoomUsed[a.key] += a.roomsNeeded;
+          groupPeopleUsed[a.key] += a.people;
+        });
       }
 
     } else {
@@ -935,7 +937,10 @@ function runSimulation(shouldSave = true){
       }
 
       if (pattern === 'ROUND' || pattern === 'ONEWAY_OUT') {
-        outAllocations.forEach(a => groupRoomUsed[a.key] += a.roomsNeeded);
+        outAllocations.forEach(a => {
+          groupRoomUsed[a.key] += a.roomsNeeded;
+          groupPeopleUsed[a.key] += a.people;
+        });
       }
     }
 
@@ -962,12 +967,13 @@ function runSimulation(shouldSave = true){
     });
   }
 
-  /* 개선사항 1: 리턴(복귀) 단체의 사용 객실 수량 합산 반영 */
+  /* 복귀 단체 사용 인원 및 객실 수량 합산 */
   linkedReturnTeams.forEach(t => {
     let targetAlloc = t.isSplitRoom ? (t.inAllocations || t.outAllocations || []) : (t.allocations || []);
     targetAlloc.forEach(a => {
       if(groupRoomUsed[a.key] !== undefined) {
         groupRoomUsed[a.key] += a.roomsNeeded;
+        groupPeopleUsed[a.key] += a.people;
       }
     });
   });
@@ -998,7 +1004,14 @@ function runSimulation(shouldSave = true){
     <div class="stat">객실 사용량<b>${groupTotalRooms}개</b><span>출국 단체 객실 합계</span></div>
   `;
 
-  let totalTypeHtml = `<thead><tr><th>객실 종류</th><th>전체 보유 수</th><th>일반 여객</th><th>단체 출국 승선</th><th>총 사용 객실</th><th>보유 대비 비중</th></tr></thead><tbody>`;
+  /* 헤더 순서 변경: 객실 종류 > 총 사용 객실 > 보유 대비 비중 > 단체 출국 승선 > 일반 여객 */
+  let totalTypeHtml = `<thead><tr>
+    <th>객실 종류</th>
+    <th>총 사용 객실</th>
+    <th>보유 대비 비중</th>
+    <th>단체 출국 승선</th>
+    <th>일반 여객</th>
+  </tr></thead><tbody>`;
   let overLimit = false;
 
   Object.keys(masterRooms).forEach(key => {
@@ -1006,6 +1019,7 @@ function runSimulation(shouldSave = true){
     const total = preset.totalRooms;
     const genUsed = generalRoomUsed[key];
     const grpUsed = groupRoomUsed[key];
+    const grpPeople = groupPeopleUsed[key];
     const totalUsed = genUsed + grpUsed;
     const genPeople = parseInt(preset.generalPeople, 10) || 0;
     
@@ -1016,13 +1030,15 @@ function runSimulation(shouldSave = true){
       if(totalUsed > total) overLimit = true;
     }
 
+    const grpDisp = grpPeople > 0 ? `${grpPeople}명 (${grpUsed}개)` : "0개";
+    const genDisp = genPeople > 0 ? `${genPeople}명 (${genUsed}개)` : "0개";
+
     totalTypeHtml += `<tr>
       <td><b>${preset.label}</b></td>
-      <td>${total > 0 ? total + "개" : "무제한"}</td>
-      <td>${genPeople > 0 ? `${genPeople}명 (${genUsed}개)` : "0개"}</td>
-      <td>${grpUsed}개</td>
       <td class="${total > 0 && totalUsed > total ? 'bad' : ''}"><b>${totalUsed}개</b></td>
       <td>${pctStr}</td>
+      <td>${grpDisp}</td>
+      <td>${genDisp}</td>
     </tr>`;
   });
   totalTypeHtml += `</tbody>`;
@@ -1030,7 +1046,6 @@ function runSimulation(shouldSave = true){
 
   document.getElementById("simWarn").innerHTML = overLimit ? `<div class="warn-box"><span class="bad">⚠ 초과 경고:</span> 총 출국 객실 신청량이 보유 객실 수를 초과했습니다.</div>` : "";
 
-  /* 개선사항 1: 복귀 단체를 포함하여 상세 여정 리스트 구성 */
   let teamResultsHtml = "";
   if (outBoardingTeams.length === 0) {
     teamResultsHtml = `<div style="text-align:center; padding:20px; color:#666;">오늘 출국 승선 예정인 단체가 없습니다.</div>`;
