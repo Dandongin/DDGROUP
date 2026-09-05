@@ -229,8 +229,8 @@ let masterRooms = {
   "6": { label: "6인실", totalRooms: 143, defaultCapPerRoom: 4, generalPeople: 100, generalCap: 3 },
   "4": { label: "4인실", totalRooms: 124, defaultCapPerRoom: 4, generalPeople: 50, generalCap: 2 },
   "2": { label: "2인실", totalRooms: 15, defaultCapPerRoom: 2, generalPeople: "", generalCap: "" },
-  "dadami24": { label: "다다미 24인실", totalRooms: 2, defaultCapPerRoom: 24, generalPeople: "", generalCap: "" },
-  "dadami36": { label: "다다미 36인실", totalRooms: 1, defaultCapPerRoom: 36, generalPeople: "", generalCap: "" }
+  "dadami24": { label: "다다미24", totalRooms: 2, defaultCapPerRoom: 24, generalPeople: "", generalCap: "" },
+  "dadami36": { label: "다다미36", totalRooms: 1, defaultCapPerRoom: 36, generalPeople: "", generalCap: "" }
 };
 
 function esc(s){ return String(s??"").replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m])); }
@@ -549,7 +549,7 @@ async function openDateSim(dateStr){
           }
         }
       });
-    } catch(e) { console.error("복귀 단체 조회 오류", e); }
+    } catch(e) { console.error("리턴 단체 조회 오류", e); }
   }
 
   if(db){
@@ -950,7 +950,7 @@ function runSimulation(shouldSave = true){
 
     let itineraryStr = "";
     if(pattern === 'ROUND') {
-      itineraryStr = `출국: ${selShort} ~ 복귀출국: ${retShort} (${nights}박)`;
+      itineraryStr = `출국: ${selShort} ~ 리턴출국: ${retShort} (${nights}박)`;
     } else if(pattern === 'ONEWAY_OUT') {
       itineraryStr = `출국: ${selShort} (편도)`;
     } else {
@@ -967,7 +967,7 @@ function runSimulation(shouldSave = true){
     });
   }
 
-  /* 복귀 단체 사용 인원 및 객실 수량 합산 */
+  /* 리턴 단체 사용 인원 및 객실 수량 합산 */
   linkedReturnTeams.forEach(t => {
     let targetAlloc = t.isSplitRoom ? (t.inAllocations || t.outAllocations || []) : (t.allocations || []);
     targetAlloc.forEach(a => {
@@ -1000,7 +1000,7 @@ function runSimulation(shouldSave = true){
 
   document.getElementById("simStats").innerHTML = `
     <div class="stat">출국 (예상) 총 인원<b>${grandTotalPeople}명</b><span>일반 ${generalTotalPeople}명 + 단체 ${groupTotalPeople}명</span></div>
-    <div class="stat">출국 단체 인원<b>총 ${groupTotalPeople}명</b><span>신규 ${todayOutTeams.length}개 단체 + 복귀 ${linkedReturnTeams.length}개 단체</span></div>
+    <div class="stat">출국 단체 인원<b>총 ${groupTotalPeople}명</b><span>신규 ${todayOutTeams.length}개 단체 + 리턴 ${linkedReturnTeams.length}개 단체</span></div>
     <div class="stat">객실 사용량<b>${groupTotalRooms}개</b><span>출국 단체 객실 합계</span></div>
   `;
 
@@ -1057,12 +1057,12 @@ function runSimulation(shouldSave = true){
 
       const isReturn = team.isReturnOnTarget;
       const statusTag = isReturn 
-        ? `<span class="tag-linked">🔄 복귀 출국 (${formatShortDate(team.regDate)} 등록)</span>`
+        ? `<span class="tag-linked">🔄 리턴 출국 (${formatShortDate(team.regDate)} 등록)</span>`
         : '';
 
       teamResultsHtml += `<div style="margin-bottom:16px; border-bottom:1px solid #e1e7ef; padding-bottom:12px;">
         <h3 style="margin-bottom:4px; color:#1769aa;">🚩 ${esc(team.name)} (${team.totalPeople}명) <span class="tag-pattern">${patternLabel}</span> ${statusTag}${priceText}</h3>
-        <div style="font-size:13px; font-weight:bold; color:#2e7d32; margin-bottom:6px;">🗓️ 여정 정보: ${team.itineraryStr || (isReturn ? `복귀 출국일: ${formatShortDate(selectedDate)} (원출발: ${formatShortDate(team.regDate)})` : '')}</div>
+        <div style="font-size:13px; font-weight:bold; color:#2e7d32; margin-bottom:6px;">🗓️ 여정 정보: ${team.itineraryStr || (isReturn ? `리턴일: ${formatShortDate(selectedDate)} (원출발: ${formatShortDate(team.regDate)})` : '')}</div>
         ${team.memo ? `<div class="memo-box"><b>📌 메모:</b> ${esc(team.memo)}</div>` : ''}`;
 
       let targetAllocations = [];
@@ -1076,7 +1076,7 @@ function runSimulation(shouldSave = true){
       
       teamResultsHtml += `<div class="table-responsive">
         <table>
-          <thead><tr><th>출국 승선 객실 종류</th><th>인원</th><th>수용 설정</th><th>필요 객실 (${teamTotalRooms}실)</th><th>보유 대비 비중</th></tr></thead>
+          <thead><tr><th>객실 종류</th><th>인원</th><th>객실 당</th><th>필요 객실 (${teamTotalRooms}실)</th><th>보유 대비 비중</th></tr></thead>
           <tbody>`;
       targetAllocations.forEach(a => {
         const roomHoldPct = a.totalRooms > 0 ? (a.roomsNeeded / a.totalRooms * 100).toFixed(1) + `% (${a.roomsNeeded}/${a.totalRooms}개)` : "—";
@@ -1211,10 +1211,10 @@ async function downloadMonthlyExcel(year, month){
       </tr>
       <tr style="background-color:#f2f2f2; font-weight:bold; height:32px;">
         <th style="${cellStyle} width:90px;">날짜</th>
-        <th style="${cellStyle} width:320px;">한국출발, 중국복귀단체</th>
+        <th style="${cellStyle} width:320px;">한국출발, 중국리턴단체</th>
         <th style="${cellStyle} width:70px;">총인원</th>
         <th style="${cellStyle} width:90px;">날짜</th>
-        <th style="${cellStyle} width:320px;">한국복귀, 중국출발단체</th>
+        <th style="${cellStyle} width:320px;">한국리턴, 중국출발단체</th>
         <th style="${cellStyle} width:70px;">총인원</th>
       </tr>
     `;
