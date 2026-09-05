@@ -36,7 +36,7 @@ button{border:0;border-radius:7px;padding:8px 12px;cursor:pointer;font-weight:70
 .success{background:#2e7d32;color:#fff}
 .danger{background:#fff0f0;color:#b3261e}
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-.stat{padding:14px;border-radius:10px;background:#f3f6f9;}.stat b{display:block;font-size:22px;margin-top:5px}
+.stat{padding:14px;border-radius:0;background:#f3f6f9;}.stat b{display:block;font-size:22px;margin-top:5px}
 .small{font-size:11px;color:#687583}
 .hidden{display:none!important}
 .warn-box{padding:10px 12px;background:#fff0f0;border:1px solid #f3c2c2;border-radius:8px;font-size:13px;margin-top:12px}
@@ -53,7 +53,6 @@ th{background:#f1f4f7}
 .memo-box{background:#fff; border:1px dashed #cbd5e1; padding:8px 10px; border-radius:6px; margin-top:8px; font-size:12px; color:#334155;}
 .tag-pattern{background:#e3f2fd; color:#0d47a1; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:bold;}
 .tag-linked{background:#e8f5e9; color:#2e7d32; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:bold;}
-.tag-memo{background:#e8f5e9; color:#1b5e20; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:bold;}
 
 .section-subtitle{font-size:13px; font-weight:bold; color:#1769aa; margin:8px 0 4px 0; border-left:3px solid #1769aa; padding-left:6px;}
 
@@ -105,7 +104,7 @@ th{background:#f1f4f7}
     <h1 style="display:inline-block; margin-right:15px;">📅 단동훼리 단체 관리</h1>
     <span style="font-size:12px; opacity:0.8; display:block;">출국/입국 스마트 여정 및 객실 관리</span>
   </div>
-  <button style="background:#d32f2f; color:white; padding:9px 15px; font-size:13px;" onclick="openEventModal()">메모 등록</button>
+  <button style="background:#d32f2f; color:white; padding:9px 15px; font-size:13px;" onclick="openEventModal()">휴항/메모 별도 등록</button>
 </header>
 
 <div class="wrap">
@@ -114,10 +113,10 @@ th{background:#f1f4f7}
     <div id="calendar"></div>
   </div>
 
-  <!-- 1. 메모 등록 카드 -->
+  <!-- 1. 별도 휴항/메모 등록 카드 -->
   <div id="eventSection" class="hidden card" style="border: 2px solid #d32f2f;">
     <div class="date-title">
-      <span>[메모 등록]</span>
+      <span>[휴항 및 메모 등록]</span>
       <button class="secondary" style="font-size:12px; margin-left:auto;" onclick="closeEventSection()">닫기 ✕</button>
     </div>
     <div style="display:grid; gap:12px; max-width:600px;">
@@ -127,14 +126,14 @@ th{background:#f1f4f7}
       </div>
       <div>
         <label style="font-weight:bold;">상세 메모/내용</label>
-        <input type="text" id="eventTitle" placeholder="내용 입력">
+        <input type="text" id="eventTitle" placeholder="내용 입력 (예: 휴항, 정기점검, 독도행 등)">
       </div>
       <div>
         <label style="font-weight:bold;">배경 색상 및 태그</label>
         <select id="eventColor">
-          <option value="#fffde7">옅은 노란색</option>
-          <option value="#9e9e9e">회색 </option>
-          <option value="#e8f5e9">연두색 </option>
+          <option value="#fffde7">옅은 노란색 (휴항)</option>
+          <option value="#9e9e9e">회색 (점검)</option>
+          <option value="#e8f5e9">밝은 연두색 (일반 메모)</option>
           <option value="#e1bee7">연보라색 (🇨🇳 오성홍기)</option>
           <option value="#f57c00">주황색 (🇰🇷 태극기)</option>
         </select>
@@ -433,7 +432,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 txtColor = '#ffffff';
               } else if (evtColor === '#aed581' || evtColor === '#e8f5e9') {
                 txtColor = '#1b5e20';
-              }
               } else if (evtColor === '#e1bee7') {
                 txtColor = '#4a148c';
                 if (!titleText.startsWith("🇨🇳")) titleText = `🇨🇳 ${titleText}`;
@@ -998,16 +996,16 @@ function runSimulation(shouldSave = true){
     generalRoomUsed[key] = genRooms;
   });
 
-const grandTotalPeople = generalTotalPeople + groupTotalPeople;
+  const grandTotalPeople = generalTotalPeople + groupTotalPeople;
 
   /* 일반 객실 및 총 사용 객실 합계 계산 */
   const generalTotalRooms = Object.values(generalRoomUsed).reduce((a,b)=>a+b, 0);
   const grandTotalRooms = generalTotalRooms + groupTotalRooms;
 
   document.getElementById("simStats").innerHTML = `
-    <div class="stat">출국 총 인원(예상)<b>${grandTotalPeople}명</b><span>일반 ${generalTotalPeople}명 + 단체 ${groupTotalPeople}명</span></div>
+    <div class="stat">출국 (예상) 총 인원<b>${grandTotalPeople}명</b><span>일반 ${generalTotalPeople}명 + 단체 ${groupTotalPeople}명</span></div>
     <div class="stat">출국 단체 인원<b>총 ${groupTotalPeople}명</b><span>신규 ${todayOutTeams.length}개 + 리턴 ${linkedReturnTeams.length}개</span></div>
-    <div class="stat">객실 사용량(예상)<b>총 ${grandTotalRooms}개</b><span>일반 ${generalTotalRooms}개 + 단체 ${groupTotalRooms}개</span></div>
+    <div class="stat">객실 사용량<b>총 ${grandTotalRooms}개</b><span>일반 ${generalTotalRooms}개 + 단체 ${groupTotalRooms}개</span></div>
   `;
 
   /* 헤더 순서 변경: 객실 종류 > 총 사용 객실 > 보유 대비 비중 > 단체 출국 승선 > 일반 여객 */
