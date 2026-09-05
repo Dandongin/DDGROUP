@@ -56,6 +56,10 @@ th{background:#f1f4f7}
 
 .section-subtitle{font-size:13px; font-weight:bold; color:#1769aa; margin:8px 0 4px 0; border-left:3px solid #1769aa; padding-left:6px;}
 
+/* 달력 요일 색상 지정 (토: 파란색, 일: 빨간색) */
+.fc .fc-day-sat a { color: #0000ff !important; }
+.fc .fc-day-sun a { color: #d32f2f !important; }
+
 /* 접기/펼치기 스타일 */
 .collapsible-toggle {
   display: flex;
@@ -100,7 +104,7 @@ th{background:#f1f4f7}
     <h1 style="display:inline-block; margin-right:15px;">📅 단동훼리 단체 관리</h1>
     <span style="font-size:12px; opacity:0.8; display:block;">출국/입국 스마트 여정 및 객실 관리</span>
   </div>
-  <button style="background:#d32f2f; color:white; padding:9px 15px; font-size:13px;" onclick="openEventModal()">🚫 휴항/메모 별도 등록</button>
+  <button style="background:#d32f2f; color:white; padding:9px 15px; font-size:13px;" onclick="openEventModal()">휴항/메모 별도 등록</button>
 </header>
 
 <div class="wrap">
@@ -112,7 +116,7 @@ th{background:#f1f4f7}
   <!-- 1. 별도 휴항/메모 등록 카드 -->
   <div id="eventSection" class="hidden card" style="border: 2px solid #d32f2f;">
     <div class="date-title">
-      <span>🚫 [휴항 및 메모 등록]</span>
+      <span>[휴항 및 메모 등록]</span>
       <button class="secondary" style="font-size:12px; margin-left:auto;" onclick="closeEventSection()">닫기 ✕</button>
     </div>
     <div style="display:grid; gap:12px; max-width:600px;">
@@ -123,9 +127,9 @@ th{background:#f1f4f7}
       <div>
         <label style="font-weight:bold;">표시 구분</label>
         <select id="eventType">
-          <option value="⛔ 휴항">⛔ 휴항</option>
-          <option value="🔧 정기점검">🔧 정기점검</option>
-          <option value="✏️ 메모">✏️ 일반 메모</option>
+          <option value="휴항">휴항</option>
+          <option value="정기점검">정기점검</option>
+          <option value="메모">일반 메모</option>
         </select>
       </div>
       <div>
@@ -135,9 +139,9 @@ th{background:#f1f4f7}
       <div>
         <label style="font-weight:bold;">배경 색상</label>
         <select id="eventColor">
-          <option value="#d32f2f">빨간색 (휴항)</option>
+          <option value="#fffde7">옅은 노란색 (휴항)</option>
           <option value="#ed6c02">주황색 (점검)</option>
-          <option value="#0288d1">파란색 (메모)</option>
+          <option value="#aed581">연두색 (메모)</option>
         </select>
       </div>
       <div style="display:flex; gap:10px; margin-top:10px;">
@@ -238,7 +242,6 @@ let masterRooms = {
 
 function esc(s){ return String(s??"").replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m])); }
 
-// 요구사항 5: 출발일 포함 4일째 출국 처리 (예: 월요일 출국 -> 3일 후 목요일 복귀 출국)
 function getReturnDate(dateStr, nights) {
   const result = new Date(dateStr);
   const addDaysNum = Math.max(0, parseInt(nights, 10) - 1);
@@ -257,7 +260,6 @@ function formatShortDate(dateStr) {
   return dateStr.substring(5);
 }
 
-// 요구사항 3: 요일별 이벤트 색상 지정 (화, 목, 일: 분홍색 / 월, 수, 금: 하늘색)
 function getDayColor(dateStr) {
   const dow = new Date(dateStr).getDay();
   if (dow === 2 || dow === 4 || dow === 0) {
@@ -305,7 +307,7 @@ document.addEventListener('DOMContentLoaded', function() {
       openDateSim(info.dateStr);
     },
     eventSources: [
-      /* 한국 공휴일 자동 연동 (빨간색 바탕 + 🇰🇷 태극기) */
+      /* 한국 공휴일 자동 연동 (주황색 바탕) */
       {
         events: async function(fetchInfo, successCallback) {
           try {
@@ -313,17 +315,17 @@ document.addEventListener('DOMContentLoaded', function() {
             const res = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/KR`);
             const holidays = await res.json();
             successCallback(holidays.map(h => ({
-              title: `🇰🇷 ${h.localName}`,
+              title: h.localName,
               start: h.date,
               allDay: true,
-              backgroundColor: '#d32f2f',
-              borderColor: '#b71c1c',
+              backgroundColor: '#f57c00',
+              borderColor: '#e65100',
               textColor: '#ffffff'
             })));
           } catch(e) { successCallback([]); }
         }
       },
-      /* 중국 공휴일 자동 연동 (연보라색 바탕 + 🇨🇳 오성홍기) */
+      /* 중국 공휴일 자동 연동 (연보라색 바탕) */
       {
         events: async function(fetchInfo, successCallback) {
           try {
@@ -370,7 +372,6 @@ document.addEventListener('DOMContentLoaded', function() {
             let events = [];
             Object.keys(dailyAll).forEach(d => {
               if (dailyAll[d] > 0) {
-                // 요구사항 3: 요일별 출국 색상 변경 적용
                 events.push({ 
                   title: `출${dailyAll[d]}`, 
                   start: d, 
@@ -391,11 +392,24 @@ document.addEventListener('DOMContentLoaded', function() {
             let events = [];
             querySnapshot.forEach((doc) => {
               const data = doc.data();
+              let evtColor = data.color || '#fffde7';
+              let txtColor = '#000000';
+
+              // 휴항 / 메모 / 점검별 스타일 설정
+              if (data.type === "휴항" || evtColor === '#fffde7') {
+                evtColor = '#fffde7'; // 옅은 노란색
+                txtColor = '#f57f17';
+              } else if (data.type === "메모" || evtColor === '#aed581') {
+                evtColor = '#aed581'; // 연두색
+                txtColor = '#1b5e20';
+              }
+
               events.push({
                 id: "ce_" + doc.id,
-                title: data.type === "✏️ 메모" ? (data.title ? `✏️ ${data.title}` : "✏️ 메모") : `${data.type} ${data.title ? '- ' + data.title : ''}`,
+                title: data.type === "메모" ? (data.title ? `${data.title}` : "메모") : `${data.type} ${data.title ? '- ' + data.title : ''}`,
                 start: doc.id,
-                color: data.color || '#d32f2f'
+                color: evtColor,
+                textColor: txtColor
               });
             });
             successCallback(events);
@@ -419,16 +433,16 @@ function openEventModal(){
 
 function loadEventDataForDate(dateStr){
   if(!dateStr) return;
-  document.getElementById("eventType").value = "⛔ 휴항";
+  document.getElementById("eventType").value = "휴항";
   document.getElementById("eventTitle").value = "";
-  document.getElementById("eventColor").value = "#d32f2f";
+  document.getElementById("eventColor").value = "#fffde7";
   if(db){
     db.collection("custom_events").doc(dateStr).get().then(doc => {
       if(doc.exists){
         const data = doc.data();
-        document.getElementById("eventType").value = data.type || "⛔ 휴항";
+        document.getElementById("eventType").value = data.type || "휴항";
         document.getElementById("eventTitle").value = data.title || "";
-        document.getElementById("eventColor").value = data.color || "#d32f2f";
+        document.getElementById("eventColor").value = data.color || "#fffde7";
       }
     });
   }
@@ -466,7 +480,6 @@ function deleteCustomEvent(){
   }
 }
 
-// 선택 날짜 오픈
 async function openDateSim(dateStr){
   selectedDate = dateStr;
   document.getElementById("selectedDateText").innerText = dateStr;
@@ -488,7 +501,6 @@ async function openDateSim(dateStr){
             data.teams.forEach(t => {
               const pattern = normalizePattern(t.pattern);
               const nights = parseInt(t.nights || 4, 10);
-              // 요구사항 5: 복귀일자 계산
               const retDate = getReturnDate(regDate, nights);
               
               if (retDate === dateStr && pattern === 'ROUND') {
@@ -828,7 +840,6 @@ function extractAllocations(typeDivs) {
   return { totalPeople, allocations };
 }
 
-// 계산 로직 (요구사항 1 및 전체 출국 통합 계산 반영)
 function runSimulation(shouldSave = true){
   const teamCards = [...document.querySelectorAll("#teamsContainer .team-card")];
 
@@ -886,7 +897,6 @@ function runSimulation(shouldSave = true){
       }
     }
 
-    // 요구사항 5: 4박 선택시 출발일 포함 4일째 출국으로 계산
     const returnDate = getReturnDate(selectedDate, nights);
     const selShort = formatShortDate(selectedDate);
     const retShort = formatShortDate(returnDate);
@@ -909,7 +919,6 @@ function runSimulation(shouldSave = true){
     });
   }
 
-  // 요구사항 1: 과거 날짜에서 건너와 오늘 돌아가는(복귀) 단체를 출국 집계에 포함
   linkedReturnTeams.forEach(t => {
     let targetAlloc = t.isSplitRoom ? (t.inAllocations || t.outAllocations || []) : (t.allocations || []);
     targetAlloc.forEach(a => {
@@ -919,7 +928,6 @@ function runSimulation(shouldSave = true){
     });
   });
 
-  // 오늘 신규 출발 출국 단체 + 돌아오는(복귀) 출국 단체 통합
   const todayOutTeams = todayTeams.filter(t => t.pattern === 'ROUND' || t.pattern === 'ONEWAY_OUT');
   const outBoardingTeams = [...todayOutTeams, ...linkedReturnTeams];
 
@@ -940,7 +948,6 @@ function runSimulation(shouldSave = true){
 
   const grandTotalPeople = generalTotalPeople + groupTotalPeople;
 
-  // 선택 날짜 요약 UI
   document.getElementById("simStats").innerHTML = `
     <div class="stat">출국 (예상) 총 인원<b>${grandTotalPeople}명</b><span>일반 ${generalTotalPeople}명 + 단체 ${groupTotalPeople}명</span></div>
     <div class="stat">출국 단체 인원<b>총 ${groupTotalPeople}명</b><span>신규 ${todayOutTeams.length}개 단체 + 복귀 ${linkedReturnTeams.length}개 단체</span></div>
@@ -979,7 +986,6 @@ function runSimulation(shouldSave = true){
 
   document.getElementById("simWarn").innerHTML = overLimit ? `<div class="warn-box"><span class="bad">⚠ 초과 경고:</span> 총 출국 객실 신청량이 보유 객실 수를 초과했습니다.</div>` : "";
 
-  // 2. 오늘 출국 승선 단체 상세 내역
   let teamResultsHtml = "";
   if (outBoardingTeams.length === 0) {
     teamResultsHtml = `<div style="text-align:center; padding:20px; color:#666;">오늘 출국 승선 예정인 단체가 없습니다.</div>`;
@@ -1029,7 +1035,6 @@ function runSimulation(shouldSave = true){
   document.getElementById("teamResultsContainer").innerHTML = teamResultsHtml;
   document.getElementById("simResult").classList.remove("hidden");
 
-  // 데이터 저장
   if(shouldSave && db && selectedDate){
     db.collection("schedules").doc(selectedDate).set({
       totalPeople: grandTotalPeople,
@@ -1058,7 +1063,6 @@ function deleteDateData(){
   }
 }
 
-// ===== 달력 버튼: 한 달치 단체 현황 엑셀 다운로드 =====
 const WEEKDAYS_KR = ['일','월','화','수','목','금','토'];
 
 function formatDateMDShort(dateStr){
@@ -1080,7 +1084,6 @@ async function downloadMonthlyExcel(year, month){
   const todayStr = `${today.getMonth() + 1}/${today.getDate()}`;
   const titleText = `${year}년 ${month}월 (${todayStr} 기준)`;
 
-  // 단체 목록 배열을 3개 단위로 쉼표로 묶고 줄바꿈해주는 헬퍼 함수
   function formatGroupNames(namesArray) {
     if (!namesArray || namesArray.length === 0) return "";
     let lines = [];
@@ -1108,7 +1111,6 @@ async function downloadMonthlyExcel(year, month){
         const returnDate = getReturnDate(regDate, nights);
 
         if(pattern === 'ROUND'){
-          // 왕복 단체의 출발일과 복귀일 모두 승선 집계
           [regDate, returnDate].forEach(d => {
             if(!outGroups[d]) outGroups[d] = { names: [], total: 0 };
             outGroups[d].names.push(`${name} ${people}명`);
@@ -1122,9 +1124,8 @@ async function downloadMonthlyExcel(year, month){
       });
     });
 
-    // 1. 월, 수, 금 날짜와 화, 목, 일 날짜 분리 (토요일=6 제외)
-    let leftDates = [];  // 월(1), 수(3), 금(5)
-    let rightDates = []; // 화(2), 목(4), 일(0)
+    let leftDates = [];  
+    let rightDates = []; 
 
     for (let day = 1; day <= lastDay; day++) {
       const curDateStr = `${year}-${mm}-${String(day).padStart(2, '0')}`;
@@ -1135,18 +1136,13 @@ async function downloadMonthlyExcel(year, month){
       } else if (dow === 2 || dow === 4 || dow === 0) {
         rightDates.push(curDateStr);
       }
-      // 토요일(6) 제외
     }
 
     const maxRows = Math.max(leftDates.length, rightDates.length);
-
-    // 공통 셀 스타일 (검은색 테두리 + 세로 가운데 정렬)
     const cellStyle = "border:1px solid #000000; vertical-align:middle; valig:middle;";
 
-    // 2. HTML 테이블 생성
     let tableHtml = `<table border="1" style="border-collapse:collapse; text-align:center; font-family:맑은 고딕, Arial;">`;
     
-    // 메인 타이틀
     tableHtml += `
       <tr>
         <th colspan="6" style="${cellStyle} font-size:16px; font-weight:bold; background-color:#e2efda; height:40px;">
@@ -1154,18 +1150,15 @@ async function downloadMonthlyExcel(year, month){
         </th>
       </tr>
       <tr style="background-color:#f2f2f2; font-weight:bold; height:32px;">
-        <!-- 왼쪽: 월,수,금 -->
         <th style="${cellStyle} width:90px;">날짜</th>
         <th style="${cellStyle} width:320px;">한국출발, 중국복귀단체</th>
         <th style="${cellStyle} width:70px;">총인원</th>
-        <!-- 오른쪽: 화,목,일 -->
         <th style="${cellStyle} width:90px;">날짜</th>
         <th style="${cellStyle} width:320px;">한국복귀, 중국출발단체</th>
         <th style="${cellStyle} width:70px;">총인원</th>
       </tr>
     `;
 
-    // 3. 데이터 행 생성
     for (let i = 0; i < maxRows; i++) {
       const lDate = leftDates[i] || "";
       const rDate = rightDates[i] || "";
@@ -1180,12 +1173,10 @@ async function downloadMonthlyExcel(year, month){
 
       tableHtml += `
         <tr>
-          <!-- 왼쪽 (월, 수, 금) -->
           <td style="${cellStyle} text-align:center; padding:5px;">${lDateDisp}</td>
           <td style="${cellStyle} text-align:left; padding:5px 8px; white-space:pre-line;">${lNamesDisp}</td>
           <td style="${cellStyle} text-align:right; padding:5px 8px;">${lTotalDisp}</td>
 
-          <!-- 오른쪽 (화, 목, 일) -->
           <td style="${cellStyle} text-align:center; padding:5px;">${rDateDisp}</td>
           <td style="${cellStyle} text-align:left; padding:5px 8px; white-space:pre-line;">${rNamesDisp}</td>
           <td style="${cellStyle} text-align:right; padding:5px 8px;">${rTotalDisp}</td>
@@ -1193,7 +1184,6 @@ async function downloadMonthlyExcel(year, month){
       `;
     }
 
-    // 하단 비고
     tableHtml += `
       <tr>
         <td colspan="6" style="${cellStyle} text-align:left; font-size:11px; color:#d32f2f; font-weight:bold; height:30px; padding-left:8px;">
@@ -1209,8 +1199,8 @@ async function downloadMonthlyExcel(year, month){
     const wb = XLSX.utils.table_to_book(tableEl, { sheet: "월별단체현황" });
     const ws = wb.Sheets["월별단체현황"];
     ws['!cols'] = [
-      { wch: 13 }, { wch: 45 }, { wch: 10 }, // 왼쪽 3개 열 너비
-      { wch: 13 }, { wch: 45 }, { wch: 10 }  // 오른쪽 3개 열 너비
+      { wch: 13 }, { wch: 45 }, { wch: 10 },
+      { wch: 13 }, { wch: 45 }, { wch: 10 }
     ];
 
     XLSX.writeFile(wb, `단동훼리_${year}년${mm}월_단체운항현황.xlsx`);
