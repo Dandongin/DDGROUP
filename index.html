@@ -285,104 +285,94 @@ function toggleMasterArea(){
   }
 }
 
+document.addEventListener('DOMContentLoaded', function() 
+
 document.addEventListener('DOMContentLoaded', function() {
   const calendarEl = document.getElementById('calendar');
-  calendar = new FullCalendar.Calendar(calendarEl, {
+
+  // 1. 공휴일 자동 수집 함수 (한국 + 중국)
+  async function fetchHolidays(year) {
+    try {
+      const [krRes, cnRes] = await Promise.all([
+        fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/KR`),
+        fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/CN`)
+      ]);
+
+      const krData = krRes.ok ? await krRes.json() : [];
+      const cnData = cnRes.ok ? await cnRes.json() : [];
+
+      // 한국 공휴일 (빨간색 바탕 + 흰색 글자 + 🇰🇷)
+      const krEvents = krData.map(item => ({
+        title: `🇰🇷 ${item.localName}`,
+        start: item.date,
+        allDay: true,
+        backgroundColor: "#ff4d4f",
+        borderColor: "#ff4d4f",
+        textColor: "#ffffff",
+        display: "block"
+      }));
+
+      // 중국 공휴일 (연보라색 바탕 + 검은색 글자 + 🇨🇳)
+      const cnEvents = cnData.map(item => ({
+        title: `🇨🇳 ${item.localName}`,
+        start: item.date,
+        allDay: true,
+        backgroundColor: "#d8bfd8",
+        borderColor: "#d8bfd8",
+        textColor: "#2b2b2b",
+        display: "block"
+      }));
+
+      return [...krEvents, ...cnEvents];
+    } catch (e) {
+      console.error("공휴일 데이터 로드 실패:", e);
+      return [];
+    }
+  }
+
+  // 2. FullCalendar 초기화 및 렌더링
+  const calendar = new FullCalendar.Calendar(calendarEl, {
     initialView: 'dayGridMonth',
     locale: 'ko',
-    headerToolbar: { left: 'prev,next today', center: 'title', right: 'monthlyExport' },
-    customButtons: {
-      monthlyExport: {
-        text: '📥 이번달 다운로드',
-        click: function() {
-          const viewStart = calendar.view.currentStart;
-          downloadMonthlyExcel(viewStart.getFullYear(), viewStart.getMonth() + 1);
+    headerToolbar: {
+      left: 'prev,next today',
+      center: 'title',
+      right: 'dayGridMonth'
+    },
+
+    // DB 스케줄 + 한/중 공휴일 함께 표시
+    events: async function(fetchInfo, successCallback, failureCallback) {
+      try {
+        const currentYear = new Date(fetchInfo.start).getFullYear();
+        const holidays = await fetchHolidays(currentYear);
+
+        let dbSchedules = [];
+        if (typeof getSchedulesFromDB === 'function') {
+          dbSchedules = await getSchedulesFromDB(fetchInfo);
         }
+
+        successCallback([...dbSchedules, ...holidays]);
+      } catch (error) {
+        console.error(error);
+        failureCallback(error);
       }
     },
-    dateClick: function(info) {
-      closeEventSection();
-      openDateSim(info.dateStr);
-    },
-    eventSources: [
-      {
-        events: async function(fetchInfo, successCallback) {
-          try {
-            const year = fetchInfo.start.getFullYear();
-            const res = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/KR`);
-            const holidays = await res.json();
-            successCallback(holidays.map(h => ({
-              title: `🔴 ${h.localName}`, start: h.date, allDay: true,
-              backgroundColor: '#fff0f0', borderColor: '#f3c2c2', textColor: '#d32f2f'
-            })));
-          } catch(e) { successCallback([]); }
-        }
-      },
-      {
-        events: function(fetchInfo, successCallback) {
-          if(!db) { successCallback([]); return; }
-          db.collection("schedules").get().then((querySnapshot) => {
-            let dailyAll = {};
 
-            querySnapshot.forEach((doc) => {
-              const regDate = doc.id;
-              const data = doc.data();
-              if (data.teams && data.teams.length > 0) {
-                data.teams.forEach(t => {
-                  const p = t.totalPeople || 0;
-                  const nights = parseInt(t.nights || 4, 10);
-                  const pattern = normalizePattern(t.pattern);
-                  const returnDate = getReturnDate(regDate, nights);
-
-                  if (pattern === 'ROUND') {
-                    dailyAll[regDate] = (dailyAll[regDate] || 0) + p;
-                    dailyAll[returnDate] = (dailyAll[returnDate] || 0) + p;
-                  } else {
-                    dailyAll[regDate] = (dailyAll[regDate] || 0) + p;
-                  }
-                });
-              }
-            });
-
-            let events = [];
-            Object.keys(dailyAll).forEach(d => {
-              if (dailyAll[d] > 0) {
-                // 요구사항 3: 요일별 출국 색상 변경 적용
-                events.push({ 
-                  title: `출${dailyAll[d]}`, 
-                  start: d, 
-                  color: getDayColor(d),
-                  textColor: '#000000'
-                });
-              }
-            });
-
-            successCallback(events);
-          }).catch(() => successCallback([]));
-        }
-      },
-      {
-        events: function(fetchInfo, successCallback) {
-          if(!db) { successCallback([]); return; }
-          db.collection("custom_events").get().then((querySnapshot) => {
-            let events = [];
-            querySnapshot.forEach((doc) => {
-              const data = doc.data();
-              events.push({
-                id: "ce_" + doc.id,
-                title: data.type === "✏️ 메모" ? (data.title ? `✏️ ${data.title}` : "✏️ 메모") : `${data.type} ${data.title ? '- ' + data.title : ''}`,
-                start: doc.id,
-                color: data.color || '#d32f2f'
-              });
-            });
-            successCallback(events);
-          }).catch(() => successCallback([]));
-        }
+    // 공휴일 스타일 적용
+    eventDidMount: function(info) {
+      if (info.event.title.includes("🇰🇷") || info.event.title.includes("🇨🇳")) {
+        info.el.style.fontWeight = 'bold';
+        info.el.style.fontSize = '12px';
+        info.el.style.padding = '2px 4px';
+        info.el.style.borderRadius = '3px';
+        info.el.style.marginBottom = '2px';
       }
-    ]
+    }
   });
+
   calendar.render();
 });
+                          
 
 function openEventModal(){
   closeSimSection();
