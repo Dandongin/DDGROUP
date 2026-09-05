@@ -414,19 +414,29 @@ document.addEventListener('DOMContentLoaded', function() {
               let evtColor = data.color || '#fffde7';
               let txtColor = '#000000';
 
-// 휴항 / 메모 / 점검 / 연보라색(중국메모) 스타일 처리
-              let displayTitle = data.title || data.type || "";
+// 1. 기본 제목 세팅 (타이틀이 있으면 타이틀만, 없으면 구분값만 사용해 중복 방지)
+              let rawTitle = data.title ? data.title.trim() : "";
+              let typeName = data.type || "";
+              let displayTitle = "";
+
+              if (rawTitle && typeName && rawTitle !== typeName) {
+                displayTitle = `${typeName} - ${rawTitle}`;
+              } else {
+                displayTitle = rawTitle || typeName || "메모";
+              }
+
+              // 2. 색상 및 이모지 스타일 지정
               if (evtColor === '#e1bee7') {
-                displayTitle = `🇨🇳 ${displayTitle}`;
+                displayTitle = displayTitle.startsWith("🇨🇳") ? displayTitle : `🇨🇳 ${displayTitle}`;
                 txtColor = '#4a148c';
               } else if (data.type === "정기점검" || data.type === "점검" || evtColor === '#9e9e9e') {
-                evtColor = '#9e9e9e'; // 회색
+                evtColor = '#9e9e9e';
                 txtColor = '#ffffff';
               } else if (data.type === "휴항" || evtColor === '#fffde7') {
-                evtColor = '#fffde7'; // 옅은 노란색
+                evtColor = '#fffde7';
                 txtColor = '#f57f17';
               } else if (data.type === "메모" || evtColor === '#aed581') {
-                evtColor = '#aed581'; // 연두색
+                evtColor = '#aed581';
                 txtColor = '#1b5e20';
               }
 
