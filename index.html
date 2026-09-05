@@ -140,7 +140,7 @@ th{background:#f1f4f7}
         <label style="font-weight:bold;">배경 색상</label>
         <select id="eventColor">
           <option value="#fffde7">옅은 노란색 (휴항)</option>
-          <option value="#ed6c02">주황색 (점검)</option>
+          <option value="#9e9e9e">회색 (점검)</option>
           <option value="#aed581">연두색 (메모)</option>
         </select>
       </div>
@@ -307,7 +307,8 @@ document.addEventListener('DOMContentLoaded', function() {
       openDateSim(info.dateStr);
     },
     eventSources: [
-      /* 한국 공휴일 자동 연동 (주황색 바탕) */
+
+      /* 한국 공휴일 자동 연동 (태극기 이모지 복구) */
       {
         events: async function(fetchInfo, successCallback) {
           try {
@@ -315,7 +316,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const res = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/KR`);
             const holidays = await res.json();
             successCallback(holidays.map(h => ({
-              title: h.localName,
+              title: `🇰🇷 ${h.localName}`,
               start: h.date,
               allDay: true,
               backgroundColor: '#f57c00',
@@ -325,24 +326,41 @@ document.addEventListener('DOMContentLoaded', function() {
           } catch(e) { successCallback([]); }
         }
       },
-      /* 중국 공휴일 자동 연동 (연보라색 바탕) */
+      /* 중국 공휴일 자동 연동 (연속 연휴 다중 날짜 분할 및 표기) */
       {
         events: async function(fetchInfo, successCallback) {
           try {
             const year = fetchInfo.start.getFullYear();
             const res = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/CN`);
             const holidays = await res.json();
-            successCallback(holidays.map(h => ({
-              title: `🇨🇳 ${h.localName}`,
-              start: h.date,
-              allDay: true,
-              backgroundColor: '#e1bee7',
-              borderColor: '#ce93d8',
-              textColor: '#4a148c'
-            })));
+            let expandedEvents = [];
+
+            holidays.forEach(h => {
+              // Nager.Date API 기준, 연휴 항목의 count(연속 휴무일수) 정보를 반영하여 날짜 확장
+              const count = h.count || 1;
+              const startDate = new Date(h.date);
+
+              for (let i = 0; i < count; i++) {
+                const curDate = new Date(startDate);
+                curDate.setDate(startDate.getDate() + i);
+                const dateStr = curDate.toISOString().split('T')[0];
+
+                expandedEvents.push({
+                  title: `🇨🇳 ${h.localName}`,
+                  start: dateStr,
+                  allDay: true,
+                  backgroundColor: '#e1bee7',
+                  borderColor: '#ce93d8',
+                  textColor: '#4a148c'
+                });
+              }
+            });
+
+            successCallback(expandedEvents);
           } catch(e) { successCallback([]); }
         }
       },
+      ,
       {
         events: function(fetchInfo, successCallback) {
           if(!db) { successCallback([]); return; }
@@ -399,10 +417,13 @@ document.addEventListener('DOMContentLoaded', function() {
               if (data.type === "휴항" || evtColor === '#fffde7') {
                 evtColor = '#fffde7'; // 옅은 노란색
                 txtColor = '#f57f17';
-              } else if (data.type === "메모" || evtColor === '#aed581') {
-                evtColor = '#aed581'; // 연두색
-                txtColor = '#1b5e20';
-              }
+              } else if (data.type === "정기점검" || data.type === "점검" || evtColor === '#9e9e9e') {
+  evtColor = '#9e9e9e'; // 회색
+  txtColor = '#ffffff'; // 흰색 글자
+} else if (data.type === "메모" || evtColor === '#aed581') {
+  evtColor = '#aed581';
+  txtColor = '#1b5e20';
+}
 
               events.push({
                 id: "ce_" + doc.id,
