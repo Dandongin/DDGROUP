@@ -284,6 +284,7 @@ function normalizePattern(p){
 }
 
 /* 💡 월별 한단/중단 최초출발 단체 집계 및 상단 표기 함수 */
+// 💡 [최종 수정] 실제 등록된 단체 인원수(totalPeople) 합산 함수
 async function updateMonthlySummary(year, month) {
   const summaryEl = document.getElementById("monthlySummaryText");
   if (!summaryEl) return;
@@ -302,8 +303,10 @@ async function updateMonthlySummary(year, month) {
 
   try {
     const querySnapshot = await db.collection("schedules").get();
-    let krGroupCount = 0; // 월, 수, 금 출발 단체 수
-    let cnGroupCount = 0; // 화, 목, 일 출발 단체 수
+    let krPeople = 0; // 월, 수, 금 출발 단체 실제 인원 합계
+    let cnPeople = 0; // 화, 목, 일 출발 단체 실제 인원 합계
+    let krGroupCount = 0; // 한국 출발 팀 수
+    let cnGroupCount = 0; // 중국 출발 팀 수
 
     querySnapshot.forEach((doc) => {
       const regDate = doc.id; // YYYY-MM-DD
@@ -323,12 +326,17 @@ async function updateMonthlySummary(year, month) {
               pattern = 'ROUND';
             }
 
-            // 최초 출발 단체(왕복 또는 편도 출국) 카운트
+            // 각 단체 카드에 등록된 실제 인원수 가져오기
+            const teamPeople = parseInt(t.totalPeople || 0, 10);
+
+            // 최초 출발 단체(왕복 또는 편도 출국) 인원만 합산
             if (pattern === 'ROUND' || pattern === 'ONEWAY_OUT') {
               if (dow === 1 || dow === 3 || dow === 5) { 
-                krGroupCount++; // 월, 수, 금
+                krPeople += teamPeople; // 월, 수, 금 인원 더하기
+                krGroupCount++;
               } else if (dow === 2 || dow === 4 || dow === 0) { 
-                cnGroupCount++; // 화, 목, 일
+                cnPeople += teamPeople; // 화, 목, 일 인원 더하기
+                cnGroupCount++;
               }
             }
           });
@@ -336,11 +344,10 @@ async function updateMonthlySummary(year, month) {
       }
     });
 
-    const krPeople = krGroupCount * 2;
-    const cnPeople = cnGroupCount * 2;
     const totalPeople = krPeople + cnPeople;
 
-    summaryEl.innerText = `${month}월 한단 ${krPeople}명 + 중단 ${cnPeople}명 = 총 ${totalPeople}명`;
+    // 수천 명 단위의 실제 인원수가 천 단위 쉼표(예: 2,450명)로 깔끔하게 표시됩니다.
+    summaryEl.innerText = `${month}월 한단 ${krPeople.toLocaleString()}명 + 중단 ${cnPeople.toLocaleString()}명 = 총 ${totalPeople.toLocaleString()}명 (${krGroupCount}팀 / ${cnGroupCount}팀)`;
 
   } catch (e) {
     console.error("월 집계 오류:", e);
