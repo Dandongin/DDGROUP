@@ -22,6 +22,12 @@ header h1{margin:0;font-size:20px}
 .wrap{max-width:1100px;margin:20px auto;padding:0 18px}
 .card{background:white;border-radius:12px;padding:18px;margin-bottom:16px;box-shadow:0 2px 9px #0000000d}
 #calendar{background:white;padding:20px;border-radius:12px;min-height:500px;}
+
+/* 오늘 날짜 셀 배경색 변경 (기존: 연노랑 #ffeb3b/#fcf8e3 -> 살짝 더 진한 연노란색 #fff59d) */
+.fc .fc-day-today {
+  background-color: #fff59d !important;
+}
+
 .date-title{font-size:18px;font-weight:bold;color:#17324d;margin-bottom:15px;display:flex;align-items:center;gap:10px;}
 .team-card{border:1px solid #c3d1e0;background:#f8fafc;border-radius:10px;padding:16px;margin-bottom:16px}
 .team-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:2px solid #e1e7ef;padding-bottom:10px;gap:8px;flex-wrap:wrap;}
@@ -147,7 +153,7 @@ th{background:#f1f4f7}
   border-radius: 12px;
   padding: 24px;
   width: 90%;
-  max-width: 480px;
+  max-width: 500px;
   box-shadow: 0 4px 20px rgba(0,0,0,0.15);
   animation: fadeIn 0.2s ease-out;
 }
@@ -175,7 +181,9 @@ th{background:#f1f4f7}
   margin-bottom: 20px;
 }
 .modal-footer {
-  text-align: right;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 @media (max-width: 768px) {
@@ -209,9 +217,8 @@ th{background:#f1f4f7}
       <button type="button" style="background:#1769aa; color:white; padding:9px 15px; font-size:13px;" onclick="toggleStatsMenu(event)">📊 통계 ▾</button>
       <div class="stats-dropdown-content">
         <button type="button" onclick="showMonthlyStats()">당월 단체</button>
-         <button type="button" onclick="showRidingStats()">라이딩 통계</button>
+        <button type="button" onclick="showRidingStats()">라이딩 통계</button>
         <button type="button" onclick="triggerMonthlyExcelDownload()">엑셀 단체</button>
-
       </div>
     </div>
     <!-- 기존 메모 등록 버튼 -->
@@ -318,7 +325,7 @@ th{background:#f1f4f7}
     <div class="modal-body" id="modalContent">
       내용이 없습니다.
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" id="modalFooter">
       <button class="secondary" onclick="closeStatsModal()">닫기</button>
     </div>
   </div>
@@ -420,9 +427,13 @@ document.addEventListener('click', function(e) {
   }
 });
 
-function openStatsModal(title, htmlContent) {
+function openStatsModal(title, htmlContent, extraFooterHtml = "") {
   document.getElementById("modalTitle").innerText = title;
   document.getElementById("modalContent").innerHTML = htmlContent;
+  
+  const footer = document.getElementById("modalFooter");
+  footer.innerHTML = extraFooterHtml + `<button class="secondary" onclick="closeStatsModal()">닫기</button>`;
+  
   document.getElementById("statsModal").classList.remove("hidden");
   const dropdown = document.getElementById("statsDropdown");
   if (dropdown) dropdown.classList.remove("show");
@@ -495,7 +506,7 @@ function triggerMonthlyExcelDownload() {
   downloadMonthlyExcel(currentDate.getFullYear(), currentDate.getMonth() + 1);
 }
 
-/* '향후 업뎃' 버튼 클릭 시 라이딩 단체 월별 통계 모달 출력 */
+/* 라이딩 단체 월별 통계 모달 및 이미지 다운로드 */
 function showRidingStats() {
   if (!db) {
     alert("데이터베이스 연결이 없습니다.");
@@ -532,7 +543,7 @@ function showRidingStats() {
       return;
     }
 
-    let html = `<div style="max-height:350px; overflow-y:auto;"><table style="width:100%; border-collapse:collapse; font-size:14px;">
+    let html = `<div id="ridingCaptureArea" style="background:#fff; padding:10px; border-radius:8px;"><div style="max-height:350px; overflow-y:auto;"><table style="width:100%; border-collapse:collapse; font-size:14px;">
       <thead>
         <tr style="background:#f1f4f7;">
           <th style="padding:8px; border-bottom:2px solid #ccc; text-align:center;">월</th>
@@ -567,12 +578,26 @@ function showRidingStats() {
           <td style="padding:10px; text-align:right; color:#e65100; font-size:16px;">${grandPeople.toLocaleString()}명</td>
         </tr>
       </tfoot>
-    </table></div>`;
+    </table></div></div>`;
 
-    openStatsModal("🚴 월별 라이딩 단체 통계", html);
+    const extraDownloadBtn = `<button class="success" onclick="downloadRidingStatsImage()" style="margin-right:auto;">📸 라이딩 통계 이미지 다운로드</button>`;
+
+    openStatsModal("🚴 월별 라이딩 단체 통계", html, extraDownloadBtn);
   }).catch(e => {
     console.error(e);
     openStatsModal("🚴 월별 라이딩 단체 통계", "<div style='color:red; text-align:center;'>통계 조회 중 오류가 발생했습니다.</div>");
+  });
+}
+
+/* 라이딩 통계 팝업창 내용 이미지 다운로드 함수 */
+function downloadRidingStatsImage() {
+  const area = document.getElementById("ridingCaptureArea");
+  if (!area) return;
+  html2canvas(area, { scale: 2, backgroundColor: "#ffffff" }).then(canvas => {
+    const link = document.createElement("a");
+    link.download = `라이딩_통계_현황.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
   });
 }
 
@@ -584,7 +609,8 @@ document.addEventListener('DOMContentLoaded', function() {
   calendar = new FullCalendar.Calendar(calendarEl, {
     initialView: 'dayGridMonth',
     locale: 'ko',
-    headerToolbar: { left: 'prev,next today', center: 'title', right: '' },
+    // 연/월(title)을 가장 왼쪽, TODAY와 좌우 버튼을 가장 오른쪽(today prev,next)으로 배치
+    headerToolbar: { left: 'title', center: '', right: 'today prev,next' },
     dateClick: function(info) {
       closeEventSection();
       openDateSim(info.dateStr);
@@ -1236,7 +1262,6 @@ function runSimulation(shouldSave = true){
       
       outAllocations = outRes.allocations;
       inAllocations = inRes.allocations;
-      // 출국 승선 집계 시 출국 시 인원을 단체의 기본 인원으로 집계
       teamTotalPeople = outRes.totalPeople;
 
       if((outRes.totalPeople <= 0 || inRes.totalPeople <= 0) && shouldSave) {
