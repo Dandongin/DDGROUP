@@ -441,7 +441,7 @@ function showMonthlyStats() {
   const month = currentDate.getMonth() + 1;
   const mm = String(month).padStart(2, '0');
 
-  openStatsModal(`${month}월 당월 단체 통계`, "<div style='text-align:center; padding:20px;'>통계 데이터를 불러오는 중...</div>");
+  openStatsModal(`${month}월 단체 통계`, "<div style='text-align:center; padding:20px;'>통계 데이터를 불러오는 중...</div>");
 
   db.collection("schedules").get().then(querySnapshot => {
     let krPeople = 0, krGroupCount = 0;
