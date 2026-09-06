@@ -347,7 +347,8 @@ async function updateMonthlySummary(year, month) {
     const totalPeople = krPeople + cnPeople;
 
     // 수천 명 단위의 실제 인원수가 천 단위 쉼표(예: 2,450명)로 깔끔하게 표시됩니다.
-    summaryEl.innerHTML = `${month}월(편도) 한단 ${krPeople.toLocaleString()}명 + 중단 ${cnPeople.toLocaleString()}명<br> = 총 ${totalPeople.toLocaleString()}명 (${krGroupCount}팀 / ${cnGroupCount}팀)`;
+    summaryEl.innerHTML = `${month}월 한단 ${krPeople.toLocaleString()}명 + 중단 ${cnPeople.toLocaleString()}명 = <b>총 ${totalPeople.toLocaleString()}명</b> (${krGroupCount}팀 / ${cnGroupCount}팀)`;
+
 
   } catch (e) {
     console.error("월 집계 오류:", e);
