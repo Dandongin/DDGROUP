@@ -480,10 +480,10 @@ function showMonthlyStats() {
       </div>
     `;
 
-    openStatsModal(`${month}월 당월 단체 통계`, summaryHtml);
+    openStatsModal(`${month}월 단체 통계`, summaryHtml);
   }).catch(e => {
     console.error(e);
-    openStatsModal(`${month}월 당월 단체 통계`, "<div style='color:red; text-align:center;'>데이터를 불러오는 도중 오류가 발생했습니다.</div>");
+    openStatsModal(`${month}월 단체 통계`, "<div style='color:red; text-align:center;'>데이터를 불러오는 도중 오류가 발생했습니다.</div>");
   });
 }
 
