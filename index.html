@@ -208,8 +208,8 @@ th{background:#f1f4f7}
       <button type="button" style="background:#1769aa; color:white; padding:9px 15px; font-size:13px;" onclick="toggleStatsMenu(event)">📊 통계 ▾</button>
       <div class="stats-dropdown-content">
         <button type="button" onclick="showMonthlyStats()">당월 단체</button>
-        <button type="button" onclick="showRidingStats()">향후 업뎃</button>
-        <button type="button" onclick="showOtherStats()">향후 업뎃</button>
+        <button type="button" onclick="showRidingStats()">라이딩 통계</button>
+        <button type="button" onclick="showOtherStats()">기타 통계</button>
       </div>
     </div>
     <!-- 기존 메모 등록 버튼 -->
@@ -472,34 +472,11 @@ function showMonthlyStats() {
 
     const totalPeople = krPeople + cnPeople;
 
-    // 중복 문구 제거 및 요청하신 구성으로 변경
+    // 요약 문구만 깔끔하게 노출하도록 수정
     const summaryHtml = `
       <div style="background:#f8fafc; padding:24px 20px; border-radius:8px; border:1px solid #e2e8f0; text-align:center; font-size:16px; color:#17324d; line-height:1.8;">
         ${month}월 한단 ${krPeople.toLocaleString()}명 + 중단 ${cnPeople.toLocaleString()}명<br>
         = <b style="color:#2e7d32; font-size:20px;">총 ${totalPeople.toLocaleString()}명</b> (${krGroupCount}팀 / ${cnGroupCount}팀)
-      </div>
-    `;
-
-    openStatsModal(`${month}월 당월 단체 통계`, summaryHtml);
-  }).catch(e => {
-    console.error(e);
-    openStatsModal(`${month}월 당월 단체 통계`, "<div style='color:red; text-align:center;'>데이터를 불러오는 도중 오류가 발생했습니다.</div>");
-  });
-}
-
-    const totalPeople = krPeople + cnPeople;
-
-    const summaryHtml = `
-      <div style="background:#f8fafc; padding:20px; border-radius:8px; border:1px solid #e2e8f0; text-align:center; font-size:15px;">
-        <div style="color:#1769aa; font-weight:bold; font-size:18px; margin-bottom:12px;">🗓️ ${year}년 ${month}월 최초 출발 단체 현황</div>
-        <div style="margin-bottom:12px; line-height:1.8;">
-          <b>한단(월/수/금):</b> ${krPeople.toLocaleString()}명 (${krGroupCount}팀)<br>
-          <b>중단(화/목/일):</b> ${cnPeople.toLocaleString()}명 (${cnGroupCount}팀)
-        </div>
-        <div style="border-top:1px solid #cbd5e1; padding-top:12px; font-size:16px; color:#17324d; line-height:1.6;">
-          ${month}월 한단 ${krPeople.toLocaleString()}명 + 중단 ${cnPeople.toLocaleString()}명<br>
-          = <b style="color:#2e7d32; font-size:19px;">총 ${totalPeople.toLocaleString()}명</b> (${krGroupCount}팀 / ${cnGroupCount}팀)
-        </div>
       </div>
     `;
 
