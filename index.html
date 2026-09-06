@@ -61,6 +61,7 @@ th{background:#f1f4f7}
 .memo-box{background:#fff; border:1px dashed #cbd5e1; padding:8px 10px; border-radius:6px; margin-top:8px; font-size:12px; color:#334155;}
 .tag-pattern{background:#e3f2fd; color:#0d47a1; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:bold;}
 .tag-linked{background:#e8f5e9; color:#2e7d32; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:bold;}
+.tag-riding{background:#fff3e0; color:#e65100; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:bold;}
 
 .section-subtitle{font-size:13px; font-weight:bold; color:#1769aa; margin:8px 0 4px 0; border-left:3px solid #1769aa; padding-left:6px;}
 
@@ -209,8 +210,7 @@ th{background:#f1f4f7}
       <div class="stats-dropdown-content">
         <button type="button" onclick="showMonthlyStats()">당월 단체</button>
         <button type="button" onclick="triggerMonthlyExcelDownload()">엑셀 단체</button>
-        <button type="button" onclick="showOtherStats()">향후 업뎃</button>
-        
+        <button type="button" onclick="showRidingStats()">향후 업뎃</button>
       </div>
     </div>
     <!-- 기존 메모 등록 버튼 -->
@@ -458,11 +458,9 @@ function showMonthlyStats() {
           data.teams.forEach(t => {
             const people = parseInt(t.totalPeople || 0, 10);
             if (dow === 1 || dow === 3 || dow === 5) {
-              // 월, 수, 금 출발 -> 한국단체
               krPeople += people;
               krGroupCount++;
             } else if (dow === 2 || dow === 4 || dow === 0) {
-              // 화, 목, 일 출발 -> 중국단체
               cnPeople += people;
               cnGroupCount++;
             }
@@ -496,8 +494,85 @@ function triggerMonthlyExcelDownload() {
   downloadMonthlyExcel(currentDate.getFullYear(), currentDate.getMonth() + 1);
 }
 
-function showOtherStats() {
-  openStatsModal("기타 통계", "<div style='text-align:center; padding:20px; color:#666;'>준비 중인 통계 기능입니다.</div>");
+/* '향후 업뎃' 버튼 클릭 시 라이딩 단체 월별 통계 모달 출력 */
+function showRidingStats() {
+  if (!db) {
+    alert("데이터베이스 연결이 없습니다.");
+    return;
+  }
+
+  openStatsModal("🚴 월별 라이딩 단체 통계", "<div style='text-align:center; padding:20px;'>라이딩 데이터를 불러오는 중...</div>");
+
+  db.collection("schedules").get().then(querySnapshot => {
+    let monthlyStats = {};
+
+    querySnapshot.forEach(doc => {
+      const regDate = doc.id; // YYYY-MM-DD
+      const monthKey = regDate.substring(0, 7); // YYYY-MM
+      const data = doc.data();
+
+      if (data.teams && data.teams.length > 0) {
+        data.teams.forEach(t => {
+          if (t.isRiding) {
+            if (!monthlyStats[monthKey]) {
+              monthlyStats[monthKey] = { people: 0, groups: 0 };
+            }
+            monthlyStats[monthKey].people += parseInt(t.totalPeople || 0, 10);
+            monthlyStats[monthKey].groups += 1;
+          }
+        });
+      }
+    });
+
+    const sortedMonths = Object.keys(monthlyStats).sort();
+
+    if (sortedMonths.length === 0) {
+      openStatsModal("🚴 월별 라이딩 단체 통계", "<div style='text-align:center; padding:20px; color:#666;'>등록된 라이딩 단체가 없습니다.</div>");
+      return;
+    }
+
+    let html = `<div style="max-height:350px; overflow-y:auto;"><table style="width:100%; border-collapse:collapse; font-size:14px;">
+      <thead>
+        <tr style="background:#f1f4f7;">
+          <th style="padding:8px; border-bottom:2px solid #ccc; text-align:center;">월</th>
+          <th style="padding:8px; border-bottom:2px solid #ccc; text-align:center;">라이딩 단체 수</th>
+          <th style="padding:8px; border-bottom:2px solid #ccc; text-align:right;">총 인원</th>
+        </tr>
+      </thead>
+      <tbody>`;
+
+    let grandPeople = 0;
+    let grandGroups = 0;
+
+    sortedMonths.forEach(m => {
+      const p = monthlyStats[m].people;
+      const g = monthlyStats[m].groups;
+      grandPeople += p;
+      grandGroups += g;
+      const [yyyy, mm] = m.split("-");
+
+      html += `<tr>
+        <td style="padding:8px; border-bottom:1px solid #eee; text-align:center;"><b>${yyyy}년 ${parseInt(mm, 10)}월</b></td>
+        <td style="padding:8px; border-bottom:1px solid #eee; text-align:center;">${g}팀</td>
+        <td style="padding:8px; border-bottom:1px solid #eee; text-align:right; font-weight:bold; color:#e65100;">${p.toLocaleString()}명</td>
+      </tr>`;
+    });
+
+    html += `</tbody>
+      <tfoot>
+        <tr style="background:#fff3e0; font-weight:bold;">
+          <td style="padding:10px; text-align:center; color:#e65100;">합계</td>
+          <td style="padding:10px; text-align:center; color:#e65100;">${grandGroups}팀</td>
+          <td style="padding:10px; text-align:right; color:#e65100; font-size:16px;">${grandPeople.toLocaleString()}명</td>
+        </tr>
+      </tfoot>
+    </table></div>`;
+
+    openStatsModal("🚴 월별 라이딩 단체 통계", html);
+  }).catch(e => {
+    console.error(e);
+    openStatsModal("🚴 월별 라이딩 단체 통계", "<div style='color:red; text-align:center;'>통계 조회 중 오류가 발생했습니다.</div>");
+  });
 }
 
 /* FullCalendar 초기화 */
@@ -861,7 +936,7 @@ function updateMasterRoom(key){
   document.getElementById(`calc_remain_room_${key}`).innerText = remainRooms;
 }
 
-function addTeam(name="", pattern="ROUND", nights="", price="", memo="", isSplitRoom=false){
+function addTeam(name="", pattern="ROUND", nights="", price="", memo="", isSplitRoom=false, isRiding=false){
   const teamId = "team_" + (teamSeq++);
   const teamDiv = document.createElement("div");
   teamDiv.className = "team-card";
@@ -888,6 +963,10 @@ function addTeam(name="", pattern="ROUND", nights="", price="", memo="", isSplit
       
       <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; margin:0; font-weight:bold; color:#1769aa;">
         <input type="checkbox" class="splitRoomCheck" onchange="toggleRoomSplitUI('${teamId}')" ${isSplitRoom?'checked':''}> 입/출국 객실 분리
+      </label>
+
+      <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; margin:0; font-weight:bold; color:#e65100;">
+        <input type="checkbox" class="ridingCheck" ${isRiding?'checked':''}> 🚴 라이딩
       </label>
 
       <button class="danger" type="button" onclick="document.getElementById('${teamId}').remove()" style="margin-left:auto;">삭제</button>
@@ -982,6 +1061,7 @@ function restoreTeamUI(teamData){
   teamDiv.className = "team-card";
   teamDiv.id = teamId;
   const isSplit = teamData.isSplitRoom || false;
+  const isRiding = teamData.isRiding || false;
   const _p = normalizePattern(teamData.pattern);
 
   const defaultNights = getDefaultNightsByDate(selectedDate);
@@ -1004,6 +1084,10 @@ function restoreTeamUI(teamData){
       
       <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; margin:0; font-weight:bold; color:#1769aa;">
         <input type="checkbox" class="splitRoomCheck" onchange="toggleRoomSplitUI('${teamId}')" ${isSplit?'checked':''}> 입/출국 객실 분리
+      </label>
+
+      <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; margin:0; font-weight:bold; color:#e65100;">
+        <input type="checkbox" class="ridingCheck" ${isRiding?'checked':''}> 🚴 라이딩
       </label>
 
       <button class="danger" type="button" onclick="document.getElementById('${teamId}').remove()" style="margin-left:auto;">삭제</button>
@@ -1115,6 +1199,7 @@ function runSimulation(shouldSave = true){
     const price = card.querySelector(".teamPrice").value.trim();
     const memo = card.querySelector(".teamMemo").value.trim();
     const isSplitRoom = card.querySelector(".splitRoomCheck").checked;
+    const isRiding = card.querySelector(".ridingCheck").checked;
 
     if (!name && !card.querySelector(".assignPeople")?.value) continue;
 
@@ -1150,7 +1235,8 @@ function runSimulation(shouldSave = true){
       
       outAllocations = outRes.allocations;
       inAllocations = inRes.allocations;
-      teamTotalPeople = Math.max(outRes.totalPeople, inRes.totalPeople);
+      // 출국 승선 집계 시 출국 시 인원을 단체의 기본 인원으로 집계
+      teamTotalPeople = outRes.totalPeople;
 
       if((outRes.totalPeople <= 0 || inRes.totalPeople <= 0) && shouldSave) {
         alert(`[${name || '단체'}] 단체의 출국 및 입국 배정 인원을 모두 입력해주세요.`);
@@ -1181,7 +1267,7 @@ function runSimulation(shouldSave = true){
 
     todayTeams.push({
       name: name || `단체 ${idx+1}`,
-      pattern, nights, price, memo, isSplitRoom,
+      pattern, nights, price, memo, isSplitRoom, isRiding,
       totalPeople: teamTotalPeople,
       allocations, outAllocations, inAllocations,
       itineraryStr, returnDate,
@@ -1282,9 +1368,10 @@ function runSimulation(shouldSave = true){
       const statusTag = isReturn 
         ? `<span class="tag-linked">🔄 리턴 출국 (${formatShortDate(team.regDate)} 등록)</span>`
         : '';
+      const ridingTag = team.isRiding ? `<span class="tag-riding">🚴 라이딩</span>` : '';
 
       teamResultsHtml += `<div style="margin-bottom:16px; border-bottom:1px solid #e1e7ef; padding-bottom:12px;">
-        <h3 style="margin-bottom:4px; color:#1769aa;">🚩 ${esc(team.name)} (${team.totalPeople}명) <span class="tag-pattern">${patternLabel}</span> ${statusTag}${priceText}</h3>
+        <h3 style="margin-bottom:4px; color:#1769aa;">🚩 ${esc(team.name)} (${team.totalPeople}명) <span class="tag-pattern">${patternLabel}</span> ${ridingTag} ${statusTag}${priceText}</h3>
         <div style="font-size:13px; font-weight:bold; color:#2e7d32; margin-bottom:6px;">🗓️ 여정 정보: ${team.itineraryStr || (isReturn ? `리턴일: ${formatShortDate(selectedDate)} (원출발: ${formatShortDate(team.regDate)})` : '')}</div>
         ${team.memo ? `<div class="memo-box"><b>📌 메모:</b> ${esc(team.memo)}</div>` : ''}`;
 
