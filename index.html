@@ -116,7 +116,7 @@ th{background:#f1f4f7}
 <div class="wrap">
   <div class="card">
     <!-- 💡 달력 상단 한단/중단 인원 집계 박스 -->
-    <div id="monthlySummaryBox" style="background:#e8f4fd; border:1px solid #b6d4fe; border-radius:8px; padding:12px 16px; margin-bottom:15px; font-weight:bold; color:#17324d; font-size:15px; text-align:center;">
+    <div id="monthlySummaryBox" style="background:#e8f4fd; border:1px solid #b6d4fe; border-radius:6px; padding:6px 12px; margin-bottom:8px; font-weight:bold; color:#17324d; font-size:15px; text-align:center;">
       <span id="monthlySummaryText">📅 월별 집계 데이터 계산 중...</span>
     </div>
 
@@ -347,7 +347,7 @@ async function updateMonthlySummary(year, month) {
     const totalPeople = krPeople + cnPeople;
 
     // 수천 명 단위의 실제 인원수가 천 단위 쉼표(예: 2,450명)로 깔끔하게 표시됩니다.
-    summaryEl.innerHTML = `${month}월 한단 ${krPeople.toLocaleString()}명 + 중단 ${cnPeople.toLocaleString()}명 = <b>총 ${totalPeople.toLocaleString()}명</b> (${krGroupCount}팀 / ${cnGroupCount}팀)`;
+    summaryEl.innerHTML = `${month}월(편도) 한단 ${krPeople.toLocaleString()}명+중단 ${cnPeople.toLocaleString()}명 = <b>총 ${totalPeople.toLocaleString()}명</b>;
 
 
   } catch (e) {
