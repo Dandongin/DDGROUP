@@ -208,7 +208,7 @@ th{background:#f1f4f7}
       <button type="button" style="background:#1769aa; color:white; padding:9px 15px; font-size:13px;" onclick="toggleStatsMenu(event)">📊 통계 ▾</button>
       <div class="stats-dropdown-content">
         <button type="button" onclick="showMonthlyStats()">당월 단체</button>
-        <button type="button" onclick="showRidingStats()">라이딩 통계</button>
+        <button type="button" onclick="triggerMonthlyExcelDownload()">이번 달(단체)</button>
         <button type="button" onclick="showOtherStats()">기타 통계</button>
       </div>
     </div>
@@ -472,7 +472,6 @@ function showMonthlyStats() {
 
     const totalPeople = krPeople + cnPeople;
 
-    // 요약 문구만 깔끔하게 노출하도록 수정
     const summaryHtml = `
       <div style="background:#f8fafc; padding:24px 20px; border-radius:8px; border:1px solid #e2e8f0; text-align:center; font-size:16px; color:#17324d; line-height:1.8;">
         ${month}월 한단 ${krPeople.toLocaleString()}명 + 중단 ${cnPeople.toLocaleString()}명<br>
@@ -480,15 +479,20 @@ function showMonthlyStats() {
       </div>
     `;
 
-    openStatsModal(`${month}월 단체 통계`, summaryHtml);
+    openStatsModal(`${month}월 단체 (편도)`, summaryHtml);
   }).catch(e => {
     console.error(e);
-    openStatsModal(`${month}월 단체 통계`, "<div style='color:red; text-align:center;'>데이터를 불러오는 도중 오류가 발생했습니다.</div>");
+    openStatsModal(`${month}월 단체 (편도)`, "<div style='color:red; text-align:center;'>데이터를 불러오는 도중 오류가 발생했습니다.</div>");
   });
 }
 
-function showRidingStats() {
-  openStatsModal("라이딩 통계", "<div style='text-align:center; padding:20px; color:#666;'>준비 중인 통계 기능입니다.</div>");
+/* 통계 드롭다운 메뉴 내 '이번 달(단체)' 엑셀 다운로드 실행 함수 */
+function triggerMonthlyExcelDownload() {
+  const dropdown = document.getElementById("statsDropdown");
+  if (dropdown) dropdown.classList.remove("show");
+
+  const currentDate = calendar ? calendar.view.currentStart : new Date();
+  downloadMonthlyExcel(currentDate.getFullYear(), currentDate.getMonth() + 1);
 }
 
 function showOtherStats() {
@@ -503,16 +507,7 @@ document.addEventListener('DOMContentLoaded', function() {
   calendar = new FullCalendar.Calendar(calendarEl, {
     initialView: 'dayGridMonth',
     locale: 'ko',
-    headerToolbar: { left: 'prev,next today', center: 'title', right: 'monthlyExport' },
-    customButtons: {
-      monthlyExport: {
-        text: '📥 이번 달 (단체)',
-        click: function() {
-          const viewStart = calendar.view.currentStart;
-          downloadMonthlyExcel(viewStart.getFullYear(), viewStart.getMonth() + 1);
-        }
-      }
-    },
+    headerToolbar: { left: 'prev,next today', center: 'title', right: '' },
     dateClick: function(info) {
       closeEventSection();
       openDateSim(info.dateStr);
