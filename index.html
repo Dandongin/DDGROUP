@@ -24,7 +24,7 @@ header h1{margin:0;font-size:20px}
 .card{background:white;border-radius:12px;padding:18px;margin-bottom:16px;box-shadow:0 2px 9px #0000000d}
 #calendar{background:white;padding:20px;border-radius:12px;min-height:500px;touch-action:pan-y;}
 
-/* 오늘 날짜 셀 배경색 변경 (기존: 연노랑 #ffeb3b/#fcf8e3 -> 살짝 더 진한 연노란색 #fff59d) */
+/* 오늘 날짜 셀 배경색 변경 */
 .fc .fc-day-today {
   background-color: #fff59d !important;
 }
@@ -37,7 +37,7 @@ label{font-size:12px;color:#5c6673;display:block;margin-bottom:4px}
 input,select,button,textarea{font:inherit}
 input,select,textarea{width:100%;padding:8px 10px;border:1px solid #ccd3dc;border-radius:7px;background:white}
 
-/* 배정 인원, 박수, 객실 종류에 강조 하늘색 스타일 적용 */
+/* 배정 인원, 박수, 객실 종류 스타일 */
 input.assignPeople, input.teamNights, select.typeSelect {
   background:#e3f2fd !important; 
   border:1px solid #90caf9 !important; 
@@ -72,11 +72,9 @@ th{background:#f1f4f7}
 
 .section-subtitle{font-size:13px; font-weight:bold; color:#1769aa; margin:8px 0 4px 0; border-left:3px solid #1769aa; padding-left:6px;}
 
-/* 달력 요일 색상 지정 (토: 파란색, 일: 빨간색) */
 .fc .fc-day-sat a { color: #0000ff !important; }
 .fc .fc-day-sun a { color: #d32f2f !important; }
 
-/* 접기/펼치기 스타일 */
 .collapsible-toggle {
   display: flex;
   justify-content: space-between;
@@ -95,7 +93,6 @@ th{background:#f1f4f7}
   background: #e2e8f0;
 }
 
-/* 통계 드롭다운 메뉴 스타일 */
 .stats-dropdown {
   position: relative;
   display: inline-block;
@@ -139,7 +136,6 @@ th{background:#f1f4f7}
   display: block;
 }
 
-/* 통계 모달(팝업) 창 스타일 */
 .modal-overlay {
   position: fixed;
   top: 0; left: 0; width: 100%; height: 100%;
@@ -213,7 +209,6 @@ th{background:#f1f4f7}
     <span style="font-size:12px; opacity:0.8; display:block;">※출국 (단체)인원 및 객실 예정표</span>
   </div>
   <div style="display:flex; gap:8px;">
-    <!-- 통계 버튼 & 드롭다운 메뉴 -->
     <div class="stats-dropdown" id="statsDropdown">
       <button type="button" style="background:#1769aa; color:white; padding:9px 15px; font-size:13px;" onclick="toggleStatsMenu(event)">📊 통계 ▾</button>
       <div class="stats-dropdown-content">
@@ -222,7 +217,6 @@ th{background:#f1f4f7}
         <button type="button" onclick="triggerMonthlyExcelDownload()">엑셀 단체</button>
       </div>
     </div>
-    <!-- 기존 메모 등록 버튼 -->
     <button type="button" style="background:#d32f2f; color:white; padding:9px 15px; font-size:13px;" onclick="openEventModal()">메모 등록</button>
   </div>
 </header>
@@ -333,8 +327,6 @@ th{background:#f1f4f7}
 </div>
 
 <script>
-
-
 let db = null;
 try {
   if (typeof firebase !== 'undefined') {
@@ -373,9 +365,9 @@ function formatShortDate(dateStr) {
 function getDayColor(dateStr) {
   const dow = new Date(dateStr).getDay();
   if (dow === 2 || dow === 4 || dow === 0) {
-    return '#FFB6C1'; // 화, 목, 일 (분홍색)
+    return '#FFB6C1';
   } else if (dow === 1 || dow === 3 || dow === 5) {
-    return '#87CEEB'; // 월, 수, 금 (하늘색)
+    return '#87CEEB';
   }
   return '#1769aa';
 }
@@ -394,6 +386,22 @@ function normalizePattern(p){
   return p || 'ROUND';
 }
 
+/* 헬퍼: 단체의 출국 인원 구하기 (입출국 분리 고려) */
+function getOutPeople(t) {
+  if (t.isSplitRoom && t.outAllocations && t.outAllocations.length > 0) {
+    return t.outAllocations.reduce((s, a) => s + (parseInt(a.people, 10) || 0), 0);
+  }
+  return parseInt(t.totalPeople || 0, 10);
+}
+
+/* 헬퍼: 단체의 리턴(입국) 인원 구하기 (입출국 분리 고려) */
+function getReturnPeople(t) {
+  if (t.isSplitRoom && t.inAllocations && t.inAllocations.length > 0) {
+    return t.inAllocations.reduce((s, a) => s + (parseInt(a.people, 10) || 0), 0);
+  }
+  return parseInt(t.totalPeople || 0, 10);
+}
+
 function toggleMasterArea(){
   const content = document.getElementById("masterAreaContent");
   const icon = document.getElementById("masterToggleIcon");
@@ -406,7 +414,6 @@ function toggleMasterArea(){
   }
 }
 
-/* --- 통계 메뉴 및 팝업(모달) 관련 함수 --- */
 function toggleStatsMenu(e) {
   if (e) e.stopPropagation();
   const dropdown = document.getElementById("statsDropdown");
@@ -455,22 +462,41 @@ function showMonthlyStats() {
 
     querySnapshot.forEach(doc => {
       const regDate = doc.id; // YYYY-MM-DD
-      if (regDate.startsWith(`${year}-${mm}`)) {
-        const data = doc.data();
-        if (data.teams && data.teams.length > 0) {
-          const dow = new Date(regDate).getDay();
+      const data = doc.data();
 
-          data.teams.forEach(t => {
-            const people = parseInt(t.totalPeople || 0, 10);
+      if (data.teams && data.teams.length > 0) {
+        data.teams.forEach(t => {
+          const outP = getOutPeople(t);
+          const retP = getReturnPeople(t);
+          const defaultNights = getDefaultNightsByDate(regDate);
+          const nights = parseInt(t.nights || defaultNights, 10);
+          const pattern = normalizePattern(t.pattern);
+          const returnDate = getReturnDate(regDate, nights);
+
+          // 출국일 통계
+          if (regDate.startsWith(`${year}-${mm}`)) {
+            const dow = new Date(regDate).getDay();
             if (dow === 1 || dow === 3 || dow === 5) {
-              krPeople += people;
+              krPeople += outP;
               krGroupCount++;
             } else if (dow === 2 || dow === 4 || dow === 0) {
-              cnPeople += people;
+              cnPeople += outP;
               cnGroupCount++;
             }
-          });
-        }
+          }
+
+          // 왕복 리턴일 통계 (입국 객실 분리 변경 인원 반영)
+          if (pattern === 'ROUND' && returnDate.startsWith(`${year}-${mm}`)) {
+            const dowRet = new Date(returnDate).getDay();
+            if (dowRet === 1 || dowRet === 3 || dowRet === 5) {
+              krPeople += retP;
+              krGroupCount++;
+            } else if (dowRet === 2 || dowRet === 4 || dowRet === 0) {
+              cnPeople += retP;
+              cnGroupCount++;
+            }
+          }
+        });
       }
     });
 
@@ -490,7 +516,6 @@ function showMonthlyStats() {
   });
 }
 
-/* 통계 드롭다운 메뉴 내 '이번 달(단체)' 엑셀 다운로드 실행 함수 */
 function triggerMonthlyExcelDownload() {
   const dropdown = document.getElementById("statsDropdown");
   if (dropdown) dropdown.classList.remove("show");
@@ -499,7 +524,6 @@ function triggerMonthlyExcelDownload() {
   downloadMonthlyExcel(currentDate.getFullYear(), currentDate.getMonth() + 1);
 }
 
-/* 라이딩 단체 월별 통계 모달 및 이미지 다운로드 */
 function showRidingStats() {
   if (!db) {
     alert("데이터베이스 연결이 없습니다.");
@@ -512,17 +536,17 @@ function showRidingStats() {
     let monthlyStats = {};
 
     querySnapshot.forEach(doc => {
-      const regDate = doc.id; // YYYY-MM-DD
-      const monthKey = regDate.substring(0, 7); // YYYY-MM
+      const regDate = doc.id;
       const data = doc.data();
 
       if (data.teams && data.teams.length > 0) {
         data.teams.forEach(t => {
           if (t.isRiding) {
+            const monthKey = regDate.substring(0, 7);
             if (!monthlyStats[monthKey]) {
               monthlyStats[monthKey] = { people: 0, groups: 0 };
             }
-            monthlyStats[monthKey].people += parseInt(t.totalPeople || 0, 10);
+            monthlyStats[monthKey].people += getOutPeople(t);
             monthlyStats[monthKey].groups += 1;
           }
         });
@@ -582,7 +606,6 @@ function showRidingStats() {
   });
 }
 
-/* 라이딩 통계 팝업창 내용 이미지 다운로드 함수 */
 function downloadRidingStatsImage() {
   const area = document.getElementById("ridingCaptureArea");
   if (!area) return;
@@ -602,7 +625,6 @@ document.addEventListener('DOMContentLoaded', function() {
   calendar = new FullCalendar.Calendar(calendarEl, {
     initialView: 'dayGridMonth',
     locale: 'ko',
-    // 연/월(title)을 가장 왼쪽, TODAY와 좌우 버튼을 가장 오른쪽(today prev,next)으로 배치
     headerToolbar: { left: 'title', center: '', right: 'today prev,next' },
     dateClick: function(info) {
       closeEventSection();
@@ -616,7 +638,6 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     },
     eventSources: [
-      /* 1. 한국 공휴일 연동 */
       {
         events: async function(fetchInfo, successCallback) {
           try {
@@ -634,7 +655,6 @@ document.addEventListener('DOMContentLoaded', function() {
           } catch(e) { successCallback([]); }
         }
       },
-      /* 2. 중국 명절 연동 */
       {
         events: function(fetchInfo, successCallback) {
           const year = fetchInfo.start.getFullYear();
@@ -680,7 +700,7 @@ document.addEventListener('DOMContentLoaded', function() {
           successCallback(events);
         }
       },
-      /* 3. 승선 인원 요약 */
+      /* 3. 승선 인원 요약 (입/출국 인원 객실 분리 반영) */
       {
         events: function(fetchInfo, successCallback) {
           if(!db) { successCallback([]); return; }
@@ -692,17 +712,18 @@ document.addEventListener('DOMContentLoaded', function() {
               const data = doc.data();
               if (data.teams && data.teams.length > 0) {
                 data.teams.forEach(t => {
-                  const p = t.totalPeople || 0;
+                  const outP = getOutPeople(t);
+                  const retP = getReturnPeople(t);
                   const defaultNights = getDefaultNightsByDate(regDate);
                   const nights = parseInt(t.nights || defaultNights, 10);
                   const pattern = normalizePattern(t.pattern);
                   const returnDate = getReturnDate(regDate, nights);
 
                   if (pattern === 'ROUND') {
-                    dailyAll[regDate] = (dailyAll[regDate] || 0) + p;
-                    dailyAll[returnDate] = (dailyAll[returnDate] || 0) + p;
+                    dailyAll[regDate] = (dailyAll[regDate] || 0) + outP;
+                    dailyAll[returnDate] = (dailyAll[returnDate] || 0) + retP;
                   } else {
-                    dailyAll[regDate] = (dailyAll[regDate] || 0) + p;
+                    dailyAll[regDate] = (dailyAll[regDate] || 0) + outP;
                   }
                 });
               }
@@ -724,7 +745,6 @@ document.addEventListener('DOMContentLoaded', function() {
           }).catch(() => successCallback([]));
         }
       },
-      /* 4. 사용자 지정 메모 */
       {
         events: function(fetchInfo, successCallback) {
           if(!db) { successCallback([]); return; }
@@ -766,7 +786,6 @@ document.addEventListener('DOMContentLoaded', function() {
   });
   calendar.render();
 
-  /* 달력 터치/마우스 좌우 스와이프 제스처 이벤트 조작 */
   let touchStartX = 0;
   let touchStartY = 0;
 
@@ -885,7 +904,8 @@ async function openDateSim(dateStr){
                 linkedReturnTeams.push({
                   ...t,
                   regDate: regDate,
-                  isReturnOnTarget: true
+                  isReturnOnTarget: true,
+                  totalPeople: getReturnPeople(t) // 리턴 시 입국 인원으로 세팅
                 });
               }
             });
@@ -1287,7 +1307,7 @@ function runSimulation(shouldSave = true){
       
       outAllocations = outRes.allocations;
       inAllocations = inRes.allocations;
-      teamTotalPeople = outRes.totalPeople;
+      teamTotalPeople = outRes.totalPeople; // 대표 인원은 출국 인원으로 지정
 
       if((outRes.totalPeople <= 0 || inRes.totalPeople <= 0) && shouldSave) {
         alert(`[${name || '단체'}] 단체의 출국 및 입국 배정 인원을 모두 입력해주세요.`);
@@ -1339,7 +1359,7 @@ function runSimulation(shouldSave = true){
   const todayOutTeams = todayTeams.filter(t => t.pattern === 'ROUND' || t.pattern === 'ONEWAY_OUT');
   const outBoardingTeams = [...todayOutTeams, ...linkedReturnTeams];
 
-  const groupTotalPeople = outBoardingTeams.reduce((s,t) => s + t.totalPeople, 0);
+  const groupTotalPeople = outBoardingTeams.reduce((s,t) => s + (t.isReturnOnTarget ? getReturnPeople(t) : getOutPeople(t)), 0);
   const groupTotalRooms = Object.values(groupRoomUsed).reduce((a,b)=>a+b, 0);
 
   let generalTotalPeople = 0;
@@ -1416,13 +1436,14 @@ function runSimulation(shouldSave = true){
       if(team.pattern === 'ONEWAY_OUT') patternLabel = "➡️ 출국 편도";
 
       const isReturn = team.isReturnOnTarget;
+      const displayPeople = isReturn ? getReturnPeople(team) : getOutPeople(team);
       const statusTag = isReturn 
         ? `<span class="tag-linked">🔄 리턴 출국 (${formatShortDate(team.regDate)} 등록)</span>`
         : '';
       const ridingTag = team.isRiding ? `<span class="tag-riding">🚴 라이딩</span>` : '';
 
       teamResultsHtml += `<div style="margin-bottom:16px; border-bottom:1px solid #e1e7ef; padding-bottom:12px;">
-        <h3 style="margin-bottom:4px; color:#1769aa;">🚩 ${esc(team.name)} (${team.totalPeople}명) <span class="tag-pattern">${patternLabel}</span> ${ridingTag} ${statusTag}${priceText}</h3>
+        <h3 style="margin-bottom:4px; color:#1769aa;">🚩 ${esc(team.name)} (${displayPeople}명) <span class="tag-pattern">${patternLabel}</span> ${ridingTag} ${statusTag}${priceText}</h3>
         <div style="font-size:13px; font-weight:bold; color:#2e7d32; margin-bottom:6px;">🗓️ 여정 정보: ${team.itineraryStr || (isReturn ? `리턴일: ${formatShortDate(selectedDate)} (원출발: ${formatShortDate(team.regDate)})` : '')}</div>
         ${team.memo ? `<div class="memo-box"><b>📌 메모:</b> ${esc(team.memo)}</div>` : ''}`;
 
@@ -1525,22 +1546,28 @@ function downloadMonthlyExcel(year, month){
 
       data.teams.forEach(t => {
         const name = t.name || "";
-        const people = parseInt(t.totalPeople || 0, 10);
+        const outP = getOutPeople(t);
+        const retP = getReturnPeople(t);
         const defaultNights = getDefaultNightsByDate(regDate);
         const nights = parseInt(t.nights || defaultNights, 10);
         const pattern = normalizePattern(t.pattern);
         const returnDate = getReturnDate(regDate, nights);
 
         if(pattern === 'ROUND'){
-          [regDate, returnDate].forEach(d => {
-            if(!outGroups[d]) outGroups[d] = { names: [], total: 0 };
-            outGroups[d].names.push(`${name} ${people}명`);
-            outGroups[d].total += people;
-          });
+          // 출발일: 출국 인원 적용
+          if(!outGroups[regDate]) outGroups[regDate] = { names: [], total: 0 };
+          outGroups[regDate].names.push(`${name} ${outP}명`);
+          outGroups[regDate].total += outP;
+
+          // 리턴일: 입국 인원 적용
+          if(!outGroups[returnDate]) outGroups[returnDate] = { names: [], total: 0 };
+          outGroups[returnDate].names.push(`${name} ${retP}명`);
+          outGroups[returnDate].total += retP;
+
         } else if(pattern === 'ONEWAY_OUT' || pattern === 'ONEWAY_IN'){
           if(!outGroups[regDate]) outGroups[regDate] = { names: [], total: 0 };
-          outGroups[regDate].names.push(`${name} ${people}명`);
-          outGroups[regDate].total += people;
+          outGroups[regDate].names.push(`${name} ${outP}명`);
+          outGroups[regDate].total += outP;
         }
       });
     });
