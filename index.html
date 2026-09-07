@@ -386,22 +386,6 @@ function normalizePattern(p){
   return p || 'ROUND';
 }
 
-/* 헬퍼: 단체의 출국 인원 구하기 (입출국 분리 고려) */
-function getOutPeople(t) {
-  if (t.isSplitRoom && t.outAllocations && t.outAllocations.length > 0) {
-    return t.outAllocations.reduce((s, a) => s + (parseInt(a.people, 10) || 0), 0);
-  }
-  return parseInt(t.totalPeople || 0, 10);
-}
-
-/* 헬퍼: 단체의 리턴(입국) 인원 구하기 (입출국 분리 고려) */
-function getReturnPeople(t) {
-  if (t.isSplitRoom && t.inAllocations && t.inAllocations.length > 0) {
-    return t.inAllocations.reduce((s, a) => s + (parseInt(a.people, 10) || 0), 0);
-  }
-  return parseInt(t.totalPeople || 0, 10);
-}
-
 function toggleMasterArea(){
   const content = document.getElementById("masterAreaContent");
   const icon = document.getElementById("masterToggleIcon");
@@ -443,6 +427,7 @@ function closeStatsModal() {
   document.getElementById("statsModal").classList.add("hidden");
 }
 
+/* index1의 당월 통계 복구 부분 */
 function showMonthlyStats() {
   if (!db) {
     alert("데이터베이스 연결이 없습니다.");
@@ -462,41 +447,22 @@ function showMonthlyStats() {
 
     querySnapshot.forEach(doc => {
       const regDate = doc.id; // YYYY-MM-DD
-      const data = doc.data();
+      if (regDate.startsWith(`${year}-${mm}`)) {
+        const data = doc.data();
+        if (data.teams && data.teams.length > 0) {
+          const dow = new Date(regDate).getDay();
 
-      if (data.teams && data.teams.length > 0) {
-        data.teams.forEach(t => {
-          const outP = getOutPeople(t);
-          const retP = getReturnPeople(t);
-          const defaultNights = getDefaultNightsByDate(regDate);
-          const nights = parseInt(t.nights || defaultNights, 10);
-          const pattern = normalizePattern(t.pattern);
-          const returnDate = getReturnDate(regDate, nights);
-
-          // 출국일 통계
-          if (regDate.startsWith(`${year}-${mm}`)) {
-            const dow = new Date(regDate).getDay();
+          data.teams.forEach(t => {
+            const people = parseInt(t.totalPeople || 0, 10);
             if (dow === 1 || dow === 3 || dow === 5) {
-              krPeople += outP;
+              krPeople += people;
               krGroupCount++;
             } else if (dow === 2 || dow === 4 || dow === 0) {
-              cnPeople += outP;
+              cnPeople += people;
               cnGroupCount++;
             }
-          }
-
-          // 왕복 리턴일 통계 (입국 객실 분리 변경 인원 반영)
-          if (pattern === 'ROUND' && returnDate.startsWith(`${year}-${mm}`)) {
-            const dowRet = new Date(returnDate).getDay();
-            if (dowRet === 1 || dowRet === 3 || dowRet === 5) {
-              krPeople += retP;
-              krGroupCount++;
-            } else if (dowRet === 2 || dowRet === 4 || dowRet === 0) {
-              cnPeople += retP;
-              cnGroupCount++;
-            }
-          }
-        });
+          });
+        }
       }
     });
 
@@ -530,23 +496,23 @@ function showRidingStats() {
     return;
   }
 
-  openStatsModal("🚴월별 라이딩 통계(편도 기준)", "<div style='text-align:center; padding:20px;'>라이딩 데이터를 불러오는 중...</div>");
+  openStatsModal("🚴 월별 라이딩 단체 통계", "<div style='text-align:center; padding:20px;'>라이딩 데이터를 불러오는 중...</div>");
 
   db.collection("schedules").get().then(querySnapshot => {
     let monthlyStats = {};
 
     querySnapshot.forEach(doc => {
-      const regDate = doc.id;
+      const regDate = doc.id; // YYYY-MM-DD
+      const monthKey = regDate.substring(0, 7); // YYYY-MM
       const data = doc.data();
 
       if (data.teams && data.teams.length > 0) {
         data.teams.forEach(t => {
           if (t.isRiding) {
-            const monthKey = regDate.substring(0, 7);
             if (!monthlyStats[monthKey]) {
               monthlyStats[monthKey] = { people: 0, groups: 0 };
             }
-            monthlyStats[monthKey].people += getOutPeople(t);
+            monthlyStats[monthKey].people += parseInt(t.totalPeople || 0, 10);
             monthlyStats[monthKey].groups += 1;
           }
         });
@@ -556,7 +522,7 @@ function showRidingStats() {
     const sortedMonths = Object.keys(monthlyStats).sort();
 
     if (sortedMonths.length === 0) {
-      openStatsModal("🚴월별 라이딩 통계(편도 기준)", "<div style='text-align:center; padding:20px; color:#666;'>등록된 라이딩 단체가 없습니다.</div>");
+      openStatsModal("🚴 월별 라이딩 단체 통계", "<div style='text-align:center; padding:20px; color:#666;'>등록된 라이딩 단체가 없습니다.</div>");
       return;
     }
 
@@ -599,10 +565,10 @@ function showRidingStats() {
 
     const extraDownloadBtn = `<button class="success" onclick="downloadRidingStatsImage()" style="margin-right:auto;">📸 라이딩 통계 이미지 다운로드</button>`;
 
-    openStatsModal("🚴월별 라이딩 통계(편도 기준)", html, extraDownloadBtn);
+    openStatsModal("🚴 월별 라이딩 단체 통계", html, extraDownloadBtn);
   }).catch(e => {
     console.error(e);
-    openStatsModal("🚴월별 라이딩 통계(편도 기준)", "<div style='color:red; text-align:center;'>통계 조회 중 오류가 발생했습니다.</div>");
+    openStatsModal("🚴 월별 라이딩 단체 통계", "<div style='color:red; text-align:center;'>통계 조회 중 오류가 발생했습니다.</div>");
   });
 }
 
@@ -617,7 +583,6 @@ function downloadRidingStatsImage() {
   });
 }
 
-/* FullCalendar 초기화 */
 document.addEventListener('DOMContentLoaded', function() {
   const calendarEl = document.getElementById('calendar');
   if(!calendarEl) return;
@@ -700,7 +665,6 @@ document.addEventListener('DOMContentLoaded', function() {
           successCallback(events);
         }
       },
-      /* 3. 승선 인원 요약 (입/출국 인원 객실 분리 반영) */
       {
         events: function(fetchInfo, successCallback) {
           if(!db) { successCallback([]); return; }
@@ -712,18 +676,17 @@ document.addEventListener('DOMContentLoaded', function() {
               const data = doc.data();
               if (data.teams && data.teams.length > 0) {
                 data.teams.forEach(t => {
-                  const outP = getOutPeople(t);
-                  const retP = getReturnPeople(t);
+                  const p = t.totalPeople || 0;
                   const defaultNights = getDefaultNightsByDate(regDate);
                   const nights = parseInt(t.nights || defaultNights, 10);
                   const pattern = normalizePattern(t.pattern);
                   const returnDate = getReturnDate(regDate, nights);
 
                   if (pattern === 'ROUND') {
-                    dailyAll[regDate] = (dailyAll[regDate] || 0) + outP;
-                    dailyAll[returnDate] = (dailyAll[returnDate] || 0) + retP;
+                    dailyAll[regDate] = (dailyAll[regDate] || 0) + p;
+                    dailyAll[returnDate] = (dailyAll[returnDate] || 0) + p;
                   } else {
-                    dailyAll[regDate] = (dailyAll[regDate] || 0) + outP;
+                    dailyAll[regDate] = (dailyAll[regDate] || 0) + p;
                   }
                 });
               }
@@ -904,8 +867,7 @@ async function openDateSim(dateStr){
                 linkedReturnTeams.push({
                   ...t,
                   regDate: regDate,
-                  isReturnOnTarget: true,
-                  totalPeople: getReturnPeople(t) // 리턴 시 입국 인원으로 세팅
+                  isReturnOnTarget: true
                 });
               }
             });
@@ -1307,7 +1269,7 @@ function runSimulation(shouldSave = true){
       
       outAllocations = outRes.allocations;
       inAllocations = inRes.allocations;
-      teamTotalPeople = outRes.totalPeople; // 대표 인원은 출국 인원으로 지정
+      teamTotalPeople = outRes.totalPeople;
 
       if((outRes.totalPeople <= 0 || inRes.totalPeople <= 0) && shouldSave) {
         alert(`[${name || '단체'}] 단체의 출국 및 입국 배정 인원을 모두 입력해주세요.`);
@@ -1359,7 +1321,7 @@ function runSimulation(shouldSave = true){
   const todayOutTeams = todayTeams.filter(t => t.pattern === 'ROUND' || t.pattern === 'ONEWAY_OUT');
   const outBoardingTeams = [...todayOutTeams, ...linkedReturnTeams];
 
-  const groupTotalPeople = outBoardingTeams.reduce((s,t) => s + (t.isReturnOnTarget ? getReturnPeople(t) : getOutPeople(t)), 0);
+  const groupTotalPeople = outBoardingTeams.reduce((s,t) => s + t.totalPeople, 0);
   const groupTotalRooms = Object.values(groupRoomUsed).reduce((a,b)=>a+b, 0);
 
   let generalTotalPeople = 0;
@@ -1436,14 +1398,13 @@ function runSimulation(shouldSave = true){
       if(team.pattern === 'ONEWAY_OUT') patternLabel = "➡️ 출국 편도";
 
       const isReturn = team.isReturnOnTarget;
-      const displayPeople = isReturn ? getReturnPeople(team) : getOutPeople(team);
       const statusTag = isReturn 
         ? `<span class="tag-linked">🔄 리턴 출국 (${formatShortDate(team.regDate)} 등록)</span>`
         : '';
       const ridingTag = team.isRiding ? `<span class="tag-riding">🚴 라이딩</span>` : '';
 
       teamResultsHtml += `<div style="margin-bottom:16px; border-bottom:1px solid #e1e7ef; padding-bottom:12px;">
-        <h3 style="margin-bottom:4px; color:#1769aa;">🚩 ${esc(team.name)} (${displayPeople}명) <span class="tag-pattern">${patternLabel}</span> ${ridingTag} ${statusTag}${priceText}</h3>
+        <h3 style="margin-bottom:4px; color:#1769aa;">🚩 ${esc(team.name)} (${team.totalPeople}명) <span class="tag-pattern">${patternLabel}</span> ${ridingTag} ${statusTag}${priceText}</h3>
         <div style="font-size:13px; font-weight:bold; color:#2e7d32; margin-bottom:6px;">🗓️ 여정 정보: ${team.itineraryStr || (isReturn ? `리턴일: ${formatShortDate(selectedDate)} (원출발: ${formatShortDate(team.regDate)})` : '')}</div>
         ${team.memo ? `<div class="memo-box"><b>📌 메모:</b> ${esc(team.memo)}</div>` : ''}`;
 
@@ -1546,28 +1507,22 @@ function downloadMonthlyExcel(year, month){
 
       data.teams.forEach(t => {
         const name = t.name || "";
-        const outP = getOutPeople(t);
-        const retP = getReturnPeople(t);
+        const people = parseInt(t.totalPeople || 0, 10);
         const defaultNights = getDefaultNightsByDate(regDate);
         const nights = parseInt(t.nights || defaultNights, 10);
         const pattern = normalizePattern(t.pattern);
         const returnDate = getReturnDate(regDate, nights);
 
         if(pattern === 'ROUND'){
-          // 출발일: 출국 인원 적용
-          if(!outGroups[regDate]) outGroups[regDate] = { names: [], total: 0 };
-          outGroups[regDate].names.push(`${name} ${outP}명`);
-          outGroups[regDate].total += outP;
-
-          // 리턴일: 입국 인원 적용
-          if(!outGroups[returnDate]) outGroups[returnDate] = { names: [], total: 0 };
-          outGroups[returnDate].names.push(`${name} ${retP}명`);
-          outGroups[returnDate].total += retP;
-
+          [regDate, returnDate].forEach(d => {
+            if(!outGroups[d]) outGroups[d] = { names: [], total: 0 };
+            outGroups[d].names.push(`${name} ${people}명`);
+            outGroups[d].total += people;
+          });
         } else if(pattern === 'ONEWAY_OUT' || pattern === 'ONEWAY_IN'){
           if(!outGroups[regDate]) outGroups[regDate] = { names: [], total: 0 };
-          outGroups[regDate].names.push(`${name} ${outP}명`);
-          outGroups[regDate].total += outP;
+          outGroups[regDate].names.push(`${name} ${people}명`);
+          outGroups[regDate].total += people;
         }
       });
     });
