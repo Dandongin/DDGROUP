@@ -22,7 +22,7 @@ header{background:#17324d;color:white;padding:18px 24px;display:flex;justify-con
 header h1{margin:0;font-size:20px}
 .wrap{max-width:1100px;margin:20px auto;padding:0 18px}
 .card{background:white;border-radius:12px;padding:18px;margin-bottom:16px;box-shadow:0 2px 9px #0000000d}
-#calendar{background:white;padding:20px;border-radius:12px;min-height:500px;}
+#calendar{background:white;padding:20px;border-radius:12px;min-height:500px;touch-action:pan-y;}
 
 /* 오늘 날짜 셀 배경색 변경 (기존: 연노랑 #ffeb3b/#fcf8e3 -> 살짝 더 진한 연노란색 #fff59d) */
 .fc .fc-day-today {
@@ -765,6 +765,38 @@ document.addEventListener('DOMContentLoaded', function() {
     ]
   });
   calendar.render();
+
+  /* 달력 터치/마우스 좌우 스와이프 제스처 이벤트 조작 */
+  let touchStartX = 0;
+  let touchStartY = 0;
+
+  function handleSwipeStart(e) {
+    const touch = e.touches ? e.touches[0] : e;
+    touchStartX = touch.clientX;
+    touchStartY = touch.clientY;
+  }
+
+  function handleSwipeEnd(e) {
+    if (!touchStartX) return;
+    const touch = e.changedTouches ? e.changedTouches[0] : e;
+    const diffX = touch.clientX - touchStartX;
+    const diffY = touch.clientY - touchStartY;
+
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
+      if (diffX > 0) {
+        calendar.prev();
+      } else {
+        calendar.next();
+      }
+    }
+    touchStartX = 0;
+    touchStartY = 0;
+  }
+
+  calendarEl.addEventListener('touchstart', handleSwipeStart, { passive: true });
+  calendarEl.addEventListener('touchend', handleSwipeEnd, { passive: true });
+  calendarEl.addEventListener('mousedown', handleSwipeStart);
+  calendarEl.addEventListener('mouseup', handleSwipeEnd);
 });
 
 function openEventModal(){
