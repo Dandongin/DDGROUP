@@ -530,7 +530,7 @@ function showRidingStats() {
     return;
   }
 
-  openStatsModal("🚴 월별 라이딩 단체 통계", "<div style='text-align:center; padding:20px;'>라이딩 데이터를 불러오는 중...</div>");
+  openStatsModal("🚴월별 라이딩 통계(편도 기준)", "<div style='text-align:center; padding:20px;'>라이딩 데이터를 불러오는 중...</div>");
 
   db.collection("schedules").get().then(querySnapshot => {
     let monthlyStats = {};
