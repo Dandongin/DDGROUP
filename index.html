@@ -556,7 +556,7 @@ function showRidingStats() {
     const sortedMonths = Object.keys(monthlyStats).sort();
 
     if (sortedMonths.length === 0) {
-      openStatsModal("🚴 월별 라이딩 단체 통계", "<div style='text-align:center; padding:20px; color:#666;'>등록된 라이딩 단체가 없습니다.</div>");
+      openStatsModal("🚴월별 라이딩 통계(편도 기준)", "<div style='text-align:center; padding:20px; color:#666;'>등록된 라이딩 단체가 없습니다.</div>");
       return;
     }
 
@@ -599,10 +599,10 @@ function showRidingStats() {
 
     const extraDownloadBtn = `<button class="success" onclick="downloadRidingStatsImage()" style="margin-right:auto;">📸 라이딩 통계 이미지 다운로드</button>`;
 
-    openStatsModal("🚴 월별 라이딩 단체 통계", html, extraDownloadBtn);
+    openStatsModal("🚴월별 라이딩 통계(편도 기준)", html, extraDownloadBtn);
   }).catch(e => {
     console.error(e);
-    openStatsModal("🚴 월별 라이딩 단체 통계", "<div style='color:red; text-align:center;'>통계 조회 중 오류가 발생했습니다.</div>");
+    openStatsModal("🚴월별 라이딩 통계(편도 기준)", "<div style='color:red; text-align:center;'>통계 조회 중 오류가 발생했습니다.</div>");
   });
 }
 
