@@ -421,6 +421,7 @@ th{background:#f1f4f7}
       <button type="button" onclick="adjustNoticeZoom(0.2)">+</button>
       <button type="button" onclick="adjustNoticeZoom(-0.2)">-</button>
       <button type="button" onclick="resetNoticeZoom()" style="font-size:11px; width:auto; padding:0 8px; border-radius:12px;">리셋</button>
+      <button type="button" onclick="downloadNoticeImage()" style="font-size:11px; width:auto; padding:0 8px; border-radius:12px; background:#2e7d32; color:white;">💾 다운로드</button>
     </div>
   </div>
 </div>
@@ -530,7 +531,7 @@ function closeStatsModal() {
 }
 
 /* ------------------------------------------------------------------
-   [공지문 팝업 및 이미지 확대/축소/삭제/전체화면 제어 스크립트]
+   [공지문 팝업 및 이미지 확대/축소/삭제/전체화면/다운로드 제어 스크립트]
    ------------------------------------------------------------------ */
 let noticeZoomScale = 1;
 let noticeTranslateX = 0;
@@ -539,6 +540,20 @@ let isNoticeDragging = false;
 let noticeStartX = 0, noticeStartY = 0;
 let initialPinchDistance = null;
 let isFullScreenNotice = false;
+
+function downloadNoticeImage() {
+  const savedImage = localStorage.getItem("notice_image_data");
+  if (!savedImage) {
+    alert("다운로드할 공지문 이미지가 없습니다.");
+    return;
+  }
+  const link = document.createElement("a");
+  link.href = savedImage;
+  link.download = `공지문_${new Date().toISOString().split('T')[0]}.png`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
 
 function showNoticeModal() {
   const savedImage = localStorage.getItem("notice_image_data");
@@ -572,6 +587,7 @@ function showNoticeModal() {
           <button type="button" onclick="adjustNoticeZoom(0.2)">+</button>
           <button type="button" onclick="adjustNoticeZoom(-0.2)">-</button>
           <button type="button" onclick="resetNoticeZoom()" style="font-size:11px; width:auto; padding:0 8px; border-radius:12px;">리셋</button>
+          <button type="button" onclick="downloadNoticeImage()" style="font-size:11px; width:auto; padding:0 8px; border-radius:12px; background:#2e7d32; color:white;">💾 다운로드</button>
         </div>
       </div>
     `;
@@ -579,7 +595,8 @@ function showNoticeModal() {
     
     const extraFooter = `
       <input type="file" id="noticeFileInput" accept="image/*" style="display:none;" onchange="handleNoticeImageUpload(event)">
-      <button class="secondary" onclick="document.getElementById('noticeFileInput').click()" style="margin-right:auto;">이미지 변경</button>
+      <button class="success" onclick="downloadNoticeImage()" style="margin-right:auto;">💾 다운로드</button>
+      <button class="secondary" onclick="document.getElementById('noticeFileInput').click()" style="margin-right:4px;">이미지 변경</button>
       <button class="danger" onclick="deleteNoticeImage()" style="margin-right:8px;">삭제</button>
     `;
     document.getElementById("modalFooter").innerHTML = extraFooter + `<button class="secondary" onclick="closeStatsModal()">닫기</button>`;
