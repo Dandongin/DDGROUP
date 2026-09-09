@@ -273,7 +273,7 @@ th{background:#f1f4f7}
         <div class="card">
           <h2>1. 출국 요약</h2>
           <div class="stats" id="simStats"></div>
-          <h3 style="margin-top:20px; margin-bottom:10px; font-size:14px;">보유 객실 대비 사용 비중 (출국 승선 기준)</h3>
+          <h3 style="margin-top:20px; margin-bottom:10px; font-size:14px;">보유 객실 대비 사용 비중 (출국)</h3>
           <div class="table-responsive">
             <table id="totalTypeTable"></table>
           </div>
@@ -496,7 +496,7 @@ function showRidingStats() {
     return;
   }
 
-  openStatsModal("🚴 월별 라이딩 단체 통계", "<div style='text-align:center; padding:20px;'>라이딩 데이터를 불러오는 중...</div>");
+  openStatsModal("🚴 라이딩 통계(편도 기준)", "<div style='text-align:center; padding:20px;'>라이딩 데이터를 불러오는 중...</div>");
 
   db.collection("schedules").get().then(querySnapshot => {
     let monthlyStats = {};
@@ -522,7 +522,7 @@ function showRidingStats() {
     const sortedMonths = Object.keys(monthlyStats).sort();
 
     if (sortedMonths.length === 0) {
-      openStatsModal("🚴 월별 라이딩 단체 통계", "<div style='text-align:center; padding:20px; color:#666;'>등록된 라이딩 단체가 없습니다.</div>");
+      openStatsModal("🚴 라이딩 통계(편도 기준)", "<div style='text-align:center; padding:20px; color:#666;'>등록된 라이딩 단체가 없습니다.</div>");
       return;
     }
 
@@ -565,10 +565,10 @@ function showRidingStats() {
 
     const extraDownloadBtn = `<button class="success" onclick="downloadRidingStatsImage()" style="margin-right:auto;">📸 라이딩 통계 이미지 다운로드</button>`;
 
-    openStatsModal("🚴 월별 라이딩 단체 통계", html, extraDownloadBtn);
+    openStatsModal("🚴 라이딩 통계(편도 기준)", html, extraDownloadBtn);
   }).catch(e => {
     console.error(e);
-    openStatsModal("🚴 월별 라이딩 단체 통계", "<div style='color:red; text-align:center;'>통계 조회 중 오류가 발생했습니다.</div>");
+    openStatsModal("🚴 라이딩 통계(편도 기준)", "<div style='color:red; text-align:center;'>통계 조회 중 오류가 발생했습니다.</div>");
   });
 }
 
@@ -1322,7 +1322,7 @@ function runSimulation(shouldSave = true){
 
     let itineraryStr = "";
     if(pattern === 'ROUND') {
-      itineraryStr = `출국: ${selShort} ~ 리턴출국: ${retShort} (${nights}박)`;
+      itineraryStr = `출국: ${selShort} ~ 리턴: ${retShort} (${nights}박)`;
     } else if(pattern === 'ONEWAY_OUT') {
       itineraryStr = `출국: ${selShort} (편도)`;
     } else {
@@ -1396,8 +1396,8 @@ function runSimulation(shouldSave = true){
   let totalTypeHtml = `<thead><tr>
     <th>객실 종류</th>
     <th>총 사용 객실</th>
-    <th>보유 대비 비중</th>
-    <th>단체 출국 승선</th>
+    <th>보유 대비</th>
+    <th>단체</th>
     <th>일반 여객</th>
   </tr></thead><tbody>`;
   let overLimit = false;
