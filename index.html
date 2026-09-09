@@ -983,6 +983,14 @@ function updateMasterRoom(key){
   document.getElementById(`calc_remain_room_${key}`).innerText = remainRooms;
 }
 
+function getDefaultCapByKey(key) {
+  if (key === "6" || key === "4") return 4;
+  if (key === "2") return 2;
+  if (key === "dadami24") return 18;
+  if (key === "dadami36") return 26;
+  return masterRooms[key]?.defaultCapPerRoom || 4;
+}
+
 function addTeam(name="", pattern="ROUND", nights="", price="", memo="", isSplitRoom=false, isRiding=false){
   const teamId = "team_" + (teamSeq++);
   const teamDiv = document.createElement("div");
@@ -1040,10 +1048,10 @@ function addTeam(name="", pattern="ROUND", nights="", price="", memo="", isSplit
   document.getElementById("teamsContainer").appendChild(teamDiv);
   
   if(!isSplitRoom) {
-    addRoomTypeToTeam(teamId, "roomTypesContainer", "6", "", 4);
+    addRoomTypeToTeam(teamId, "roomTypesContainer", "6", "");
   } else {
-    addRoomTypeToTeam(teamId, "outRoomTypesContainer", "6", "", 4);
-    addRoomTypeToTeam(teamId, "inRoomTypesContainer", "6", "", 4);
+    addRoomTypeToTeam(teamId, "outRoomTypesContainer", "6", "");
+    addRoomTypeToTeam(teamId, "inRoomTypesContainer", "6", "");
   }
 }
 
@@ -1081,7 +1089,7 @@ function toggleRoomSplitUI(teamId) {
         addRoomTypeToTeam(teamId, "outRoomTypesContainer", key, people, cap);
       });
     } else if(!outContainer.children.length) {
-      addRoomTypeToTeam(teamId, "outRoomTypesContainer", "6", "", 4);
+      addRoomTypeToTeam(teamId, "outRoomTypesContainer", "6", "");
     }
 
     inContainer.innerHTML = "";
@@ -1097,7 +1105,7 @@ function toggleRoomSplitUI(teamId) {
     normalArea.classList.remove("hidden");
     splitArea.classList.add("hidden");
     if(!card.querySelector(".roomTypesContainer").children.length) {
-      addRoomTypeToTeam(teamId, "roomTypesContainer", "6", "", 4);
+      addRoomTypeToTeam(teamId, "roomTypesContainer", "6", "");
     }
   }
 }
@@ -1174,11 +1182,20 @@ function restoreTeamUI(teamData){
   }
 }
 
+function handleTypeSelectChange(typeId) {
+  const typeCard = document.getElementById(typeId);
+  if(!typeCard) return;
+  const selectKey = typeCard.querySelector(".typeSelect").value;
+  const capInput = typeCard.querySelector(".capPerRoom");
+  if(capInput) {
+    capInput.value = getDefaultCapByKey(selectKey);
+  }
+}
+
 function addRoomTypeToTeam(teamId, containerClass, presetKey="6", assignPeople="", capPerRoom=""){
   const container = document.getElementById(teamId).querySelector("." + containerClass);
   const typeId = teamId + "_type_" + Date.now() + "_" + Math.floor(Math.random()*1000);
-  const preset = masterRooms[presetKey];
-  const cap = capPerRoom || preset.defaultCapPerRoom;
+  const cap = capPerRoom !== "" ? capPerRoom : getDefaultCapByKey(presetKey);
 
   const div = document.createElement("div");
   div.className = "type-card";
@@ -1187,7 +1204,7 @@ function addRoomTypeToTeam(teamId, containerClass, presetKey="6", assignPeople="
     <div class="type-grid">
       <div>
         <label>객실 종류</label>
-        <select class="typeSelect">
+        <select class="typeSelect" onchange="handleTypeSelectChange('${typeId}')">
           <option value="6">6인실</option>
           <option value="4">4인실</option>
           <option value="2">2인실</option>
