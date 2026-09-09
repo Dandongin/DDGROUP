@@ -532,6 +532,7 @@ function closeStatsModal() {
 
 /* ------------------------------------------------------------------
    [공지문 팝업 및 이미지 확대/축소/삭제/전체화면/다운로드 제어 스크립트]
+   (Firebase Firestore 연동 방식으로 수정 완료)
    ------------------------------------------------------------------ */
 let noticeZoomScale = 1;
 let noticeTranslateX = 0;
@@ -542,87 +543,100 @@ let initialPinchDistance = null;
 let isFullScreenNotice = false;
 
 function downloadNoticeImage() {
-  const savedImage = localStorage.getItem("notice_image_data");
-  if (!savedImage) {
-    alert("다운로드할 공지문 이미지가 없습니다.");
-    return;
+  if (db) {
+    db.collection("notice").doc("current").get().then(doc => {
+      if (!doc.exists || !doc.data().imageData) {
+        alert("다운로드할 공지문 이미지가 없습니다.");
+        return;
+      }
+      const savedImage = doc.data().imageData;
+      const link = document.createElement("a");
+      link.href = savedImage;
+      link.download = `공지문_${new Date().toISOString().split('T')[0]}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }).catch(err => {
+      alert("공지문 다운로드 중 오류 발생: " + err);
+    });
   }
-  const link = document.createElement("a");
-  link.href = savedImage;
-  link.download = `공지문_${new Date().toISOString().split('T')[0]}.png`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
 }
 
 function showNoticeModal() {
-  const savedImage = localStorage.getItem("notice_image_data");
   const dropdown = document.getElementById("statsDropdown");
   if (dropdown) dropdown.classList.remove("show");
 
   const modalBox = document.getElementById("statsModalBox");
-
   document.getElementById("modalTitle").innerText = "📌 공지문";
 
-  if (!savedImage) {
-    // 저장된 이미지가 없는 경우 (업로드 화면)
-    modalBox.classList.remove("notice-modal-box");
-    const uploadHtml = `
-      <div style="text-align:center; padding:30px 10px;">
-        <p style="font-size:15px; color:#555; margin-bottom:20px;">등록된 공지문 이미지가 없습니다.<br>아래에서 이미지를 선택하여 저장해 주세요.</p>
-        <input type="file" id="noticeFileInput" accept="image/*" style="display:none;" onchange="handleNoticeImageUpload(event)">
-        <button class="primary" onclick="document.getElementById('noticeFileInput').click()" style="padding:10px 20px; font-size:14px;">📁 이미지 파일 첨부하기</button>
-      </div>
-    `;
-    document.getElementById("modalContent").innerHTML = uploadHtml;
-    document.getElementById("modalFooter").innerHTML = `<button class="secondary" onclick="closeStatsModal()">닫기</button>`;
-  } else {
-    // 이미지가 있는 경우 (뷰어 화면)
-    modalBox.classList.add("notice-modal-box");
-    const viewerHtml = `
-      <div style="font-size:12px; color:#666; margin-bottom:8px;">※ 터치/마우스 드래그로 이동, 핀치/휠 스크롤로 확대 및 축소가 가능하며, 이미지를 클릭하면 전체화면으로 볼 수 있습니다.</div>
-      <div class="notice-img-viewport" id="noticeViewport">
-        <img src="${savedImage}" id="noticeImg" alt="공지문 이미지" style="cursor:pointer;">
-        <div class="zoom-controls">
-          <button type="button" onclick="adjustNoticeZoom(0.2)">+</button>
-          <button type="button" onclick="adjustNoticeZoom(-0.2)">-</button>
-          <button type="button" onclick="resetNoticeZoom()" style="font-size:11px; width:auto; padding:0 8px; border-radius:12px;">리셋</button>
-          <button type="button" onclick="downloadNoticeImage()" style="font-size:11px; width:auto; padding:0 8px; border-radius:12px; background:#2e7d32; color:white;">💾 다운로드</button>
-        </div>
-      </div>
-    `;
-    document.getElementById("modalContent").innerHTML = viewerHtml;
-    
-    const extraFooter = `
-      <input type="file" id="noticeFileInput" accept="image/*" style="display:none;" onchange="handleNoticeImageUpload(event)">
-      <button class="success" onclick="downloadNoticeImage()" style="margin-right:auto;">💾 다운로드</button>
-      <button class="secondary" onclick="document.getElementById('noticeFileInput').click()" style="margin-right:4px;">이미지 변경</button>
-      <button class="danger" onclick="deleteNoticeImage()" style="margin-right:8px;">삭제</button>
-    `;
-    document.getElementById("modalFooter").innerHTML = extraFooter + `<button class="secondary" onclick="closeStatsModal()">닫기</button>`;
+  if (db) {
+    db.collection("notice").doc("current").get().then(doc => {
+      const savedImage = doc.exists ? doc.data().imageData : null;
 
-    setTimeout(() => {
-      initNoticeViewerEvents("noticeViewport");
-    }, 50);
+      if (!savedImage) {
+        modalBox.classList.remove("notice-modal-box");
+        const uploadHtml = `
+          <div style="text-align:center; padding:30px 10px;">
+            <p style="font-size:15px; color:#555; margin-bottom:20px;">등록된 공지문 이미지가 없습니다.<br>아래에서 이미지를 선택하여 저장해 주세요.</p>
+            <input type="file" id="noticeFileInput" accept="image/*" style="display:none;" onchange="handleNoticeImageUpload(event)">
+            <button class="primary" onclick="document.getElementById('noticeFileInput').click()" style="padding:10px 20px; font-size:14px;">📁 이미지 파일 첨부하기</button>
+          </div>
+        `;
+        document.getElementById("modalContent").innerHTML = uploadHtml;
+        document.getElementById("modalFooter").innerHTML = `<button class="secondary" onclick="closeStatsModal()">닫기</button>`;
+      } else {
+        modalBox.classList.add("notice-modal-box");
+        const viewerHtml = `
+          <div style="font-size:12px; color:#666; margin-bottom:8px;">※ 터치/마우스 드래그로 이동, 핀치/휠 스크롤로 확대 및 축소가 가능하며, 이미지를 클릭하면 전체화면으로 볼 수 있습니다.</div>
+          <div class="notice-img-viewport" id="noticeViewport">
+            <img src="${savedImage}" id="noticeImg" alt="공지문 이미지" style="cursor:pointer;">
+            <div class="zoom-controls">
+              <button type="button" onclick="adjustNoticeZoom(0.2)">+</button>
+              <button type="button" onclick="adjustNoticeZoom(-0.2)">-</button>
+              <button type="button" onclick="resetNoticeZoom()" style="font-size:11px; width:auto; padding:0 8px; border-radius:12px;">리셋</button>
+              <button type="button" onclick="downloadNoticeImage()" style="font-size:11px; width:auto; padding:0 8px; border-radius:12px; background:#2e7d32; color:white;">💾 다운로드</button>
+            </div>
+          </div>
+        `;
+        document.getElementById("modalContent").innerHTML = viewerHtml;
+        
+        const extraFooter = `
+          <input type="file" id="noticeFileInput" accept="image/*" style="display:none;" onchange="handleNoticeImageUpload(event)">
+          <button class="success" onclick="downloadNoticeImage()" style="margin-right:auto;">💾 다운로드</button>
+          <button class="secondary" onclick="document.getElementById('noticeFileInput').click()" style="margin-right:4px;">이미지 변경</button>
+          <button class="danger" onclick="deleteNoticeImage()" style="margin-right:8px;">삭제</button>
+        `;
+        document.getElementById("modalFooter").innerHTML = extraFooter + `<button class="secondary" onclick="closeStatsModal()">닫기</button>`;
+
+        setTimeout(() => {
+          initNoticeViewerEvents("noticeViewport");
+        }, 50);
+      }
+    }).catch(err => {
+      alert("공지문을 불러오는 중 오류가 발생했습니다: " + err);
+    });
   }
 
   document.getElementById("statsModal").classList.remove("hidden");
 }
 
 function openNoticeFullScreen() {
-  const savedImage = localStorage.getItem("notice_image_data");
-  if (!savedImage) return;
+  if (db) {
+    db.collection("notice").doc("current").get().then(doc => {
+      if (!doc.exists || !doc.data().imageData) return;
 
-  isFullScreenNotice = true;
-  const fsModal = document.getElementById("noticeFullScreenModal");
-  const fsImg = document.getElementById("fullscreenNoticeImg");
-  
-  fsImg.src = savedImage;
-  fsModal.classList.remove("hidden");
+      isFullScreenNotice = true;
+      const fsModal = document.getElementById("noticeFullScreenModal");
+      const fsImg = document.getElementById("fullscreenNoticeImg");
+      
+      fsImg.src = doc.data().imageData;
+      fsModal.classList.remove("hidden");
 
-  setTimeout(() => {
-    initNoticeViewerEvents("fullscreenNoticeViewport");
-  }, 50);
+      setTimeout(() => {
+        initNoticeViewerEvents("fullscreenNoticeViewport");
+      }, 50);
+    });
+  }
 }
 
 function closeNoticeFullScreen() {
@@ -644,12 +658,17 @@ function handleNoticeImageUpload(event) {
 
   const reader = new FileReader();
   reader.onload = function(e) {
-    try {
-      localStorage.setItem("notice_image_data", e.target.result);
-      alert("공지문 이미지가 저장되었습니다.");
-      showNoticeModal();
-    } catch (err) {
-      alert("이미지 용량이 너무 큽니다. 더 작은 크기의 이미지를 올려주세요.");
+    const base64Data = e.target.result;
+    if (db) {
+      db.collection("notice").doc("current").set({
+        imageData: base64Data,
+        updatedAt: new Date()
+      }).then(() => {
+        alert("공지문 이미지가 서버에 저장되었습니다.");
+        showNoticeModal();
+      }).catch(err => {
+        alert("이미지 용량이 너무 크거나 저장에 실패했습니다. (Firestore 용량 제한: ~1MB)");
+      });
     }
   };
   reader.readAsDataURL(file);
@@ -657,10 +676,15 @@ function handleNoticeImageUpload(event) {
 
 function deleteNoticeImage() {
   if (confirm("등록된 공지문 이미지를 삭제하시겠습니까?")) {
-    localStorage.removeItem("notice_image_data");
-    resetNoticeZoom();
-    alert("공지문 이미지가 삭제되었습니다.");
-    showNoticeModal(); // 모달 내부 UI 즉시 갱신
+    if (db) {
+      db.collection("notice").doc("current").delete().then(() => {
+        resetNoticeZoom();
+        alert("공지문 이미지가 삭제되었습니다.");
+        showNoticeModal();
+      }).catch(err => {
+        alert("삭제 실패: " + err);
+      });
+    }
   }
 }
 
