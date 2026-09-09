@@ -469,7 +469,7 @@ document.addEventListener('click', function(e) {
 
 function openStatsModal(title, htmlContent, extraFooterHtml = "") {
   const modalBox = document.getElementById("statsModalBox");
-  modalBox.classList.remove("notice-modal-box"); // 공지문 팝업 스타일 원복
+  modalBox.classList.remove("notice-modal-box");
   
   document.getElementById("modalTitle").innerText = title;
   document.getElementById("modalContent").innerHTML = htmlContent;
@@ -487,7 +487,7 @@ function closeStatsModal() {
 }
 
 /* ------------------------------------------------------------------
-   [추가된 기능] 공지문 팝업 및 이미지 확대/축소 제어 관련 스크립트
+   [공지문 팝업 및 이미지 확대/축소/삭제 제어 스크립트]
    ------------------------------------------------------------------ */
 let noticeZoomScale = 1;
 let noticeTranslateX = 0;
@@ -502,12 +502,12 @@ function showNoticeModal() {
   if (dropdown) dropdown.classList.remove("show");
 
   const modalBox = document.getElementById("statsModalBox");
-  modalBox.classList.add("notice-modal-box");
 
   document.getElementById("modalTitle").innerText = "📌 공지문";
 
   if (!savedImage) {
-    // 이미지 첨부 UI
+    // 저장된 이미지가 없는 경우 (업로드 화면)
+    modalBox.classList.remove("notice-modal-box");
     const uploadHtml = `
       <div style="text-align:center; padding:30px 10px;">
         <p style="font-size:15px; color:#555; margin-bottom:20px;">등록된 공지문 이미지가 없습니다.<br>아래에서 이미지를 선택하여 저장해 주세요.</p>
@@ -518,7 +518,8 @@ function showNoticeModal() {
     document.getElementById("modalContent").innerHTML = uploadHtml;
     document.getElementById("modalFooter").innerHTML = `<button class="secondary" onclick="closeStatsModal()">닫기</button>`;
   } else {
-    // 이미지 뷰어 UI (확대/축소 지원)
+    // 이미지가 있는 경우 (뷰어 화면)
+    modalBox.classList.add("notice-modal-box");
     const viewerHtml = `
       <div style="font-size:12px; color:#666; margin-bottom:8px;">※ 터치/마우스 드래그로 이동, 핀치/휠 스크롤로 확대 및 축소가 가능합니다.</div>
       <div class="notice-img-viewport" id="noticeViewport">
@@ -539,7 +540,6 @@ function showNoticeModal() {
     `;
     document.getElementById("modalFooter").innerHTML = extraFooter + `<button class="secondary" onclick="closeStatsModal()">닫기</button>`;
 
-    // 인터랙션 이벤트 등록
     setTimeout(initNoticeViewerEvents, 50);
   }
 
@@ -571,7 +571,9 @@ function handleNoticeImageUpload(event) {
 function deleteNoticeImage() {
   if (confirm("등록된 공지문 이미지를 삭제하시겠습니까?")) {
     localStorage.removeItem("notice_image_data");
-    showNoticeModal();
+    resetNoticeZoom();
+    alert("공지문 이미지가 삭제되었습니다.");
+    showNoticeModal(); // 모달 내부 UI 즉시 갱신
   }
 }
 
@@ -600,14 +602,12 @@ function initNoticeViewerEvents() {
 
   resetNoticeZoom();
 
-  // 1. 마우스 휠 확대/축소
   viewport.addEventListener("wheel", function(e) {
     e.preventDefault();
     const delta = e.deltaY < 0 ? 0.15 : -0.15;
     adjustNoticeZoom(delta);
   }, { passive: false });
 
-  // 2. 마우스 드래그
   viewport.addEventListener("mousedown", function(e) {
     isNoticeDragging = true;
     noticeStartX = e.clientX - noticeTranslateX;
@@ -625,7 +625,6 @@ function initNoticeViewerEvents() {
     isNoticeDragging = false;
   });
 
-  // 3. 터치 드래그 및 핀치 조작 (손拡大/縮小)
   viewport.addEventListener("touchstart", function(e) {
     if (e.touches.length === 1) {
       isNoticeDragging = true;
@@ -667,7 +666,6 @@ function initNoticeViewerEvents() {
   });
 }
 
-/* 통계 기능 (우측 상단 통계 부분 - 수정 금지 구역 보장) */
 function showMonthlyStats() {
   if (!db) {
     alert("데이터베이스 연결이 없습니다.");
@@ -686,7 +684,7 @@ function showMonthlyStats() {
     let cnPeople = 0, cnGroupCount = 0;
 
     querySnapshot.forEach(doc => {
-      const regDate = doc.id; // YYYY-MM-DD
+      const regDate = doc.id;
       if (regDate.startsWith(`${year}-${mm}`)) {
         const data = doc.data();
         if (data.teams && data.teams.length > 0) {
@@ -742,8 +740,8 @@ function showRidingStats() {
     let monthlyStats = {};
 
     querySnapshot.forEach(doc => {
-      const regDate = doc.id; // YYYY-MM-DD
-      const monthKey = regDate.substring(0, 7); // YYYY-MM
+      const regDate = doc.id;
+      const monthKey = regDate.substring(0, 7);
       const data = doc.data();
 
       if (data.teams && data.teams.length > 0) {
@@ -906,7 +904,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       },
       {
-        /* 달력 숫자 반영 부분 (입/출국 분리 고려) */
         events: function(fetchInfo, successCallback) {
           if(!db) { successCallback([]); return; }
           db.collection("schedules").get().then((querySnapshot) => {
@@ -1486,7 +1483,6 @@ function extractAllocations(typeDivs) {
   return { totalPeople, allocations };
 }
 
-/* 시뮬레이션 및 출국 요약/단체 상세 반영 함수 */
 function runSimulation(shouldSave = true){
   const teamCards = [...document.querySelectorAll("#teamsContainer .team-card")];
 
@@ -1579,7 +1575,6 @@ function runSimulation(shouldSave = true){
     });
   }
 
-  /* 당일 리턴 단체 처리 (입/출국 객실 분리 반영) */
   linkedReturnTeams.forEach(t => {
     let targetAlloc = t.isSplitRoom ? (t.inAllocations || []) : (t.allocations || []);
     targetAlloc.forEach(a => {
@@ -1626,7 +1621,6 @@ function runSimulation(shouldSave = true){
   const generalTotalRooms = Object.values(generalRoomUsed).reduce((a,b)=>a+b, 0);
   const grandTotalRooms = generalTotalRooms + groupTotalRooms;
 
-  /* 1. 출국 요약 화면 반영 */
   document.getElementById("simStats").innerHTML = `
     <div class="stat">출국 총 인원(예상)<b>${grandTotalPeople}명</b><span>일반 ${generalTotalPeople}명 + 단체 ${groupTotalPeople}명</span></div>
     <div class="stat">출국 단체 인원<b>총 ${groupTotalPeople}명</b><span>신규 ${todayOutTeams.length}개 + 리턴 ${linkedReturnTeams.length}개</span></div>
@@ -1674,7 +1668,6 @@ function runSimulation(shouldSave = true){
 
   document.getElementById("simWarn").innerHTML = overLimit ? `<div class="warn-box"><span class="bad">⚠ 초과 경고:</span> 총 출국 객실 신청량이 보유 객실 수를 초과했습니다.</div>` : "";
 
-  /* 2. 출국 단체 상세 화면 반영 */
   let teamResultsHtml = "";
   if (outBoardingTeams.length === 0) {
     teamResultsHtml = `<div style="text-align:center; padding:20px; color:#666;">오늘 출국 승선 예정인 단체가 없습니다.</div>`;
