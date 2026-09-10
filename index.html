@@ -1022,10 +1022,15 @@ function showRidingMonthlyStats() {
           people = (t.outAllocations || []).reduce((sum, a) => sum + (parseInt(a.people, 10) || 0), 0);
         }
 
+        const defaultNights = getDefaultNightsByDate(regDate);
+        const nights = parseInt(t.nights || defaultNights, 10);
+        const returnDate = getReturnDate(regDate, nights);
+
         ridingTeams.push({
           name: t.name || "",
           people: people,
-          goDate: regDate
+          goDate: regDate,
+          returnDate: returnDate
         });
       });
     });
@@ -1042,7 +1047,8 @@ function showRidingMonthlyStats() {
         <tr style="background:#f1f4f7;">
           <th style="padding:8px; border-bottom:2px solid #ccc; text-align:left;">단체명</th>
           <th style="padding:8px; border-bottom:2px solid #ccc; text-align:center;">인원</th>
-          <th style="padding:8px; border-bottom:2px solid #ccc; text-align:center;">출국 사용</th>
+          <th style="padding:8px; border-bottom:2px solid #ccc; text-align:center;">출국</th>
+          <th style="padding:8px; border-bottom:2px solid #ccc; text-align:center;">입국</th>
         </tr>
       </thead>
       <tbody>`;
@@ -1055,6 +1061,7 @@ function showRidingMonthlyStats() {
         <td style="padding:8px; border-bottom:1px solid #eee; text-align:left; font-weight:bold;">${esc(team.name)}</td>
         <td style="padding:8px; border-bottom:1px solid #eee; text-align:center;">${team.people.toLocaleString()}명</td>
         <td style="padding:8px; border-bottom:1px solid #eee; text-align:center;">${formatDateMDShort(team.goDate)}</td>
+        <td style="padding:8px; border-bottom:1px solid #eee; text-align:center;">${formatDateMDShort(team.returnDate)}</td>
       </tr>`;
     });
 
@@ -1063,7 +1070,7 @@ function showRidingMonthlyStats() {
         <tr style="background:#fff3e0; font-weight:bold;">
           <td style="padding:10px; text-align:left; color:#e65100;">합계 (${ridingTeams.length}팀)</td>
           <td style="padding:10px; text-align:center; color:#e65100;">${grandPeople.toLocaleString()}명</td>
-          <td></td>
+          <td colspan="2"></td>
         </tr>
       </tfoot>
     </table></div></div>`;
