@@ -3,15 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>단동훼리 단체 관리 시스템</title>
+<title>단동 스케줄러</title>
 
-<!-- FullCalendar -->
+<!-- FullCalendar CDN -->
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
 
-<!-- Firebase SDK -->
+<!-- Firebase CDN -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+<script src="./config.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <style>
 *{box-sizing:border-box}
@@ -20,22 +22,36 @@ header{background:#17324d;color:white;padding:18px 24px;display:flex;justify-con
 header h1{margin:0;font-size:20px}
 .wrap{max-width:1100px;margin:20px auto;padding:0 18px}
 .card{background:white;border-radius:12px;padding:18px;margin-bottom:16px;box-shadow:0 2px 9px #0000000d}
-#calendar{background:white;padding:20px;border-radius:12px;}
-.date-title{font-size:18px;font-weight:bold;color:#17324d;margin-bottom:15px;display:flex;align-items:center;gap:10px;}
+#calendar{background:white;padding:20px;border-radius:12px;min-height:500px;touch-action:pan-y;}
+
+/* 오늘 날짜 셀 배경색 변경 */
+.fc .fc-day-today {
+  background-color: #fff59d !important;
+}
+
+.date-title{font-size:20px;font-weight:bold;color:#17324d;margin-bottom:15px;display:flex;align-items:center;gap:10px;}
 .team-card{border:1px solid #c3d1e0;background:#f8fafc;border-radius:10px;padding:16px;margin-bottom:16px}
 .team-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:2px solid #e1e7ef;padding-bottom:10px;gap:8px;flex-wrap:wrap;}
 h2{font-size:16px;margin:0 0 12px}
 label{font-size:12px;color:#5c6673;display:block;margin-bottom:4px}
 input,select,button,textarea{font:inherit}
 input,select,textarea{width:100%;padding:8px 10px;border:1px solid #ccd3dc;border-radius:7px;background:white}
-input.assignPeople{background:#e3f2fd !important; border:1px solid #90caf9 !important; font-weight:bold; color:#0d47a1;}
+
+/* 배정 인원, 박수, 객실 종류 스타일 */
+input.assignPeople, input.teamNights, select.typeSelect {
+  background:#e3f2fd !important; 
+  border:1px solid #90caf9 !important; 
+  font-weight:bold; 
+  color:#0d47a1;
+}
+
 button{border:0;border-radius:7px;padding:8px 12px;cursor:pointer;font-weight:700}
 .primary{background:#1769aa;color:#fff}
 .secondary{background:#e9eef4;color:#263746}
 .success{background:#2e7d32;color:#fff}
 .danger{background:#fff0f0;color:#b3261e}
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-.stat{padding:14px;border-radius:9px;background:#f3f6f9;}.stat b{display:block;font-size:22px;margin-top:5px}
+.stat{padding:14px;border-radius:0;background:#f3f6f9;}.stat b{display:block;font-size:22px;margin-top:5px}
 .small{font-size:11px;color:#687583}
 .hidden{display:none!important}
 .warn-box{padding:10px 12px;background:#fff0f0;border:1px solid #f3c2c2;border-radius:8px;font-size:13px;margin-top:12px}
@@ -52,12 +68,13 @@ th{background:#f1f4f7}
 .memo-box{background:#fff; border:1px dashed #cbd5e1; padding:8px 10px; border-radius:6px; margin-top:8px; font-size:12px; color:#334155;}
 .tag-pattern{background:#e3f2fd; color:#0d47a1; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:bold;}
 .tag-linked{background:#e8f5e9; color:#2e7d32; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:bold;}
+.tag-riding{background:#fff3e0; color:#e65100; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:bold;}
 
 .section-subtitle{font-size:13px; font-weight:bold; color:#1769aa; margin:8px 0 4px 0; border-left:3px solid #1769aa; padding-left:6px;}
 
-.in-team-chip{display:inline-flex; align-items:center; gap:6px; background:#e8f5e9; border:1px solid #c8e6c9; color:#2e7d32; padding:6px 12px; border-radius:20px; font-size:13px; font-weight:bold; margin:4px;}
+.fc .fc-day-sat a { color: #0000ff !important; }
+.fc .fc-day-sun a { color: #d32f2f !important; }
 
-/* 접기/펼치기 스타일 */
 .collapsible-toggle {
   display: flex;
   justify-content: space-between;
@@ -74,6 +91,181 @@ th{background:#f1f4f7}
 }
 .collapsible-toggle:hover {
   background: #e2e8f0;
+}
+
+.stats-dropdown {
+  position: relative;
+  display: inline-block;
+}
+.stats-dropdown-content {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin-top: 4px;
+  background-color: #ffffff;
+  min-width: 150px;
+  box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+  border-radius: 8px;
+  overflow: hidden;
+  z-index: 999;
+  border: 1px solid #cbd5e1;
+}
+.stats-dropdown-content button {
+  color: #333;
+  padding: 10px 14px;
+  text-decoration: none;
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-bottom: 1px solid #f1f5f9;
+  border-radius: 0;
+  font-size: 13px;
+  cursor: pointer;
+}
+.stats-dropdown-content button:last-child {
+  border-bottom: none;
+}
+.stats-dropdown-content button:hover {
+  background-color: #f1f5f9;
+  color: #1769aa;
+}
+.stats-dropdown.show .stats-dropdown-content {
+  display: block;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+}
+.modal-box {
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  animation: fadeIn 0.2s ease-out;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid #17324d;
+  padding-bottom: 10px;
+  margin-bottom: 16px;
+}
+.modal-header h2 {
+  margin: 0;
+  font-size: 18px;
+  color: #17324d;
+}
+.modal-body {
+  font-size: 15px;
+  line-height: 1.6;
+  color: #202733;
+  margin-bottom: 20px;
+}
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* 공지문 팝업 전용 스타일 */
+.notice-modal-box {
+  max-width: 90vw !important;
+  width: 900px !important;
+  height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+.notice-img-viewport {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  background: #1e1e1e;
+  border-radius: 8px;
+  cursor: grab;
+  touch-action: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.notice-img-viewport:active {
+  cursor: grabbing;
+}
+.notice-img-viewport img {
+  max-width: 100%;
+  max-height: 100%;
+  transform-origin: center center;
+  transition: transform 0.05s ease-out;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.zoom-controls {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  display: flex;
+  gap: 6px;
+  background: rgba(0,0,0,0.6);
+  padding: 6px 10px;
+  border-radius: 20px;
+  z-index: 10;
+}
+.zoom-controls button {
+  background: white;
+  color: #333;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+/* 이미지 전체화면 모달 전용 스타일 */
+.fullscreen-overlay {
+  position: fixed;
+  top: 0; left: 0; width: 100vw; height: 100vh;
+  background: rgba(0, 0, 0, 0.95);
+  z-index: 20000;
+  display: flex;
+  flex-direction: column;
+}
+.fullscreen-close-btn {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  background: rgba(255,255,255,0.2);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+  cursor: pointer;
+  z-index: 20001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fullscreen-close-btn:hover {
+  background: rgba(255,255,255,0.4);
 }
 
 @media (max-width: 768px) {
@@ -98,22 +290,31 @@ th{background:#f1f4f7}
 
 <header>
   <div>
-    <h1 style="display:inline-block; margin-right:15px;">📅 단동훼리 단체 관리</h1>
-    <span style="font-size:12px; opacity:0.8; display:block;">출국/입국 스마트 여정 및 객실 관리</span>
+    <h1 style="display:inline-block; margin-right:15px;">📅 단동 스케줄러</h1>
+    <span style="font-size:12px; opacity:0.8; display:block;">※출국 (단체)인원 및 객실 예정표</span>
   </div>
-  <button style="background:#d32f2f; color:white; padding:9px 15px; font-size:13px;" onclick="openEventModal()">🚫 휴항/메모 별도 등록</button>
+  <div style="display:flex; gap:8px;">
+    <div class="stats-dropdown" id="statsDropdown">
+      <button type="button" style="background:#1769aa; color:white; padding:9px 15px; font-size:13px;" onclick="toggleStatsMenu(event)">📊 통계 ▾</button>
+      <div class="stats-dropdown-content">
+        <button type="button" onclick="showMonthlyStats()">당월 단체</button>
+        <button type="button" onclick="showRidingStats()">라이딩 통계</button>
+        <button type="button" onclick="triggerMonthlyExcelDownload()">엑셀 단체</button>
+        <button type="button" onclick="showNoticeModal()">📌 공지문</button>
+      </div>
+    </div>
+    <button type="button" style="background:#d32f2f; color:white; padding:9px 15px; font-size:13px;" onclick="openEventModal()">메모 등록</button>
+  </div>
 </header>
 
 <div class="wrap">
-  <!-- 달력 -->
   <div class="card">
     <div id="calendar"></div>
   </div>
 
-  <!-- 1. 별도 휴항/메모 등록 카드 -->
   <div id="eventSection" class="hidden card" style="border: 2px solid #d32f2f;">
     <div class="date-title">
-      <span>🚫 [휴항 및 메모 등록]</span>
+      <span>[메모 등록]</span>
       <button class="secondary" style="font-size:12px; margin-left:auto;" onclick="closeEventSection()">닫기 ✕</button>
     </div>
     <div style="display:grid; gap:12px; max-width:600px;">
@@ -122,23 +323,17 @@ th{background:#f1f4f7}
         <input type="date" id="eventDate" onchange="loadEventDataForDate(this.value)">
       </div>
       <div>
-        <label style="font-weight:bold;">표시 구분</label>
-        <select id="eventType">
-          <option value="⛔ 휴항">⛔ 휴항</option>
-          <option value="🔧 정기점검">🔧 정기점검</option>
-          <option value="✏️ 메모">✏️ 일반 메모</option>
-        </select>
-      </div>
-      <div>
         <label style="font-weight:bold;">상세 메모/내용</label>
         <input type="text" id="eventTitle" placeholder="내용 입력">
       </div>
       <div>
-        <label style="font-weight:bold;">배경 색상</label>
+        <label style="font-weight:bold;">배경 색상 및 태그</label>
         <select id="eventColor">
-          <option value="#d32f2f">빨간색 (휴항)</option>
-          <option value="#ed6c02">주황색 (점검)</option>
-          <option value="#0288d1">파란색 (메모)</option>
+          <option value="#fffde7">옅은 노란색</option>
+          <option value="#9e9e9e">회색</option>
+          <option value="#aed581">연두색</option>
+          <option value="#e1bee7">연보라색 (🇨🇳 오성홍기)</option>
+          <option value="#f57c00">주황색 (🇰🇷 태극기)</option>
         </select>
       </div>
       <div style="display:flex; gap:10px; margin-top:10px;">
@@ -148,7 +343,6 @@ th{background:#f1f4f7}
     </div>
   </div>
 
-  <!-- 2. 선택 날짜 시뮬레이터 -->
   <div id="simSection" class="hidden">
     <div class="card" style="border: 2px solid #1769aa; margin-bottom: 16px;">
       <div class="date-title" style="margin-bottom:0;">
@@ -157,16 +351,15 @@ th{background:#f1f4f7}
       </div>
     </div>
 
-    <!-- 시뮬레이션 결과 요약 -->
     <div id="simResult" class="hidden">
       <div style="text-align:right; margin-bottom:10px;">
         <button class="success" onclick="downloadResultImage()">📸 결과 이미지 다운로드 (PNG)</button>
       </div>
       <div id="captureArea" style="background:#f4f6f9; padding:10px; border-radius:12px; margin-bottom: 16px;">
         <div class="card">
-          <h2>1. 선택 날짜 출국 승선 요약</h2>
+          <h2>1. 출국 요약</h2>
           <div class="stats" id="simStats"></div>
-          <h3 style="margin-top:20px; margin-bottom:10px; font-size:14px;">보유 객실 대비 사용 비중 (출국 승선 기준)</h3>
+          <h3 style="margin-top:20px; margin-bottom:10px; font-size:14px;">보유 객실 대비 사용 비중 (출국)</h3>
           <div class="table-responsive">
             <table id="totalTypeTable"></table>
           </div>
@@ -174,24 +367,16 @@ th{background:#f1f4f7}
         </div>
 
         <div class="card">
-          <h2>2. 오늘 출국 승선 단체 상세 여정</h2>
+          <h2>2. 출국 단체 상세</h2>
           <div id="teamResultsContainer"></div>
-        </div>
-
-        <!-- 오늘 입국 단체 간략 요약 카드 -->
-        <div class="card">
-          <h2>3. 오늘 입국 단체 요약 (총 <span id="inTeamTotalPeople" style="color:#2e7d32;">0</span>명 / <span id="inTeamCount">0</span>개 단체)</h2>
-          <div id="inTeamSummaryContainer" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;"></div>
         </div>
       </div>
     </div>
 
-    <!-- 입력 및 설정 영역 -->
     <div class="card">
-      <!-- 4. 보유 객실 설정 (접기/펼치기 적용) -->
       <div style="margin-bottom:16px;">
         <button type="button" class="collapsible-toggle" onclick="toggleMasterArea()">
-          <span>⚙️ 4. 선박 전체 보유 객실 및 일반 여객 설정</span>
+          <span>⚙️ 객실 및 일반 여객 설정</span>
           <span id="masterToggleIcon">▼ 열기</span>
         </button>
         <div id="masterAreaContent" class="hidden" style="margin-top:10px;">
@@ -199,56 +384,76 @@ th{background:#f1f4f7}
         </div>
       </div>
 
-      <h2>5. [신규 등록] 출발 단체 및 여정 설정</h2>
+<h2>[신규 등록] 출발 단체 및 여정</h2>
       <div id="teamsContainer"></div>
       <button class="secondary" style="margin-top:8px" onclick="addTeam()">+ 단체 추가</button>
 
-      <div style="margin-top:20px; border-top:1px solid #eee; padding-top:16px; display:flex; gap:10px;">
-        <button class="primary" style="font-size:15px;padding:12px 20px" onclick="runSimulation(true)">계산 및 서버 저장</button>
-        <button class="danger" onclick="deleteDateData()">이 날짜 데이터 삭제</button>
+      <div style="margin-top:20px; border-top:1px solid #eee; padding-top:16px; display:flex; justify-content:space-between; align-items:center;">
+        <button class="primary" style="font-size:15px;padding:12px 20px; margin:0 auto;" onclick="runSimulation(true)">기록 및 서버 저장</button>
+        <button class="danger" onclick="deleteDateData()" style="margin-left:auto;">이 날짜 데이터 삭제</button>
       </div>
     </div>
   </div>
 </div>
 
-<script>
-// Firebase 설정
-const firebaseConfig = {
-  apiKey: "AIzaSyCxQ8kYN_VL6-_8oqhrUv3TjV-Yjpimo00",
-  authDomain: "dd-group-2c8e8.firebaseapp.com",
-  projectId: "dd-group-2c8e8",
-  storageBucket: "dd-group-2c8e8.firebasestorage.app",
-  messagingSenderId: "35622249443",
-  appId: "1:35622249443:web:ee7e139f1ca0e3792af6d6"
-};
+<!-- 통계 팝업 모달 구조 -->
+<div id="statsModal" class="modal-overlay hidden">
+  <div class="modal-box" id="statsModalBox">
+    <div class="modal-header">
+      <h2 id="modalTitle">통계</h2>
+      <button class="secondary" onclick="closeStatsModal()" style="padding:4px 8px;">✕</button>
+    </div>
+    <div class="modal-body" id="modalContent">
+      내용이 없습니다.
+    </div>
+    <div class="modal-footer" id="modalFooter">
+      <button class="secondary" onclick="closeStatsModal()">닫기</button>
+    </div>
+  </div>
+</div>
 
+<!-- 전체화면 이미지 모달 구조 -->
+<div id="noticeFullScreenModal" class="fullscreen-overlay hidden">
+  <button type="button" class="fullscreen-close-btn" onclick="closeNoticeFullScreen()">✕</button>
+  <div class="notice-img-viewport" id="fullscreenNoticeViewport" style="width:100%; height:100%; border-radius:0;">
+    <img src="" id="fullscreenNoticeImg" alt="공지문 이미지 전체화면">
+    <div class="zoom-controls">
+      <button type="button" onclick="adjustNoticeZoom(0.2)">+</button>
+      <button type="button" onclick="adjustNoticeZoom(-0.2)">-</button>
+      <button type="button" onclick="resetNoticeZoom()" style="font-size:11px; width:auto; padding:0 8px; border-radius:12px;">리셋</button>
+      <button type="button" onclick="downloadNoticeImage()" style="font-size:11px; width:auto; padding:0 8px; border-radius:12px; background:#2e7d32; color:white;">💾 다운로드</button>
+    </div>
+  </div>
+</div>
+
+<script>
 let db = null;
 try {
   if (typeof firebase !== 'undefined') {
     firebase.initializeApp(firebaseConfig);
     db = firebase.firestore();
   }
-} catch(e) { console.log(e); }
+} catch(e) { console.log("Firebase Init Error:", e); }
 
 let selectedDate = "";
 let calendar = null;
 let teamSeq = 0;
-let linkedReturnTeams = []; // 과거 날짜에서 건너온 오늘 승선 단체들
-let allInboundTeams = [];   // 오늘 입국하는 모든 단체
+let linkedReturnTeams = [];
 
 let masterRooms = {
   "6": { label: "6인실", totalRooms: 143, defaultCapPerRoom: 4, generalPeople: 100, generalCap: 3 },
   "4": { label: "4인실", totalRooms: 124, defaultCapPerRoom: 4, generalPeople: 50, generalCap: 2 },
   "2": { label: "2인실", totalRooms: 15, defaultCapPerRoom: 2, generalPeople: "", generalCap: "" },
-  "dadami24": { label: "다다미 24인실", totalRooms: 2, defaultCapPerRoom: 24, generalPeople: "", generalCap: "" },
-  "dadami36": { label: "다다미 36인실", totalRooms: 1, defaultCapPerRoom: 36, generalPeople: "", generalCap: "" }
+  "dadami24": { label: "다다미24", totalRooms: 2, defaultCapPerRoom: 24, generalPeople: "", generalCap: "" },
+  "dadami36": { label: "다다미36", totalRooms: 1, defaultCapPerRoom: 36, generalPeople: "", generalCap: "" }
 };
 
 function esc(s){ return String(s??"").replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m])); }
 
-function addDays(dateStr, days) {
+function getReturnDate(dateStr, nights) {
   const result = new Date(dateStr);
-  result.setDate(result.getDate() + parseInt(days, 10));
+  const addDaysNum = Math.max(0, parseInt(nights, 10) - 1);
+  result.setDate(result.getDate() + addDaysNum);
   return result.toISOString().split('T')[0];
 }
 
@@ -257,7 +462,30 @@ function formatShortDate(dateStr) {
   return dateStr.substring(5);
 }
 
-// 보유 객실 영역 접기/펼치기
+function getDayColor(dateStr) {
+  const dow = new Date(dateStr).getDay();
+  if (dow === 2 || dow === 4 || dow === 0) {
+    return '#FFB6C1';
+  } else if (dow === 1 || dow === 3 || dow === 5) {
+    return '#87CEEB';
+  }
+  return '#1769aa';
+}
+
+function getDefaultNightsByDate(dateStr) {
+  if (!dateStr) return "4";
+  const dow = new Date(dateStr).getDay(); 
+  if (dow === 3 || dow === 4 || dow === 5) {
+    return "5";
+  }
+  return "4";
+}
+
+function normalizePattern(p){
+  if (p === 'KR_ROUND' || p === 'CN_ROUND') return 'ROUND';
+  return p || 'ROUND';
+}
+
 function toggleMasterArea(){
   const content = document.getElementById("masterAreaContent");
   const icon = document.getElementById("masterToggleIcon");
@@ -270,15 +498,480 @@ function toggleMasterArea(){
   }
 }
 
+function toggleStatsMenu(e) {
+  if (e) e.stopPropagation();
+  const dropdown = document.getElementById("statsDropdown");
+  if (dropdown) dropdown.classList.toggle("show");
+}
+
+document.addEventListener('click', function(e) {
+  const dropdown = document.getElementById("statsDropdown");
+  if (dropdown && !dropdown.contains(e.target)) {
+    dropdown.classList.remove("show");
+  }
+});
+
+function openStatsModal(title, htmlContent, extraFooterHtml = "") {
+  const modalBox = document.getElementById("statsModalBox");
+  modalBox.classList.remove("notice-modal-box");
+  
+  document.getElementById("modalTitle").innerText = title;
+  document.getElementById("modalContent").innerHTML = htmlContent;
+  
+  const footer = document.getElementById("modalFooter");
+  footer.innerHTML = extraFooterHtml + `<button class="secondary" onclick="closeStatsModal()">닫기</button>`;
+  
+  document.getElementById("statsModal").classList.remove("hidden");
+  const dropdown = document.getElementById("statsDropdown");
+  if (dropdown) dropdown.classList.remove("show");
+}
+
+function closeStatsModal() {
+  document.getElementById("statsModal").classList.add("hidden");
+}
+
+/* ------------------------------------------------------------------
+   [공지문 팝업 및 이미지 확대/축소/삭제/전체화면/다운로드 제어 스크립트]
+   (Firebase Firestore 연동 방식으로 수정 완료)
+   ------------------------------------------------------------------ */
+let noticeZoomScale = 1;
+let noticeTranslateX = 0;
+let noticeTranslateY = 0;
+let isNoticeDragging = false;
+let noticeStartX = 0, noticeStartY = 0;
+let initialPinchDistance = null;
+let isFullScreenNotice = false;
+
+function downloadNoticeImage() {
+  if (db) {
+    db.collection("notice").doc("current").get().then(doc => {
+      if (!doc.exists || !doc.data().imageData) {
+        alert("다운로드할 공지문 이미지가 없습니다.");
+        return;
+      }
+      const savedImage = doc.data().imageData;
+      const link = document.createElement("a");
+      link.href = savedImage;
+      link.download = `공지문_${new Date().toISOString().split('T')[0]}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }).catch(err => {
+      alert("공지문 다운로드 중 오류 발생: " + err);
+    });
+  }
+}
+
+function showNoticeModal() {
+  const dropdown = document.getElementById("statsDropdown");
+  if (dropdown) dropdown.classList.remove("show");
+
+  const modalBox = document.getElementById("statsModalBox");
+  document.getElementById("modalTitle").innerText = "📌 공지문";
+
+  if (db) {
+    db.collection("notice").doc("current").get().then(doc => {
+      const savedImage = doc.exists ? doc.data().imageData : null;
+
+      if (!savedImage) {
+        modalBox.classList.remove("notice-modal-box");
+        const uploadHtml = `
+          <div style="text-align:center; padding:30px 10px;">
+            <p style="font-size:15px; color:#555; margin-bottom:20px;">등록된 공지문 이미지가 없습니다.<br>아래에서 이미지를 선택하여 저장해 주세요.</p>
+            <input type="file" id="noticeFileInput" accept="image/*" style="display:none;" onchange="handleNoticeImageUpload(event)">
+            <button class="primary" onclick="document.getElementById('noticeFileInput').click()" style="padding:10px 20px; font-size:14px;">📁 이미지 파일 첨부하기</button>
+          </div>
+        `;
+        document.getElementById("modalContent").innerHTML = uploadHtml;
+        document.getElementById("modalFooter").innerHTML = `<button class="secondary" onclick="closeStatsModal()">닫기</button>`;
+      } else {
+        modalBox.classList.add("notice-modal-box");
+        const viewerHtml = `
+          <div style="font-size:12px; color:#666; margin-bottom:8px;">※이미지 클릭 시 전체화면/업로드 제한 용량 1MB</div>
+          <div class="notice-img-viewport" id="noticeViewport">
+            <img src="${savedImage}" id="noticeImg" alt="공지문 이미지" style="cursor:pointer;">
+            <div class="zoom-controls">
+              <button type="button" onclick="adjustNoticeZoom(0.2)">+</button>
+              <button type="button" onclick="adjustNoticeZoom(-0.2)">-</button>
+              <button type="button" onclick="resetNoticeZoom()" style="font-size:11px; width:auto; padding:0 8px; border-radius:12px;">리셋</button>
+              <button type="button" onclick="downloadNoticeImage()" style="font-size:11px; width:auto; padding:0 8px; border-radius:12px; background:#2e7d32; color:white;">💾 다운로드</button>
+            </div>
+          </div>
+        `;
+        document.getElementById("modalContent").innerHTML = viewerHtml;
+        
+        const extraFooter = `
+          <input type="file" id="noticeFileInput" accept="image/*" style="display:none;" onchange="handleNoticeImageUpload(event)">
+          <button class="success" onclick="downloadNoticeImage()" style="margin-right:auto;">💾 다운로드</button>
+          <button class="secondary" onclick="document.getElementById('noticeFileInput').click()" style="margin-right:4px;">이미지 변경</button>
+          <button class="danger" onclick="deleteNoticeImage()" style="margin-right:8px;">삭제</button>
+        `;
+        document.getElementById("modalFooter").innerHTML = extraFooter + `<button class="secondary" onclick="closeStatsModal()">닫기</button>`;
+
+        setTimeout(() => {
+          initNoticeViewerEvents("noticeViewport");
+        }, 50);
+      }
+    }).catch(err => {
+      alert("공지문을 불러오는 중 오류가 발생했습니다: " + err);
+    });
+  }
+
+  document.getElementById("statsModal").classList.remove("hidden");
+}
+
+function openNoticeFullScreen() {
+  if (db) {
+    db.collection("notice").doc("current").get().then(doc => {
+      if (!doc.exists || !doc.data().imageData) return;
+
+      isFullScreenNotice = true;
+      const fsModal = document.getElementById("noticeFullScreenModal");
+      const fsImg = document.getElementById("fullscreenNoticeImg");
+      
+      fsImg.src = doc.data().imageData;
+      fsModal.classList.remove("hidden");
+
+      setTimeout(() => {
+        initNoticeViewerEvents("fullscreenNoticeViewport");
+      }, 50);
+    });
+  }
+}
+
+function closeNoticeFullScreen() {
+  isFullScreenNotice = false;
+  document.getElementById("noticeFullScreenModal").classList.add("hidden");
+  setTimeout(() => {
+    initNoticeViewerEvents("noticeViewport");
+  }, 50);
+}
+
+function handleNoticeImageUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  if (!file.type.startsWith("image/")) {
+    alert("이미지 파일만 첨부할 수 있습니다.");
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const base64Data = e.target.result;
+    if (db) {
+      db.collection("notice").doc("current").set({
+        imageData: base64Data,
+        updatedAt: new Date()
+      }).then(() => {
+        alert("공지문 이미지가 서버에 저장되었습니다.");
+        showNoticeModal();
+      }).catch(err => {
+        alert("이미지 용량이 너무 크거나 저장에 실패했습니다. (Firestore 용량 제한: ~1MB)");
+      });
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function deleteNoticeImage() {
+  if (confirm("등록된 공지문 이미지를 삭제하시겠습니까?")) {
+    if (db) {
+      db.collection("notice").doc("current").delete().then(() => {
+        resetNoticeZoom();
+        alert("공지문 이미지가 삭제되었습니다.");
+        showNoticeModal();
+      }).catch(err => {
+        alert("삭제 실패: " + err);
+      });
+    }
+  }
+}
+
+function applyNoticeTransform() {
+  const img = isFullScreenNotice ? document.getElementById("fullscreenNoticeImg") : document.getElementById("noticeImg");
+  if (img) {
+    img.style.transform = `translate(${noticeTranslateX}px, ${noticeTranslateY}px) scale(${noticeZoomScale})`;
+  }
+}
+
+function adjustNoticeZoom(delta) {
+  noticeZoomScale = Math.max(0.5, Math.min(5, noticeZoomScale + delta));
+  applyNoticeTransform();
+}
+
+function resetNoticeZoom() {
+  noticeZoomScale = 1;
+  noticeTranslateX = 0;
+  noticeTranslateY = 0;
+  applyNoticeTransform();
+}
+
+function initNoticeViewerEvents(viewportId = "noticeViewport") {
+  const viewport = document.getElementById(viewportId);
+  if (!viewport) return;
+
+  resetNoticeZoom();
+
+  let hasMoved = false;
+
+  viewport.onwheel = function(e) {
+    e.preventDefault();
+    const delta = e.deltaY < 0 ? 0.15 : -0.15;
+    adjustNoticeZoom(delta);
+  };
+
+  viewport.onmousedown = function(e) {
+    if (e.target.tagName === 'BUTTON') return;
+    isNoticeDragging = true;
+    hasMoved = false;
+    noticeStartX = e.clientX - noticeTranslateX;
+    noticeStartY = e.clientY - noticeTranslateY;
+  };
+
+  const handleMouseMove = function(e) {
+    if (!isNoticeDragging) return;
+    hasMoved = true;
+    noticeTranslateX = e.clientX - noticeStartX;
+    noticeTranslateY = e.clientY - noticeStartY;
+    applyNoticeTransform();
+  };
+
+  const handleMouseUp = function(e) {
+    if (isNoticeDragging && !hasMoved && !isFullScreenNotice && e.target.tagName === 'IMG') {
+      openNoticeFullScreen();
+    }
+    isNoticeDragging = false;
+  };
+
+  window.removeEventListener("mousemove", window._noticeMouseMoveHandler);
+  window.removeEventListener("mouseup", window._noticeMouseUpHandler);
+
+  window._noticeMouseMoveHandler = handleMouseMove;
+  window._noticeMouseUpHandler = handleMouseUp;
+
+  window.addEventListener("mousemove", handleMouseMove);
+  window.addEventListener("mouseup", handleMouseUp);
+
+  viewport.ontouchstart = function(e) {
+    if (e.touches.length === 1) {
+      isNoticeDragging = true;
+      hasMoved = false;
+      noticeStartX = e.touches[0].clientX - noticeTranslateX;
+      noticeStartY = e.touches[0].clientY - noticeTranslateY;
+    } else if (e.touches.length === 2) {
+      isNoticeDragging = false;
+      initialPinchDistance = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+    }
+  };
+
+  viewport.ontouchmove = function(e) {
+    if (e.touches.length === 1 && isNoticeDragging) {
+      hasMoved = true;
+      noticeTranslateX = e.touches[0].clientX - noticeStartX;
+      noticeTranslateY = e.touches[0].clientY - noticeStartY;
+      applyNoticeTransform();
+    } else if (e.touches.length === 2 && initialPinchDistance) {
+      const currentDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const factor = currentDist / initialPinchDistance;
+      noticeZoomScale = Math.max(0.5, Math.min(5, noticeZoomScale * (factor > 1 ? 1.03 : 0.97)));
+      initialPinchDistance = currentDist;
+      applyNoticeTransform();
+    }
+  };
+
+  viewport.ontouchend = function(e) {
+    if (e.touches.length < 2) {
+      initialPinchDistance = null;
+    }
+    if (e.touches.length === 0) {
+      if (isNoticeDragging && !hasMoved && !isFullScreenNotice && e.target.tagName === 'IMG') {
+        openNoticeFullScreen();
+      }
+      isNoticeDragging = false;
+    }
+  };
+}
+
+function showMonthlyStats() {
+  if (!db) {
+    alert("데이터베이스 연결이 없습니다.");
+    return;
+  }
+
+  const currentDate = calendar ? calendar.view.currentStart : new Date();
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth() + 1;
+  const mm = String(month).padStart(2, '0');
+
+  openStatsModal(`${month}월 단체 통계`, "<div style='text-align:center; padding:20px;'>통계 데이터를 불러오는 중...</div>");
+
+  db.collection("schedules").get().then(querySnapshot => {
+    let krPeople = 0, krGroupCount = 0;
+    let cnPeople = 0, cnGroupCount = 0;
+
+    querySnapshot.forEach(doc => {
+      const regDate = doc.id;
+      if (regDate.startsWith(`${year}-${mm}`)) {
+        const data = doc.data();
+        if (data.teams && data.teams.length > 0) {
+          const dow = new Date(regDate).getDay();
+
+          data.teams.forEach(t => {
+            const people = parseInt(t.totalPeople || 0, 10);
+            if (dow === 1 || dow === 3 || dow === 5) {
+              krPeople += people;
+              krGroupCount++;
+            } else if (dow === 2 || dow === 4 || dow === 0) {
+              cnPeople += people;
+              cnGroupCount++;
+            }
+          });
+        }
+      }
+    });
+
+    const totalPeople = krPeople + cnPeople;
+
+    const summaryHtml = `
+      <div style="background:#f8fafc; padding:24px 20px; border-radius:8px; border:1px solid #e2e8f0; text-align:center; font-size:16px; color:#17324d; line-height:1.8;">
+        ${month}월 한단 ${krPeople.toLocaleString()}명 + 중단 ${cnPeople.toLocaleString()}명<br>
+        = <b style="color:#2e7d32; font-size:20px;">총 ${totalPeople.toLocaleString()}명</b> (${krGroupCount}팀 / ${cnGroupCount}팀)
+      </div>
+    `;
+
+    openStatsModal(`${month}월 단체 (편도 기준)`, summaryHtml);
+  }).catch(e => {
+    console.error(e);
+    openStatsModal(`${month}월 단체 (편도 기준)`, "<div style='color:red; text-align:center;'>데이터를 불러오는 도중 오류가 발생했습니다.</div>");
+  });
+}
+
+function triggerMonthlyExcelDownload() {
+  const dropdown = document.getElementById("statsDropdown");
+  if (dropdown) dropdown.classList.remove("show");
+
+  const currentDate = calendar ? calendar.view.currentStart : new Date();
+  downloadMonthlyExcel(currentDate.getFullYear(), currentDate.getMonth() + 1);
+}
+
+function showRidingStats() {
+  if (!db) {
+    alert("데이터베이스 연결이 없습니다.");
+    return;
+  }
+
+  openStatsModal("🚴 라이딩 통계(편도 기준)", "<div style='text-align:center; padding:20px;'>라이딩 데이터를 불러오는 중...</div>");
+
+  db.collection("schedules").get().then(querySnapshot => {
+    let monthlyStats = {};
+
+    querySnapshot.forEach(doc => {
+      const regDate = doc.id;
+      const monthKey = regDate.substring(0, 7);
+      const data = doc.data();
+
+      if (data.teams && data.teams.length > 0) {
+        data.teams.forEach(t => {
+          if (t.isRiding) {
+            if (!monthlyStats[monthKey]) {
+              monthlyStats[monthKey] = { people: 0, groups: 0 };
+            }
+            monthlyStats[monthKey].people += parseInt(t.totalPeople || 0, 10);
+            monthlyStats[monthKey].groups += 1;
+          }
+        });
+      }
+    });
+
+    const sortedMonths = Object.keys(monthlyStats).sort();
+
+    if (sortedMonths.length === 0) {
+      openStatsModal("🚴 라이딩 통계(편도 기준)", "<div style='text-align:center; padding:20px; color:#666;'>등록된 라이딩 단체가 없습니다.</div>");
+      return;
+    }
+
+    let html = `<div id="ridingCaptureArea" style="background:#fff; padding:10px; border-radius:8px;"><div style="max-height:350px; overflow-y:auto;"><table style="width:100%; border-collapse:collapse; font-size:14px;">
+      <thead>
+        <tr style="background:#f1f4f7;">
+          <th style="padding:8px; border-bottom:2px solid #ccc; text-align:center;">월</th>
+          <th style="padding:8px; border-bottom:2px solid #ccc; text-align:center;">라이딩 단체 수</th>
+          <th style="padding:8px; border-bottom:2px solid #ccc; text-align:right;">총 인원</th>
+        </tr>
+      </thead>
+      <tbody>`;
+
+    let grandPeople = 0;
+    let grandGroups = 0;
+
+    sortedMonths.forEach(m => {
+      const p = monthlyStats[m].people;
+      const g = monthlyStats[m].groups;
+      grandPeople += p;
+      grandGroups += g;
+      const [yyyy, mm] = m.split("-");
+
+      html += `<tr>
+        <td style="padding:8px; border-bottom:1px solid #eee; text-align:center;"><b>${yyyy}년 ${parseInt(mm, 10)}월</b></td>
+        <td style="padding:8px; border-bottom:1px solid #eee; text-align:center;">${g}팀</td>
+        <td style="padding:8px; border-bottom:1px solid #eee; text-align:right; font-weight:bold; color:#e65100;">${p.toLocaleString()}명</td>
+      </tr>`;
+    });
+
+    html += `</tbody>
+      <tfoot>
+        <tr style="background:#fff3e0; font-weight:bold;">
+          <td style="padding:10px; text-align:center; color:#e65100;">합계</td>
+          <td style="padding:10px; text-align:center; color:#e65100;">${grandGroups}팀</td>
+          <td style="padding:10px; text-align:right; color:#e65100; font-size:16px;">${grandPeople.toLocaleString()}명</td>
+        </tr>
+      </tfoot>
+    </table></div></div>`;
+
+    const extraDownloadBtn = `<button class="success" onclick="downloadRidingStatsImage()" style="margin-right:auto;">📸 라이딩 통계 이미지 다운로드</button>`;
+
+    openStatsModal("🚴 라이딩 통계(편도 기준)", html, extraDownloadBtn);
+  }).catch(e => {
+    console.error(e);
+    openStatsModal("🚴 라이딩 통계(편도 기준)", "<div style='color:red; text-align:center;'>통계 조회 중 오류가 발생했습니다.</div>");
+  });
+}
+
+function downloadRidingStatsImage() {
+  const area = document.getElementById("ridingCaptureArea");
+  if (!area) return;
+  html2canvas(area, { scale: 2, backgroundColor: "#ffffff" }).then(canvas => {
+    const link = document.createElement("a");
+    link.download = `라이딩_통계_현황.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
   const calendarEl = document.getElementById('calendar');
+  if(!calendarEl) return;
+
   calendar = new FullCalendar.Calendar(calendarEl, {
     initialView: 'dayGridMonth',
     locale: 'ko',
-    headerToolbar: { left: 'prev,next today', center: 'title', right: '' },
+    headerToolbar: { left: 'title', center: '', right: 'today prev,next' },
     dateClick: function(info) {
       closeEventSection();
       openDateSim(info.dateStr);
+    },
+    eventClick: function(info) {
+      closeEventSection();
+      const dateStr = info.event.startStr ? info.event.startStr.split('T')[0] : null;
+      if (dateStr) {
+        openDateSim(dateStr);
+      }
     },
     eventSources: [
       {
@@ -288,40 +981,94 @@ document.addEventListener('DOMContentLoaded', function() {
             const res = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/KR`);
             const holidays = await res.json();
             successCallback(holidays.map(h => ({
-              title: `🔴 ${h.localName}`, start: h.date, allDay: true,
-              backgroundColor: '#fff0f0', borderColor: '#f3c2c2', textColor: '#d32f2f'
+              title: `🇰🇷 ${h.localName}`,
+              start: h.date,
+              allDay: true,
+              backgroundColor: '#f57c00',
+              borderColor: '#e65100',
+              textColor: '#ffffff'
             })));
           } catch(e) { successCallback([]); }
         }
       },
       {
         events: function(fetchInfo, successCallback) {
+          const year = fetchInfo.start.getFullYear();
+          const cnHolidays = {
+            2025: [
+              { name: "원단", start: "2025-01-01", end: "2025-01-03" },
+              { name: "춘절", start: "2025-01-28", end: "2025-02-04" },
+              { name: "청명절", start: "2025-04-04", end: "2025-04-06" },
+              { name: "노동절", start: "2025-05-01", end: "2025-05-05" },
+              { name: "단오절", start: "2025-05-31", end: "2025-06-02" },
+              { name: "국경절/추석", start: "2025-10-01", end: "2025-10-08" }
+            ],
+            2026: [
+              { name: "원단", start: "2026-01-01", end: "2026-01-03" },
+              { name: "춘절", start: "2026-02-15", end: "2026-02-23" },
+              { name: "청명절", start: "2026-04-04", end: "2026-04-06" },
+              { name: "노동절", start: "2026-05-01", end: "2026-05-05" },
+              { name: "단오절", start: "2026-06-19", end: "2026-06-21" },
+              { name: "추석", start: "2026-09-25", end: "2026-09-27" },
+              { name: "국경절", start: "2026-10-01", end: "2026-10-07" }
+            ]
+          };
+
+          let events = [];
+          const list = cnHolidays[year] || [];
+
+          list.forEach(h => {
+            let cur = new Date(h.start);
+            const end = new Date(h.end);
+            while (cur <= end) {
+              const dateStr = cur.toISOString().split('T')[0];
+              events.push({
+                title: `🇨🇳 ${h.name}`,
+                start: dateStr,
+                allDay: true,
+                backgroundColor: '#e1bee7',
+                borderColor: '#ce93d8',
+                textColor: '#4a148c'
+              });
+              cur.setDate(cur.getDate() + 1);
+            }
+          });
+          successCallback(events);
+        }
+      },
+      {
+        events: function(fetchInfo, successCallback) {
           if(!db) { successCallback([]); return; }
           db.collection("schedules").get().then((querySnapshot) => {
-            let dailyOut = {}; 
-            let dailyIn = {};  
+            let dailyAll = {};
 
             querySnapshot.forEach((doc) => {
               const regDate = doc.id;
               const data = doc.data();
               if (data.teams && data.teams.length > 0) {
                 data.teams.forEach(t => {
-                  const p = t.totalPeople || 0;
-                  const nights = parseInt(t.nights || 4, 10);
-                  const pattern = t.pattern || 'KR_ROUND';
-                  const returnDate = addDays(regDate, nights);
+                  const defaultNights = getDefaultNightsByDate(regDate);
+                  const nights = parseInt(t.nights || defaultNights, 10);
+                  const pattern = normalizePattern(t.pattern);
+                  const returnDate = getReturnDate(regDate, nights);
 
-                  if (pattern === 'KR_ROUND') {
-                    dailyOut[regDate] = (dailyOut[regDate] || 0) + p;
-                    dailyIn[returnDate] = (dailyIn[returnDate] || 0) + p;
-                  } else if (pattern === 'CN_ROUND') {
-                    dailyIn[regDate] = (dailyIn[regDate] || 0) + p;
-                    dailyOut[returnDate] = (dailyOut[returnDate] || 0) + p;
-                  } else {
-                    if (t.pattern === 'ONEWAY_IN') {
-                      dailyIn[regDate] = (dailyIn[regDate] || 0) + p;
+                  if (t.isSplitRoom) {
+                    const outP = (t.outAllocations || []).reduce((sum, a) => sum + (parseInt(a.people, 10) || 0), 0);
+                    const inP = (t.inAllocations || []).reduce((sum, a) => sum + (parseInt(a.people, 10) || 0), 0);
+
+                    if (pattern === 'ROUND') {
+                      dailyAll[regDate] = (dailyAll[regDate] || 0) + outP;
+                      dailyAll[returnDate] = (dailyAll[returnDate] || 0) + inP;
                     } else {
-                      dailyOut[regDate] = (dailyOut[regDate] || 0) + p;
+                      dailyAll[regDate] = (dailyAll[regDate] || 0) + outP;
+                    }
+                  } else {
+                    const p = parseInt(t.totalPeople || 0, 10);
+                    if (pattern === 'ROUND') {
+                      dailyAll[regDate] = (dailyAll[regDate] || 0) + p;
+                      dailyAll[returnDate] = (dailyAll[returnDate] || 0) + p;
+                    } else {
+                      dailyAll[regDate] = (dailyAll[regDate] || 0) + p;
                     }
                   }
                 });
@@ -329,14 +1076,14 @@ document.addEventListener('DOMContentLoaded', function() {
             });
 
             let events = [];
-            Object.keys(dailyOut).forEach(d => {
-              if (dailyOut[d] > 0) {
-                events.push({ title: `출${dailyOut[d]}`, start: d, color: '#1769aa' });
-              }
-            });
-            Object.keys(dailyIn).forEach(d => {
-              if (dailyIn[d] > 0) {
-                events.push({ title: `입${dailyIn[d]}`, start: d, color: '#2e7d32' });
+            Object.keys(dailyAll).forEach(d => {
+              if (dailyAll[d] > 0) {
+                events.push({ 
+                  title: `${dailyAll[d]}`, 
+                  start: d, 
+                  color: getDayColor(d),
+                  textColor: '#000000'
+                });
               }
             });
 
@@ -351,11 +1098,30 @@ document.addEventListener('DOMContentLoaded', function() {
             let events = [];
             querySnapshot.forEach((doc) => {
               const data = doc.data();
+              let evtColor = data.color || '#fffde7';
+              let txtColor = '#000000';
+              let titleText = data.title || "메모";
+
+              if (evtColor === '#fffde7') {
+                txtColor = '#f57f17';
+              } else if (evtColor === '#9e9e9e') {
+                txtColor = '#ffffff';
+              } else if (evtColor === '#aed581') {
+                txtColor = '#1b5e20';
+              } else if (evtColor === '#e1bee7') {
+                txtColor = '#4a148c';
+                if (!titleText.startsWith("🇨🇳")) titleText = `🇨🇳 ${titleText}`;
+              } else if (evtColor === '#f57c00') {
+                txtColor = '#ffffff';
+                if (!titleText.startsWith("🇰🇷")) titleText = `🇰🇷 ${titleText}`;
+              }
+
               events.push({
                 id: "ce_" + doc.id,
-                title: data.type === "✏️ 메모" ? (data.title ? `✏️ ${data.title}` : "✏️ 메모") : `${data.type} ${data.title ? '- ' + data.title : ''}`,
+                title: titleText,
                 start: doc.id,
-                color: data.color || '#d32f2f'
+                color: evtColor,
+                textColor: txtColor
               });
             });
             successCallback(events);
@@ -365,6 +1131,37 @@ document.addEventListener('DOMContentLoaded', function() {
     ]
   });
   calendar.render();
+
+  let touchStartX = 0;
+  let touchStartY = 0;
+
+  function handleSwipeStart(e) {
+    const touch = e.touches ? e.touches[0] : e;
+    touchStartX = touch.clientX;
+    touchStartY = touch.clientY;
+  }
+
+  function handleSwipeEnd(e) {
+    if (!touchStartX) return;
+    const touch = e.changedTouches ? e.changedTouches[0] : e;
+    const diffX = touch.clientX - touchStartX;
+    const diffY = touch.clientY - touchStartY;
+
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
+      if (diffX > 0) {
+        calendar.prev();
+      } else {
+        calendar.next();
+      }
+    }
+    touchStartX = 0;
+    touchStartY = 0;
+  }
+
+  calendarEl.addEventListener('touchstart', handleSwipeStart, { passive: true });
+  calendarEl.addEventListener('touchend', handleSwipeEnd, { passive: true });
+  calendarEl.addEventListener('mousedown', handleSwipeStart);
+  calendarEl.addEventListener('mouseup', handleSwipeEnd);
 });
 
 function openEventModal(){
@@ -379,16 +1176,14 @@ function openEventModal(){
 
 function loadEventDataForDate(dateStr){
   if(!dateStr) return;
-  document.getElementById("eventType").value = "⛔ 휴항";
   document.getElementById("eventTitle").value = "";
-  document.getElementById("eventColor").value = "#d32f2f";
+  document.getElementById("eventColor").value = "#fffde7";
   if(db){
     db.collection("custom_events").doc(dateStr).get().then(doc => {
       if(doc.exists){
         const data = doc.data();
-        document.getElementById("eventType").value = data.type || "⛔ 휴항";
         document.getElementById("eventTitle").value = data.title || "";
-        document.getElementById("eventColor").value = data.color || "#d32f2f";
+        document.getElementById("eventColor").value = data.color || "#fffde7";
       }
     });
   }
@@ -399,12 +1194,13 @@ function closeEventSection(){ document.getElementById("eventSection").classList.
 function saveCustomEvent(){
   const dateStr = document.getElementById("eventDate").value;
   if(!dateStr){ alert("날짜를 선택해주세요."); return; }
-  const type = document.getElementById("eventType").value;
   const title = document.getElementById("eventTitle").value.trim();
   const color = document.getElementById("eventColor").value;
 
+  if(!title){ alert("내용을 입력해주세요."); return; }
+
   if(db){
-    db.collection("custom_events").doc(dateStr).set({ type, title, color, updatedAt: new Date() }).then(() => {
+    db.collection("custom_events").doc(dateStr).set({ title, color, updatedAt: new Date() }).then(() => {
       alert(`[${dateStr}] 일정이 저장되었습니다.`);
       closeEventSection();
       if(calendar) calendar.refetchEvents();
@@ -426,7 +1222,6 @@ function deleteCustomEvent(){
   }
 }
 
-// 선택 날짜 오픈
 async function openDateSim(dateStr){
   selectedDate = dateStr;
   document.getElementById("selectedDateText").innerText = dateStr;
@@ -436,7 +1231,6 @@ async function openDateSim(dateStr){
   document.getElementById("teamsContainer").innerHTML = "";
   document.getElementById("simResult").classList.add("hidden");
   linkedReturnTeams = [];
-  allInboundTeams = [];
 
   if (db) {
     try {
@@ -447,24 +1241,23 @@ async function openDateSim(dateStr){
           const data = doc.data();
           if (data.teams && data.teams.length > 0) {
             data.teams.forEach(t => {
-              const nights = parseInt(t.nights || 4, 10);
-              const retDate = addDays(regDate, nights);
-              if (retDate === dateStr) {
+              const pattern = normalizePattern(t.pattern);
+              const defaultNights = getDefaultNightsByDate(regDate);
+              const nights = parseInt(t.nights || defaultNights, 10);
+              const retDate = getReturnDate(regDate, nights);
+              
+              if (retDate === dateStr && pattern === 'ROUND') {
                 linkedReturnTeams.push({
                   ...t,
                   regDate: regDate,
                   isReturnOnTarget: true
                 });
-
-                if (t.pattern === 'KR_ROUND') {
-                  allInboundTeams.push({ name: t.name, people: t.totalPeople, type: "🇰🇷 복귀 입국" });
-                }
               }
             });
           }
         }
       });
-    } catch(e) { console.error("복귀 단체 조회 오류", e); }
+    } catch(e) { console.error("리턴 단체 조회 오류", e); }
   }
 
   if(db){
@@ -480,14 +1273,17 @@ async function openDateSim(dateStr){
       } else {
         initMasterRoomsUI();
         addTeam();
+        runSimulation(false);
       }
     }).catch(() => {
       initMasterRoomsUI();
       addTeam();
+      runSimulation(false);
     });
   } else {
     initMasterRoomsUI();
     addTeam();
+    runSimulation(false);
   }
 
   document.getElementById("simSection").scrollIntoView({ behavior: 'smooth' });
@@ -497,8 +1293,8 @@ function closeSimSection(){ document.getElementById("simSection").classList.add(
 
 function resetMasterData(){
   masterRooms = {
-    "6": { label: "6인실", totalRooms: 143, defaultCapPerRoom: 4, generalPeople: 100, generalCap: 3 },
-    "4": { label: "4인실", totalRooms: 124, defaultCapPerRoom: 4, generalPeople: 50, generalCap: 2 },
+    "6": { label: "6인실", totalRooms: 143, defaultCapPerRoom: 4, generalPeople: 70, generalCap: 3 },
+    "4": { label: "4인실", totalRooms: 124, defaultCapPerRoom: 4, generalPeople: 30, generalCap: 2 },
     "2": { label: "2인실", totalRooms: 15, defaultCapPerRoom: 2, generalPeople: "", generalCap: "" },
     "dadami24": { label: "다다미 24인실", totalRooms: 2, defaultCapPerRoom: 24, generalPeople: "", generalCap: "" },
     "dadami36": { label: "다다미 36인실", totalRooms: 1, defaultCapPerRoom: 36, generalPeople: "", generalCap: "" }
@@ -557,24 +1353,34 @@ function updateMasterRoom(key){
   document.getElementById(`calc_remain_room_${key}`).innerText = remainRooms;
 }
 
-function addTeam(name="", pattern="KR_ROUND", nights="4", price="", memo="", isSplitRoom=false){
+function getDefaultCapByKey(key) {
+  if (key === "6" || key === "4") return 4;
+  if (key === "2") return 2;
+  if (key === "dadami24") return 18;
+  if (key === "dadami36") return 26;
+  return masterRooms[key]?.defaultCapPerRoom || 4;
+}
+
+function addTeam(name="", pattern="ROUND", nights="", price="", memo="", isSplitRoom=false, isRiding=false){
   const teamId = "team_" + (teamSeq++);
   const teamDiv = document.createElement("div");
   teamDiv.className = "team-card";
   teamDiv.id = teamId;
+  const _p = normalizePattern(pattern);
   
+  const defaultNights = getDefaultNightsByDate(selectedDate);
+  const finalNights = nights !== "" ? nights : defaultNights;
+
   teamDiv.innerHTML = `
     <div class="team-head">
       <input type="text" class="teamName" placeholder="단체명" value="${esc(name)}" style="max-width:160px; font-weight:bold;">
       <select class="teamPattern" style="max-width:180px;" onchange="togglePatternUI('${teamId}')">
-        <option value="KR_ROUND" ${pattern==='KR_ROUND'?'selected':''}>🇰🇷 한국발 왕복 (출➔입)</option>
-        <option value="CN_ROUND" ${pattern==='CN_ROUND'?'selected':''}>🇨🇳 중국발 왕복 (입➔출)</option>
-        <option value="ONEWAY_OUT" ${pattern==='ONEWAY_OUT'?'selected':''}>➡️ 출국 전용 (편도)</option>
-        <option value="ONEWAY_IN" ${pattern==='ONEWAY_IN'?'selected':''}>⬅️ 입국 전용 (편도)</option>
+        <option value="ROUND" ${_p==='ROUND'?'selected':''}>🔄 왕복 (출→출)</option>
+        <option value="ONEWAY_OUT" ${_p==='ONEWAY_OUT'?'selected':''}>➡️ 편도 출국</option>
       </select>
       
-      <div class="nightsBox" style="display:${pattern.includes('ROUND')?'flex':'none'}; align-items:center; gap:4px;">
-        <input type="number" class="teamNights" value="${nights}" style="width:55px;" min="1">
+      <div class="nightsBox" style="display:${_p==='ROUND'?'flex':'none'}; align-items:center; gap:4px;">
+        <input type="number" class="teamNights" value="${finalNights}" style="width:55px;" min="1">
         <span style="font-size:12px; font-weight:bold;">박</span>
       </div>
       
@@ -584,19 +1390,21 @@ function addTeam(name="", pattern="KR_ROUND", nights="4", price="", memo="", isS
         <input type="checkbox" class="splitRoomCheck" onchange="toggleRoomSplitUI('${teamId}')" ${isSplitRoom?'checked':''}> 입/출국 객실 분리
       </label>
 
+      <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; margin:0; font-weight:bold; color:#e65100;">
+        <input type="checkbox" class="ridingCheck" ${isRiding?'checked':''}> 🚴 라이딩
+      </label>
+
       <button class="danger" type="button" onclick="document.getElementById('${teamId}').remove()" style="margin-left:auto;">삭제</button>
     </div>
     <div style="margin-bottom:10px;">
       <textarea class="teamMemo" placeholder="단체 메모 (특이사항)" rows="1">${esc(memo)}</textarea>
     </div>
 
-    <!-- 일반 객실 컨테이너 -->
     <div class="normalRoomArea ${isSplitRoom?'hidden':''}">
       <div class="roomTypesContainer"></div>
       <button class="secondary" type="button" style="font-size:12px; padding:4px 8px; margin-top:4px;" onclick="addRoomTypeToTeam('${teamId}', 'roomTypesContainer')">+ 객실 추가</button>
     </div>
 
-    <!-- 분리형 객실 컨테이너 -->
     <div class="splitRoomArea ${isSplitRoom?'':'hidden'}">
       <div class="section-subtitle">출국 시 객실 설정</div>
       <div class="outRoomTypesContainer"></div>
@@ -610,10 +1418,10 @@ function addTeam(name="", pattern="KR_ROUND", nights="4", price="", memo="", isS
   document.getElementById("teamsContainer").appendChild(teamDiv);
   
   if(!isSplitRoom) {
-    addRoomTypeToTeam(teamId, "roomTypesContainer", "6", "", 4);
+    addRoomTypeToTeam(teamId, "roomTypesContainer", "6", "");
   } else {
-    addRoomTypeToTeam(teamId, "outRoomTypesContainer", "6", "", 4);
-    addRoomTypeToTeam(teamId, "inRoomTypesContainer", "6", "", 4);
+    addRoomTypeToTeam(teamId, "outRoomTypesContainer", "6", "");
+    addRoomTypeToTeam(teamId, "inRoomTypesContainer", "6", "");
   }
 }
 
@@ -621,7 +1429,7 @@ function togglePatternUI(teamId) {
   const card = document.getElementById(teamId);
   const pattern = card.querySelector(".teamPattern").value;
   const nightsBox = card.querySelector(".nightsBox");
-  if(pattern.includes('ROUND')) {
+  if(normalizePattern(pattern) === 'ROUND') {
     nightsBox.style.display = 'flex';
   } else {
     nightsBox.style.display = 'none';
@@ -651,7 +1459,7 @@ function toggleRoomSplitUI(teamId) {
         addRoomTypeToTeam(teamId, "outRoomTypesContainer", key, people, cap);
       });
     } else if(!outContainer.children.length) {
-      addRoomTypeToTeam(teamId, "outRoomTypesContainer", "6", "", 4);
+      addRoomTypeToTeam(teamId, "outRoomTypesContainer", "6", "");
     }
 
     inContainer.innerHTML = "";
@@ -667,7 +1475,7 @@ function toggleRoomSplitUI(teamId) {
     normalArea.classList.remove("hidden");
     splitArea.classList.add("hidden");
     if(!card.querySelector(".roomTypesContainer").children.length) {
-      addRoomTypeToTeam(teamId, "roomTypesContainer", "6", "", 4);
+      addRoomTypeToTeam(teamId, "roomTypesContainer", "6", "");
     }
   }
 }
@@ -678,19 +1486,22 @@ function restoreTeamUI(teamData){
   teamDiv.className = "team-card";
   teamDiv.id = teamId;
   const isSplit = teamData.isSplitRoom || false;
+  const isRiding = teamData.isRiding || false;
+  const _p = normalizePattern(teamData.pattern);
+
+  const defaultNights = getDefaultNightsByDate(selectedDate);
+  const finalNights = teamData.nights || defaultNights;
 
   teamDiv.innerHTML = `
     <div class="team-head">
       <input type="text" class="teamName" placeholder="단체명" value="${esc(teamData.name)}" style="max-width:160px; font-weight:bold;">
       <select class="teamPattern" style="max-width:180px;" onchange="togglePatternUI('${teamId}')">
-        <option value="KR_ROUND" ${teamData.pattern==='KR_ROUND'?'selected':''}>🇰🇷 한국발 왕복 (출➔입)</option>
-        <option value="CN_ROUND" ${teamData.pattern==='CN_ROUND'?'selected':''}>🇨🇳 중국발 왕복 (입➔출)</option>
-        <option value="ONEWAY_OUT" ${teamData.pattern==='ONEWAY_OUT'?'selected':''}>➡️ 출국 전용 (편도)</option>
-        <option value="ONEWAY_IN" ${teamData.pattern==='ONEWAY_IN'?'selected':''}>⬅️ 입국 전용 (편도)</option>
+        <option value="ROUND" ${_p==='ROUND'?'selected':''}>🔄 왕복 (출→출)</option>
+        <option value="ONEWAY_OUT" ${_p==='ONEWAY_OUT'?'selected':''}>➡️ 편도 출국</option>
       </select>
       
-      <div class="nightsBox" style="display:${(teamData.pattern||'').includes('ROUND')?'flex':'none'}; align-items:center; gap:4px;">
-        <input type="number" class="teamNights" value="${teamData.nights||4}" style="width:55px;" min="1">
+      <div class="nightsBox" style="display:${_p==='ROUND'?'flex':'none'}; align-items:center; gap:4px;">
+        <input type="number" class="teamNights" value="${finalNights}" style="width:55px;" min="1">
         <span style="font-size:12px; font-weight:bold;">박</span>
       </div>
       
@@ -698,6 +1509,10 @@ function restoreTeamUI(teamData){
       
       <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; margin:0; font-weight:bold; color:#1769aa;">
         <input type="checkbox" class="splitRoomCheck" onchange="toggleRoomSplitUI('${teamId}')" ${isSplit?'checked':''}> 입/출국 객실 분리
+      </label>
+
+      <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; margin:0; font-weight:bold; color:#e65100;">
+        <input type="checkbox" class="ridingCheck" ${isRiding?'checked':''}> 🚴 라이딩
       </label>
 
       <button class="danger" type="button" onclick="document.getElementById('${teamId}').remove()" style="margin-left:auto;">삭제</button>
@@ -737,11 +1552,20 @@ function restoreTeamUI(teamData){
   }
 }
 
+function handleTypeSelectChange(typeId) {
+  const typeCard = document.getElementById(typeId);
+  if(!typeCard) return;
+  const selectKey = typeCard.querySelector(".typeSelect").value;
+  const capInput = typeCard.querySelector(".capPerRoom");
+  if(capInput) {
+    capInput.value = getDefaultCapByKey(selectKey);
+  }
+}
+
 function addRoomTypeToTeam(teamId, containerClass, presetKey="6", assignPeople="", capPerRoom=""){
   const container = document.getElementById(teamId).querySelector("." + containerClass);
   const typeId = teamId + "_type_" + Date.now() + "_" + Math.floor(Math.random()*1000);
-  const preset = masterRooms[presetKey];
-  const cap = capPerRoom || preset.defaultCapPerRoom;
+  const cap = capPerRoom !== "" ? capPerRoom : getDefaultCapByKey(presetKey);
 
   const div = document.createElement("div");
   div.className = "type-card";
@@ -750,7 +1574,7 @@ function addRoomTypeToTeam(teamId, containerClass, presetKey="6", assignPeople="
     <div class="type-grid">
       <div>
         <label>객실 종류</label>
-        <select class="typeSelect">
+        <select class="typeSelect" onchange="handleTypeSelectChange('${typeId}')">
           <option value="6">6인실</option>
           <option value="4">4인실</option>
           <option value="2">2인실</option>
@@ -792,22 +1616,26 @@ function extractAllocations(typeDivs) {
   return { totalPeople, allocations };
 }
 
-// 계산 로직 (순수 출국 기준으로 수정)
 function runSimulation(shouldSave = true){
   const teamCards = [...document.querySelectorAll("#teamsContainer .team-card")];
 
   let todayTeams = [];
   let groupRoomUsed = { "6": 0, "4": 0, "2": 0, "dadami24": 0, "dadami36": 0 };
-  let currentInboundTeams = [...allInboundTeams];
+  let groupPeopleUsed = { "6": 0, "4": 0, "2": 0, "dadami24": 0, "dadami36": 0 };
+
+  const defaultNights = getDefaultNightsByDate(selectedDate);
 
   for (let idx = 0; idx < teamCards.length; idx++) {
     const card = teamCards[idx];
-    const name = card.querySelector(".teamName").value.trim() || `단체 ${idx+1}`;
-    const pattern = card.querySelector(".teamPattern").value;
-    const nights = parseInt(card.querySelector(".teamNights").value, 10) || 4;
+    const name = card.querySelector(".teamName").value.trim();
+    const pattern = normalizePattern(card.querySelector(".teamPattern").value);
+    const nights = parseInt(card.querySelector(".teamNights").value, 10) || parseInt(defaultNights, 10);
     const price = card.querySelector(".teamPrice").value.trim();
     const memo = card.querySelector(".teamMemo").value.trim();
     const isSplitRoom = card.querySelector(".splitRoomCheck").checked;
+    const isRiding = card.querySelector(".ridingCheck").checked;
+
+    if (!name && !card.querySelector(".assignPeople")?.value) continue;
 
     let teamTotalPeople = 0;
     let allocations = [];
@@ -821,14 +1649,16 @@ function runSimulation(shouldSave = true){
       allocations = res.allocations;
 
       if(teamTotalPeople <= 0 && shouldSave) {
-        alert(`[${name}] 단체의 배정 인원을 입력해주세요.`);
+        alert(`[${name || '단체'}] 단체의 배정 인원을 입력해주세요.`);
         card.scrollIntoView({ behavior: 'smooth' });
         return;
       }
       
-      // 출국 패턴인 경우에만 출국 승선 객실에 합산
-      if (pattern === 'KR_ROUND' || pattern === 'ONEWAY_OUT') {
-        allocations.forEach(a => groupRoomUsed[a.key] += a.roomsNeeded);
+      if (pattern === 'ROUND' || pattern === 'ONEWAY_OUT') {
+        allocations.forEach(a => {
+          groupRoomUsed[a.key] += a.roomsNeeded;
+          groupPeopleUsed[a.key] += a.people;
+        });
       }
 
     } else {
@@ -839,40 +1669,38 @@ function runSimulation(shouldSave = true){
       
       outAllocations = outRes.allocations;
       inAllocations = inRes.allocations;
-      teamTotalPeople = Math.max(outRes.totalPeople, inRes.totalPeople);
+      teamTotalPeople = outRes.totalPeople;
 
       if((outRes.totalPeople <= 0 || inRes.totalPeople <= 0) && shouldSave) {
-        alert(`[${name}] 단체의 출국 및 입국 배정 인원을 모두 입력해주세요.`);
+        alert(`[${name || '단체'}] 단체의 출국 및 입국 배정 인원을 모두 입력해주세요.`);
         card.scrollIntoView({ behavior: 'smooth' });
         return;
       }
 
-      // 출국 패턴인 경우에만 출국 객실 합산
-      if (pattern === 'KR_ROUND' || pattern === 'ONEWAY_OUT') {
-        outAllocations.forEach(a => groupRoomUsed[a.key] += a.roomsNeeded);
+      if (pattern === 'ROUND' || pattern === 'ONEWAY_OUT') {
+        outAllocations.forEach(a => {
+          groupRoomUsed[a.key] += a.roomsNeeded;
+          groupPeopleUsed[a.key] += a.people;
+        });
       }
     }
 
-    const days = nights + 1;
-    const returnDate = addDays(selectedDate, nights);
+    const returnDate = getReturnDate(selectedDate, nights);
     const selShort = formatShortDate(selectedDate);
     const retShort = formatShortDate(returnDate);
 
     let itineraryStr = "";
-    if(pattern === 'KR_ROUND') {
-      itineraryStr = `출국: ${selShort} ~ 입국: ${retShort} (${nights}박 ${days}일)`;
-    } else if(pattern === 'CN_ROUND') {
-      itineraryStr = `입국: ${selShort} ~ 출국: ${retShort} (${nights}박 ${days}일)`;
-      currentInboundTeams.push({ name, people: teamTotalPeople, type: "🇨🇳 중국발 입국" });
+    if(pattern === 'ROUND') {
+      itineraryStr = `출국: ${selShort} ~ 리턴: ${retShort} (${nights}박)`;
     } else if(pattern === 'ONEWAY_OUT') {
       itineraryStr = `출국: ${selShort} (편도)`;
     } else {
       itineraryStr = `입국: ${selShort} (편도)`;
-      currentInboundTeams.push({ name, people: teamTotalPeople, type: "⬅️ 입국 편도" });
     }
 
     todayTeams.push({
-      name, pattern, nights, price, memo, isSplitRoom,
+      name: name || `단체 ${idx+1}`,
+      pattern, nights, price, memo, isSplitRoom, isRiding,
       totalPeople: teamTotalPeople,
       allocations, outAllocations, inAllocations,
       itineraryStr, returnDate,
@@ -880,25 +1708,36 @@ function runSimulation(shouldSave = true){
     });
   }
 
-  // 과거 날짜에서 넘어온 복귀 단체 중 '출국' 승선 단체만 처리 (중국발 왕복의 복귀 출국)
-  let linkedReturnOutTeams = [];
   linkedReturnTeams.forEach(t => {
-    if (t.pattern === 'CN_ROUND') {
-      linkedReturnOutTeams.push(t);
-      let targetAlloc = t.isSplitRoom ? (t.outAllocations || []) : (t.allocations || []);
-      targetAlloc.forEach(a => {
-        if(groupRoomUsed[a.key] !== undefined) {
-          groupRoomUsed[a.key] += a.roomsNeeded;
-        }
-      });
-    }
+    let targetAlloc = t.isSplitRoom ? (t.inAllocations || []) : (t.allocations || []);
+    targetAlloc.forEach(a => {
+      if(groupRoomUsed[a.key] !== undefined) {
+        groupRoomUsed[a.key] += a.roomsNeeded;
+        groupPeopleUsed[a.key] += a.people;
+      }
+    });
   });
 
-  // 오늘 '출국' 승선 단체만 모음 (신규 한국발/출국편도 + 과거 중국발의 리턴 출국)
-  const todayOutTeams = todayTeams.filter(t => t.pattern === 'KR_ROUND' || t.pattern === 'ONEWAY_OUT');
-  const outBoardingTeams = [...todayOutTeams, ...linkedReturnOutTeams];
+  const todayOutTeams = todayTeams.filter(t => t.pattern === 'ROUND' || t.pattern === 'ONEWAY_OUT');
+  const outBoardingTeams = [...todayOutTeams, ...linkedReturnTeams];
 
-  const groupTotalPeople = outBoardingTeams.reduce((s,t) => s + t.totalPeople, 0);
+  const groupTotalPeople = outBoardingTeams.reduce((s,t) => {
+    if (t.isReturnOnTarget) {
+      if (t.isSplitRoom) {
+        return s + (t.inAllocations || []).reduce((sum, a) => sum + a.people, 0);
+      }
+      return s + t.totalPeople;
+    } else {
+      if (t.isSplitRoom) {
+        return s + (t.outAllocations || []).reduce((sum, a) => sum + a.people, 0);
+      }
+      return s + t.totalPeople;
+    }
+  }, 0);
+
+  const newTeamsPeople = todayOutTeams.reduce((sum, t) => sum + (t.isSplitRoom ? (t.outAllocations || []).reduce((s, a) => s + a.people, 0) : t.totalPeople), 0);
+  const returnTeamsPeople = linkedReturnTeams.reduce((sum, t) => sum + (t.isSplitRoom ? (t.inAllocations || []).reduce((s, a) => s + a.people, 0) : t.totalPeople), 0);
+
   const groupTotalRooms = Object.values(groupRoomUsed).reduce((a,b)=>a+b, 0);
 
   let generalTotalPeople = 0;
@@ -915,14 +1754,22 @@ function runSimulation(shouldSave = true){
 
   const grandTotalPeople = generalTotalPeople + groupTotalPeople;
 
-  // 요약 영역 순수 출국 기준 반영
+  const generalTotalRooms = Object.values(generalRoomUsed).reduce((a,b)=>a+b, 0);
+  const grandTotalRooms = generalTotalRooms + groupTotalRooms;
+
   document.getElementById("simStats").innerHTML = `
-    <div class="stat">출국 승선 인원<b>${grandTotalPeople}명</b><span>일반 ${generalTotalPeople}명 + 단체 ${groupTotalPeople}명</span></div>
-    <div class="stat">출국 승선 단체 수<b>${outBoardingTeams.length}개 단체</b><span>신규 ${todayOutTeams.length} + 복귀출국 ${linkedReturnOutTeams.length}</span></div>
-    <div class="stat">출국 승선 객실<b>${groupTotalRooms}개</b><span>출국 단체 객실 합계</span></div>
+    <div class="stat">출국 총 인원(예상)<b>${grandTotalPeople}명</b><span>일반 ${generalTotalPeople}명 + 단체 ${groupTotalPeople}명</span></div>
+    <div class="stat">출국 단체 인원<b>총 ${groupTotalPeople}명</b><span>신규 ${newTeamsPeople}명(${todayOutTeams.length}개) + 리턴 ${returnTeamsPeople}명(${linkedReturnTeams.length}개)</span></div>
+    <div class="stat">객실 사용량(예상)<b>총 ${grandTotalRooms}개</b><span>일반 ${generalTotalRooms}개 + 단체 ${groupTotalRooms}개</span></div>
   `;
 
-  let totalTypeHtml = `<thead><tr><th>객실 종류</th><th>전체 보유 수</th><th>일반 여객</th><th>단체 출국 승선</th><th>총 사용 객실</th><th>보유 대비 비중</th></tr></thead><tbody>`;
+  let totalTypeHtml = `<thead><tr>
+    <th>객실 종류</th>
+    <th>총 사용 객실</th>
+    <th>보유 대비</th>
+    <th>단체</th>
+    <th>일반 여객</th>
+  </tr></thead><tbody>`;
   let overLimit = false;
 
   Object.keys(masterRooms).forEach(key => {
@@ -930,6 +1777,7 @@ function runSimulation(shouldSave = true){
     const total = preset.totalRooms;
     const genUsed = generalRoomUsed[key];
     const grpUsed = groupRoomUsed[key];
+    const grpPeople = groupPeopleUsed[key];
     const totalUsed = genUsed + grpUsed;
     const genPeople = parseInt(preset.generalPeople, 10) || 0;
     
@@ -940,13 +1788,15 @@ function runSimulation(shouldSave = true){
       if(totalUsed > total) overLimit = true;
     }
 
+    const grpDisp = grpPeople > 0 ? `${grpPeople}명 (${grpUsed}개)` : "0개";
+    const genDisp = genPeople > 0 ? `${genPeople}명 (${genUsed}개)` : "0개";
+
     totalTypeHtml += `<tr>
       <td><b>${preset.label}</b></td>
-      <td>${total > 0 ? total + "개" : "무제한"}</td>
-      <td>${genPeople > 0 ? `${genPeople}명 (${genUsed}개)` : "0개"}</td>
-      <td>${grpUsed}개</td>
       <td class="${total > 0 && totalUsed > total ? 'bad' : ''}"><b>${totalUsed}개</b></td>
       <td>${pctStr}</td>
+      <td>${grpDisp}</td>
+      <td>${genDisp}</td>
     </tr>`;
   });
   totalTypeHtml += `</tbody>`;
@@ -954,39 +1804,40 @@ function runSimulation(shouldSave = true){
 
   document.getElementById("simWarn").innerHTML = overLimit ? `<div class="warn-box"><span class="bad">⚠ 초과 경고:</span> 총 출국 객실 신청량이 보유 객실 수를 초과했습니다.</div>` : "";
 
-  // 2. 오늘 출국 승선 단체 상세 내역
   let teamResultsHtml = "";
   if (outBoardingTeams.length === 0) {
     teamResultsHtml = `<div style="text-align:center; padding:20px; color:#666;">오늘 출국 승선 예정인 단체가 없습니다.</div>`;
   } else {
     outBoardingTeams.forEach(team => {
+      const isReturn = team.isReturnOnTarget;
+      let targetAllocations = [];
+
+      if (isReturn) {
+        targetAllocations = team.isSplitRoom ? (team.inAllocations || []) : (team.allocations || []);
+      } else {
+        targetAllocations = team.isSplitRoom ? (team.outAllocations || []) : (team.allocations || []);
+      }
+
+      const teamBoardingPeople = targetAllocations.reduce((s, a) => s + (a.people || 0), 0);
       const priceText = team.price ? ` | 💵 ${esc(team.price)}` : '';
-      let patternLabel = "🇰🇷 한국발 왕복";
-      if(team.pattern === 'CN_ROUND') patternLabel = "🇨🇳 중국발 왕복 (복귀 출국)";
+      let patternLabel = "🔄 왕복";
       if(team.pattern === 'ONEWAY_OUT') patternLabel = "➡️ 출국 편도";
 
-      const isReturn = team.isReturnOnTarget;
       const statusTag = isReturn 
         ? `<span class="tag-linked">🔄 리턴 출국 (${formatShortDate(team.regDate)} 등록)</span>`
         : '';
+      const ridingTag = team.isRiding ? `<span class="tag-riding">🚴 라이딩</span>` : '';
 
       teamResultsHtml += `<div style="margin-bottom:16px; border-bottom:1px solid #e1e7ef; padding-bottom:12px;">
-        <h3 style="margin-bottom:4px; color:#1769aa;">🚩 ${esc(team.name)} (${team.totalPeople}명) <span class="tag-pattern">${patternLabel}</span> ${statusTag}${priceText}</h3>
-        <div style="font-size:13px; font-weight:bold; color:#2e7d32; margin-bottom:6px;">🗓️ 전체 여정: ${team.itineraryStr}</div>
+        <h3 style="margin-bottom:4px; color:#1769aa;">🚩 ${esc(team.name)} (${teamBoardingPeople}명) <span class="tag-pattern">${patternLabel}</span> ${ridingTag} ${statusTag}${priceText}</h3>
+        <div style="font-size:13px; font-weight:bold; color:#2e7d32; margin-bottom:6px;">🗓️ 여정 정보: ${team.itineraryStr || (isReturn ? `리턴일: ${formatShortDate(selectedDate)} (원출발: ${formatShortDate(team.regDate)})` : '')}</div>
         ${team.memo ? `<div class="memo-box"><b>📌 메모:</b> ${esc(team.memo)}</div>` : ''}`;
-
-      let targetAllocations = [];
-      if (!team.isSplitRoom) {
-        targetAllocations = team.allocations || [];
-      } else {
-        targetAllocations = (team.pattern === 'CN_ROUND') ? team.outAllocations : team.outAllocations;
-      }
 
       const teamTotalRooms = targetAllocations.reduce((s,a)=>s+(a.roomsNeeded||0), 0);
       
       teamResultsHtml += `<div class="table-responsive">
         <table>
-          <thead><tr><th>출국 승선 객실 종류</th><th>인원</th><th>수용 설정</th><th>필요 객실 (${teamTotalRooms}실)</th><th>보유 대비 비중</th></tr></thead>
+          <thead><tr><th>객실 종류</th><th>인원</th><th>객실 당</th><th>필요 객실 (${teamTotalRooms}실)</th><th>보유 대비 비중</th></tr></thead>
           <tbody>`;
       targetAllocations.forEach(a => {
         const roomHoldPct = a.totalRooms > 0 ? (a.roomsNeeded / a.totalRooms * 100).toFixed(1) + `% (${a.roomsNeeded}/${a.totalRooms}개)` : "—";
@@ -1003,25 +1854,8 @@ function runSimulation(shouldSave = true){
   }
 
   document.getElementById("teamResultsContainer").innerHTML = teamResultsHtml;
-
-  // 3. 오늘 입국 단체 간략 요약
-  let inTeamSumHtml = "";
-  let inTeamTotalP = 0;
-  if (currentInboundTeams.length > 0) {
-    currentInboundTeams.forEach(t => {
-      inTeamTotalP += t.people;
-      inTeamSumHtml += `<div class="in-team-chip">🚩 <b>${esc(t.name)}</b> : ${t.people}명 <span style="font-size:11px; opacity:0.8;">(${t.type})</span></div>`;
-    });
-  } else {
-    inTeamSumHtml = `<span style="font-size:13px; color:#888;">오늘 입국하는 단체가 없습니다.</span>`;
-  }
-  document.getElementById("inTeamTotalPeople").innerText = inTeamTotalP;
-  document.getElementById("inTeamCount").innerText = currentInboundTeams.length;
-  document.getElementById("inTeamSummaryContainer").innerHTML = inTeamSumHtml;
-
   document.getElementById("simResult").classList.remove("hidden");
 
-  // 데이터 저장
   if(shouldSave && db && selectedDate){
     db.collection("schedules").doc(selectedDate).set({
       totalPeople: grandTotalPeople,
@@ -1048,6 +1882,164 @@ function deleteDateData(){
       });
     }
   }
+}
+
+const WEEKDAYS_KR = ['일','월','화','수','목','금','토'];
+
+function formatDateMDShort(dateStr){
+  if(!dateStr) return "";
+  const d = new Date(dateStr);
+  const mm = d.getMonth() + 1;
+  const dd = d.getDate();
+  const wd = WEEKDAYS_KR[d.getDay()];
+  return `${mm}-${dd}(${wd})`;
+}
+
+function downloadMonthlyExcel(year, month){
+  if(!db){ alert("데이터베이스 연결이 없습니다."); return; }
+
+  const mm = String(month).padStart(2, '0');
+  const lastDay = new Date(year, month, 0).getDate();
+
+  const today = new Date();
+  const todayStr = `${today.getMonth() + 1}/${today.getDate()}`;
+  const titleText = `${year}년 ${month}월 (${todayStr} 기준)`;
+
+  function formatGroupNames(namesArray) {
+    if (!namesArray || namesArray.length === 0) return "";
+    let lines = [];
+    for (let i = 0; i < namesArray.length; i += 3) {
+      const chunk = namesArray.slice(i, i + 3);
+      lines.push(chunk.join(", "));
+    }
+    return lines.join("<br>");
+  }
+
+  db.collection("schedules").get().then((querySnapshot) => {
+    let outGroups = {}; 
+
+    querySnapshot.forEach(doc => {
+      const regDate = doc.id;
+      const data = doc.data();
+      if(!data.teams || data.teams.length === 0) return;
+
+      data.teams.forEach(t => {
+        const name = t.name || "";
+        const defaultNights = getDefaultNightsByDate(regDate);
+        const nights = parseInt(t.nights || defaultNights, 10);
+        const pattern = normalizePattern(t.pattern);
+        const returnDate = getReturnDate(regDate, nights);
+
+        let outP = parseInt(t.totalPeople || 0, 10);
+        let inP = parseInt(t.totalPeople || 0, 10);
+
+        if (t.isSplitRoom) {
+          outP = (t.outAllocations || []).reduce((sum, a) => sum + (parseInt(a.people, 10) || 0), 0);
+          inP = (t.inAllocations || []).reduce((sum, a) => sum + (parseInt(a.people, 10) || 0), 0);
+        }
+
+        if(pattern === 'ROUND'){
+          if(!outGroups[regDate]) outGroups[regDate] = { names: [], total: 0 };
+          outGroups[regDate].names.push(`${name} ${outP}명`);
+          outGroups[regDate].total += outP;
+
+          if(!outGroups[returnDate]) outGroups[returnDate] = { names: [], total: 0 };
+          outGroups[returnDate].names.push(`${name} ${inP}명`);
+          outGroups[returnDate].total += inP;
+
+        } else if(pattern === 'ONEWAY_OUT' || pattern === 'ONEWAY_IN'){
+          if(!outGroups[regDate]) outGroups[regDate] = { names: [], total: 0 };
+          outGroups[regDate].names.push(`${name} ${outP}명`);
+          outGroups[regDate].total += outP;
+        }
+      });
+    });
+
+    let leftDates = [];  
+    let rightDates = []; 
+
+    for (let day = 1; day <= lastDay; day++) {
+      const curDateStr = `${year}-${mm}-${String(day).padStart(2, '0')}`;
+      const dow = new Date(curDateStr).getDay();
+
+      if (dow === 1 || dow === 3 || dow === 5) {
+        leftDates.push(curDateStr);
+      } else if (dow === 2 || dow === 4 || dow === 0) {
+        rightDates.push(curDateStr);
+      }
+    }
+
+    const maxRows = Math.max(leftDates.length, rightDates.length);
+    const cellStyle = "border:1px solid #000000; vertical-align:middle;";
+
+    let tableHtml = `<table border="1" style="border-collapse:collapse; text-align:center; font-family:맑은 고딕, Arial;">`;
+    
+    tableHtml += `
+      <tr>
+        <th colspan="6" style="${cellStyle} font-size:16px; font-weight:bold; background-color:#e2efda; height:40px;">
+          ${titleText} 단체 운항 현황
+        </th>
+      </tr>
+      <tr style="background-color:#f2f2f2; font-weight:bold; height:32px;">
+        <th style="${cellStyle} width:90px;">날짜</th>
+        <th style="${cellStyle} width:320px;">한국출발, 중국리턴단체</th>
+        <th style="${cellStyle} width:70px;">총인원</th>
+        <th style="${cellStyle} width:90px;">날짜</th>
+        <th style="${cellStyle} width:320px;">한국리턴, 중국출발단체</th>
+        <th style="${cellStyle} width:70px;">총인원</th>
+      </tr>
+    `;
+
+    for (let i = 0; i < maxRows; i++) {
+      const lDate = leftDates[i] || "";
+      const rDate = rightDates[i] || "";
+
+      const lDateDisp = lDate ? formatDateMDShort(lDate) : "";
+      const lNamesDisp = (lDate && outGroups[lDate]) ? formatGroupNames(outGroups[lDate].names) : "";
+      const lTotalDisp = (lDate && outGroups[lDate]) ? outGroups[lDate].total : "";
+
+      const rDateDisp = rDate ? formatDateMDShort(rDate) : "";
+      const rNamesDisp = (rDate && outGroups[rDate]) ? formatGroupNames(outGroups[rDate].names) : "";
+      const rTotalDisp = (rDate && outGroups[rDate]) ? outGroups[rDate].total : "";
+
+      tableHtml += `
+        <tr>
+          <td style="${cellStyle} text-align:center; padding:5px;">${lDateDisp}</td>
+          <td style="${cellStyle} text-align:left; padding:5px 8px; white-space:pre-line;">${lNamesDisp}</td>
+          <td style="${cellStyle} text-align:right; padding:5px 8px;">${lTotalDisp}</td>
+
+          <td style="${cellStyle} text-align:center; padding:5px;">${rDateDisp}</td>
+          <td style="${cellStyle} text-align:left; padding:5px 8px; white-space:pre-line;">${rNamesDisp}</td>
+          <td style="${cellStyle} text-align:right; padding:5px 8px;">${rTotalDisp}</td>
+        </tr>
+      `;
+    }
+
+    tableHtml += `
+      <tr>
+        <td colspan="6" style="${cellStyle} text-align:left; font-size:11px; color:#d32f2f; font-weight:bold; height:30px; padding-left:8px;">
+          * 위 예약상황은 모객 중이므로 인원이 변동될 수 있습니다. (토요일 휴항 제외)
+        </td>
+      </tr>
+    </table>`;
+
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = tableHtml;
+    const tableEl = tempDiv.querySelector("table");
+
+    const wb = XLSX.utils.table_to_book(tableEl, { sheet: "월별단체현황" });
+    const ws = wb.Sheets["월별단체현황"];
+    ws['!cols'] = [
+      { wch: 13 }, { wch: 45 }, { wch: 10 },
+      { wch: 13 }, { wch: 45 }, { wch: 10 }
+    ];
+
+    XLSX.writeFile(wb, `단동훼리_${year}년${mm}월_단체운항현황.xlsx`);
+
+  }).catch(e => {
+    console.error(e);
+    alert("다운로드 중 오류가 발생했습니다: " + e.message);
+  });
 }
 
 function downloadResultImage(){
