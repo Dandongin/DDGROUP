@@ -45,28 +45,30 @@ input.assignPeople, input.teamNights, select.typeSelect {
   color:#0d47a1;
 }
 
-/* 박수(Nights) 입력란 크기 및 글자 확대 */
+  /* 박수(Nights) 입력란 크기 및 글자 확대 */
 input.teamNights {
-  width: 75px !important;        
-  height: 42px !important;       
-  font-size: 16px !important;    
+  width: 75px !important;        /* 너비 확대 */
+  height: 42px !important;       /* 높이 확대 */
+  font-size: 16px !important;    /* 숫자 크기 확대 */
   padding: 4px 6px !important;
 }
 
+/* 1. 평소에는 ▲▼ 화살표 버튼 숨기기 */
 input.teamNights::-webkit-inner-spin-button,
 input.teamNights::-webkit-outer-spin-button {
-  width: 22px;                   
-  height: 38px;                  
-  opacity: 0;                    
+  width: 22px;                   /* 화살표 너비 크기 확대 */
+  height: 38px;                  /* 화살표 높이 크기 확대 */
+  opacity: 0;                    /* 평소에는 투명하게 숨김 */
   cursor: pointer;
   transition: opacity 0.15s ease-in-out;
 }
 
+/* 2. 마우스 커서를 올렸을 때(hover) 또는 클릭(focus)했을 때만 큰 화살표 표시 */
 input.teamNights:hover::-webkit-inner-spin-button,
 input.teamNights:focus::-webkit-inner-spin-button,
 input.teamNights:hover::-webkit-outer-spin-button,
 input.teamNights:focus::-webkit-outer-spin-button {
-  opacity: 1;                    
+  opacity: 1;                    /* 마우스 올리면 크게 표시 */
 }
   
 button{border:0;border-radius:7px;padding:8px 12px;cursor:pointer;font-weight:700}
@@ -93,7 +95,6 @@ th{background:#f1f4f7}
 .tag-pattern{background:#e3f2fd; color:#0d47a1; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:bold;}
 .tag-linked{background:#e8f5e9; color:#2e7d32; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:bold;}
 .tag-riding{background:#fff3e0; color:#e65100; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:bold;}
-.tag-lounge{background:#f3e5f5; color:#7b1fa2; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:bold;}
 
 .section-subtitle{font-size:13px; font-weight:bold; color:#1769aa; margin:8px 0 4px 0; border-left:3px solid #1769aa; padding-left:6px;}
 
@@ -413,7 +414,7 @@ th{background:#f1f4f7}
       <div id="teamsContainer"></div>
       <button class="secondary" style="margin-top:8px" onclick="addTeam()">+ 단체 추가</button>
 
-      <div style="margin-top:20px; border-top:1px solid #eee; padding-top:16px; display:flex; justify-style:space-between; align-items:center;">
+      <div style="margin-top:20px; border-top:1px solid #eee; padding-top:16px; display:flex; justify-content:space-between; align-items:center;">
         <button class="primary" style="font-size:15px;padding:12px 20px; margin:0 auto;" onclick="runSimulation(true)">기록 및 서버 저장</button>
         <button class="danger" onclick="deleteDateData()" style="margin-left:auto;">이 날짜 데이터 삭제</button>
       </div>
@@ -555,9 +556,6 @@ function closeStatsModal() {
   document.getElementById("statsModal").classList.add("hidden");
 }
 
-/* ------------------------------------------------------------------
-   공지문 팝업 스크립트
-   ------------------------------------------------------------------ */
 let noticeZoomScale = 1;
 let noticeTranslateX = 0;
 let noticeTranslateY = 0;
@@ -1065,7 +1063,6 @@ document.addEventListener('DOMContentLoaded', function() {
           if(!db) { successCallback([]); return; }
           db.collection("schedules").get().then((querySnapshot) => {
             let dailyAll = {};
-            let loungeDates = new Set();
 
             querySnapshot.forEach((doc) => {
               const regDate = doc.id;
@@ -1076,15 +1073,6 @@ document.addEventListener('DOMContentLoaded', function() {
                   const nights = parseInt(t.nights || defaultNights, 10);
                   const pattern = normalizePattern(t.pattern);
                   const returnDate = getReturnDate(regDate, nights);
-
-                  const loungeOption = t.loungeOption || 'NONE';
-
-                  if (loungeOption === 'ROUND') {
-                    loungeDates.add(regDate);
-                    if (pattern === 'ROUND') loungeDates.add(returnDate);
-                  } else if (loungeOption === 'ONEWAY') {
-                    loungeDates.add(regDate);
-                  }
 
                   if (t.isSplitRoom) {
                     const outP = (t.outAllocations || []).reduce((sum, a) => sum + (parseInt(a.people, 10) || 0), 0);
@@ -1119,17 +1107,6 @@ document.addEventListener('DOMContentLoaded', function() {
                   textColor: '#000000'
                 });
               }
-            });
-
-            loungeDates.forEach(d => {
-              events.push({
-                title: '🎤🎶',
-                start: d,
-                display: 'block',
-                backgroundColor: 'transparent',
-                borderColor: 'transparent',
-                textColor: '#000000'
-              });
             });
 
             successCallback(events);
@@ -1406,7 +1383,20 @@ function getDefaultCapByKey(key) {
   return masterRooms[key]?.defaultCapPerRoom || 4;
 }
 
-function addTeam(name="", pattern="ROUND", nights="", price="", memo="", isSplitRoom=false, isRiding=false, loungeOption="NONE"){
+function handleCategoryChange(teamId) {
+  const card = document.getElementById(teamId);
+  const categorySelect = card.querySelector(".groupCategory").value;
+  const patternSelect = card.querySelector(".teamPattern");
+
+  if (categorySelect === 'LOUNGE_ROUND') {
+    patternSelect.value = 'ROUND';
+  } else if (categorySelect === 'LOUNGE_ONEWAY') {
+    patternSelect.value = 'ONEWAY_OUT';
+  }
+  togglePatternUI(teamId);
+}
+
+function addTeam(name="", pattern="ROUND", nights="", price="", memo="", isSplitRoom=false, isRiding=false, groupCategory="LOUNGE_ROUND"){
   const teamId = "team_" + (teamSeq++);
   const teamDiv = document.createElement("div");
   teamDiv.className = "team-card";
@@ -1418,8 +1408,15 @@ function addTeam(name="", pattern="ROUND", nights="", price="", memo="", isSplit
 
   teamDiv.innerHTML = `
     <div class="team-head">
-      <input type="text" class="teamName" placeholder="단체명" value="${esc(name)}" style="max-width:160px; font-weight:bold;">
-      <select class="teamPattern" style="max-width:180px;" onchange="togglePatternUI('${teamId}')">
+      <input type="text" class="teamName" placeholder="단체명" value="${esc(name)}" style="max-width:140px; font-weight:bold;">
+      
+      <select class="groupCategory" style="max-width:140px; font-weight:bold; color:#1769aa;" onchange="handleCategoryChange('${teamId}')">
+        <option value="LOUNGE_ROUND" ${groupCategory==='LOUNGE_ROUND'?'selected':''}>🛋️ 라운지 왕복</option>
+        <option value="LOUNGE_ONEWAY" ${groupCategory==='LOUNGE_ONEWAY'?'selected':''}>🛋️ 라운지 편도</option>
+        <option value="RIDING" ${groupCategory==='RIDING'?'selected':''}>🚴 라이딩</option>
+      </select>
+
+      <select class="teamPattern" style="max-width:150px;" onchange="togglePatternUI('${teamId}')">
         <option value="ROUND" ${_p==='ROUND'?'selected':''}>🔄 왕복 (출→출)</option>
         <option value="ONEWAY_OUT" ${_p==='ONEWAY_OUT'?'selected':''}>➡️ 편도 출국</option>
       </select>
@@ -1429,22 +1426,14 @@ function addTeam(name="", pattern="ROUND", nights="", price="", memo="", isSplit
         <span style="font-size:12px; font-weight:bold;">박</span>
       </div>
       
-      <input type="text" class="teamPrice" placeholder="금액" value="${esc(price)}" style="max-width:90px;">
+      <input type="text" class="teamPrice" placeholder="금액" value="${esc(price)}" style="max-width:80px;">
       
-      <div style="display:flex; align-items:center; gap:10px;">
-        <select class="loungeOption" style="max-width:130px; font-weight:bold; color:#7b1fa2; border-color:#ba68c8;">
-          <option value="NONE" ${loungeOption==='NONE'?'selected':''}>라운지 사용 안 함</option>
-          <option value="ROUND" ${loungeOption==='ROUND'?'selected':''}>🎤🎶 라운지 왕복</option>
-          <option value="ONEWAY" ${loungeOption==='ONEWAY'?'selected':''}>🎤🎶 라운지 편도</option>
-        </select>
-
-        <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; margin:0; font-weight:bold; color:#e65100;">
-          <input type="checkbox" class="ridingCheck" ${isRiding?'checked':''}> 🚴 라이딩
-        </label>
-      </div>
-
       <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; margin:0; font-weight:bold; color:#1769aa;">
-        <input type="checkbox" class="splitRoomCheck" onchange="toggleRoomSplitUI('${teamId}')" ${isSplitRoom?'checked':''}> 입/출국 객실 분리
+        <input type="checkbox" class="splitRoomCheck" onchange="toggleRoomSplitUI('${teamId}')" ${isSplitRoom?'checked':''}> 객실 분리
+      </label>
+
+      <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; margin:0; font-weight:bold; color:#e65100;" title="라운지 선택 시 라이딩 중복 체크용">
+        <input type="checkbox" class="ridingExtraCheck" ${isRiding?'checked':''}> 🚴 라이딩 동시 적용
       </label>
 
       <button class="danger" type="button" onclick="document.getElementById('${teamId}').remove()" style="margin-left:auto;">삭제</button>
@@ -1540,7 +1529,7 @@ function restoreTeamUI(teamData){
   teamDiv.id = teamId;
   const isSplit = teamData.isSplitRoom || false;
   const isRiding = teamData.isRiding || false;
-  const loungeOption = teamData.loungeOption || (teamData.isLounge ? 'ROUND' : 'NONE');
+  const groupCategory = teamData.groupCategory || (isRiding ? 'RIDING' : 'LOUNGE_ROUND');
   const _p = normalizePattern(teamData.pattern);
 
   const defaultNights = getDefaultNightsByDate(selectedDate);
@@ -1548,8 +1537,15 @@ function restoreTeamUI(teamData){
 
   teamDiv.innerHTML = `
     <div class="team-head">
-      <input type="text" class="teamName" placeholder="단체명" value="${esc(teamData.name)}" style="max-width:160px; font-weight:bold;">
-      <select class="teamPattern" style="max-width:180px;" onchange="togglePatternUI('${teamId}')">
+      <input type="text" class="teamName" placeholder="단체명" value="${esc(teamData.name)}" style="max-width:140px; font-weight:bold;">
+      
+      <select class="groupCategory" style="max-width:140px; font-weight:bold; color:#1769aa;" onchange="handleCategoryChange('${teamId}')">
+        <option value="LOUNGE_ROUND" ${groupCategory==='LOUNGE_ROUND'?'selected':''}>🛋️ 라운지 왕복</option>
+        <option value="LOUNGE_ONEWAY" ${groupCategory==='LOUNGE_ONEWAY'?'selected':''}>🛋️ 라운지 편도</option>
+        <option value="RIDING" ${groupCategory==='RIDING'?'selected':''}>🚴 라이딩</option>
+      </select>
+
+      <select class="teamPattern" style="max-width:150px;" onchange="togglePatternUI('${teamId}')">
         <option value="ROUND" ${_p==='ROUND'?'selected':''}>🔄 왕복 (출→출)</option>
         <option value="ONEWAY_OUT" ${_p==='ONEWAY_OUT'?'selected':''}>➡️ 편도 출국</option>
       </select>
@@ -1559,22 +1555,14 @@ function restoreTeamUI(teamData){
         <span style="font-size:12px; font-weight:bold;">박</span>
       </div>
       
-      <input type="text" class="teamPrice" placeholder="금액" value="${esc(teamData.price||'')}" style="max-width:90px;">
+      <input type="text" class="teamPrice" placeholder="금액" value="${esc(teamData.price||'')}" style="max-width:80px;">
       
-      <div style="display:flex; align-items:center; gap:10px;">
-        <select class="loungeOption" style="max-width:130px; font-weight:bold; color:#7b1fa2; border-color:#ba68c8;">
-          <option value="NONE" ${loungeOption==='NONE'?'selected':''}>라운지 사용 안 함</option>
-          <option value="ROUND" ${loungeOption==='ROUND'?'selected':''}>🎤🎶 라운지 왕복</option>
-          <option value="ONEWAY" ${loungeOption==='ONEWAY'?'selected':''}>🎤🎶 라운지 편도</option>
-        </select>
-
-        <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; margin:0; font-weight:bold; color:#e65100;">
-          <input type="checkbox" class="ridingCheck" ${isRiding?'checked':''}> 🚴 라이딩
-        </label>
-      </div>
-
       <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; margin:0; font-weight:bold; color:#1769aa;">
-        <input type="checkbox" class="splitRoomCheck" onchange="toggleRoomSplitUI('${teamId}')" ${isSplit?'checked':''}> 입/출국 객실 분리
+        <input type="checkbox" class="splitRoomCheck" onchange="toggleRoomSplitUI('${teamId}')" ${isSplit?'checked':''}> 객실 분리
+      </label>
+
+      <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; margin:0; font-weight:bold; color:#e65100;" title="라운지 선택 시 라이딩 중복 체크용">
+        <input type="checkbox" class="ridingExtraCheck" ${isRiding?'checked':''}> 🚴 라이딩 동시 적용
       </label>
 
       <button class="danger" type="button" onclick="document.getElementById('${teamId}').remove()" style="margin-left:auto;">삭제</button>
@@ -1690,13 +1678,16 @@ function runSimulation(shouldSave = true){
   for (let idx = 0; idx < teamCards.length; idx++) {
     const card = teamCards[idx];
     const name = card.querySelector(".teamName").value.trim();
+    const groupCategory = card.querySelector(".groupCategory").value;
     const pattern = normalizePattern(card.querySelector(".teamPattern").value);
     const nights = parseInt(card.querySelector(".teamNights").value, 10) || parseInt(defaultNights, 10);
     const price = card.querySelector(".teamPrice").value.trim();
     const memo = card.querySelector(".teamMemo").value.trim();
     const isSplitRoom = card.querySelector(".splitRoomCheck").checked;
-    const isRiding = card.querySelector(".ridingCheck").checked;
-    const loungeOption = card.querySelector(".loungeOption").value;
+    
+    // 라이딩 조건: 드롭다운이 RIDING이거나, 동시 체크박스가 유효할 경우
+    const ridingExtraChecked = card.querySelector(".ridingExtraCheck").checked;
+    const isRiding = (groupCategory === 'RIDING') || ridingExtraChecked;
 
     if (!name && !card.querySelector(".assignPeople")?.value) continue;
 
@@ -1763,7 +1754,7 @@ function runSimulation(shouldSave = true){
 
     todayTeams.push({
       name: name || `단체 ${idx+1}`,
-      pattern, nights, price, memo, isSplitRoom, isRiding, loungeOption,
+      pattern, nights, price, memo, isSplitRoom, isRiding, groupCategory,
       totalPeople: teamTotalPeople,
       allocations, outAllocations, inAllocations,
       itineraryStr, returnDate,
@@ -1783,15 +1774,6 @@ function runSimulation(shouldSave = true){
 
   const todayOutTeams = todayTeams.filter(t => t.pattern === 'ROUND' || t.pattern === 'ONEWAY_OUT');
   const outBoardingTeams = [...todayOutTeams, ...linkedReturnTeams];
-
-  /* 라운지 단체가 첫 번째에 오도록 정렬 */
-  outBoardingTeams.sort((a, b) => {
-    const isALounge = (a.loungeOption === 'ROUND' || a.loungeOption === 'ONEWAY' || a.isLounge);
-    const isBLounge = (b.loungeOption === 'ROUND' || b.loungeOption === 'ONEWAY' || b.isLounge);
-    if (isALounge && !isBLounge) return -1;
-    if (!isALounge && isBLounge) return 1;
-    return 0;
-  });
 
   const groupTotalPeople = outBoardingTeams.reduce((s,t) => {
     if (t.isReturnOnTarget) {
@@ -1899,13 +1881,9 @@ function runSimulation(shouldSave = true){
         ? `<span class="tag-linked">🔄 리턴 출국 (${formatShortDate(team.regDate)} 등록)</span>`
         : '';
       const ridingTag = team.isRiding ? `<span class="tag-riding">🚴 라이딩</span>` : '';
-      
-      let loungeTag = '';
-      if (team.loungeOption === 'ROUND') loungeTag = `<span class="tag-lounge">🎤🎶 라운지 왕복</span>`;
-      else if (team.loungeOption === 'ONEWAY') loungeTag = `<span class="tag-lounge">🎤🎶 라운지 편도</span>`;
 
       teamResultsHtml += `<div style="margin-bottom:16px; border-bottom:1px solid #e1e7ef; padding-bottom:12px;">
-        <h3 style="margin-bottom:4px; color:#1769aa;">🚩 ${esc(team.name)} (${teamBoardingPeople}명) <span class="tag-pattern">${patternLabel}</span> ${loungeTag} ${ridingTag} ${statusTag}${priceText}</h3>
+        <h3 style="margin-bottom:4px; color:#1769aa;">🚩 ${esc(team.name)} (${teamBoardingPeople}명) <span class="tag-pattern">${patternLabel}</span> ${ridingTag} ${statusTag}${priceText}</h3>
         <div style="font-size:13px; font-weight:bold; color:#2e7d32; margin-bottom:6px;">🗓️ 여정 정보: ${team.itineraryStr || (isReturn ? `리턴일: ${formatShortDate(selectedDate)} (원출발: ${formatShortDate(team.regDate)})` : '')}</div>
         ${team.memo ? `<div class="memo-box"><b>📌 메모:</b> ${esc(team.memo)}</div>` : ''}`;
 
