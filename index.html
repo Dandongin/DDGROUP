@@ -1037,8 +1037,8 @@ function showLoungeStats() {
         <tr style="background:#f1f4f7;">
           <th style="padding:8px; border-bottom:2px solid #ccc; text-align:left;">단체명</th>
           <th style="padding:8px; border-bottom:2px solid #ccc; text-align:center;">인원</th>
-          <th style="padding:8px; border-bottom:2px solid #ccc; text-align:center;">출국</th>
-          <th style="padding:8px; border-bottom:2px solid #ccc; text-align:center;">리턴</th>
+          <th style="padding:8px; border-bottom:2px solid #ccc; text-align:center;">가는 날</th>
+          <th style="padding:8px; border-bottom:2px solid #ccc; text-align:center;">오는 날</th>
         </tr>
       </thead>
       <tbody>`;
@@ -1050,7 +1050,6 @@ function showLoungeStats() {
       html += `<tr>
         <td style="padding:8px; border-bottom:1px solid #eee; text-align:left; font-weight:bold;">${esc(team.name)}</td>
         <td style="padding:8px; border-bottom:1px solid #eee; text-align:center;">${team.people.toLocaleString()}명</td>
-        <td style="padding:8px; border-bottom:1px solid #eee; text-align:center;">${team.isRound ? '🔄 왕복' : '➡️ 편도'}</td>
         <td style="padding:8px; border-bottom:1px solid #eee; text-align:center;">${formatDateMDShort(team.goDate)}</td>
         <td style="padding:8px; border-bottom:1px solid #eee; text-align:center;">${team.isRound ? formatDateMDShort(team.returnDate) : '-'}</td>
       </tr>`;
@@ -1061,7 +1060,7 @@ function showLoungeStats() {
         <tr style="background:#fce4ec; font-weight:bold;">
           <td style="padding:10px; text-align:left; color:#ad1457;">합계 (${loungeTeams.length}팀)</td>
           <td style="padding:10px; text-align:center; color:#ad1457;">${grandPeople.toLocaleString()}명</td>
-          <td colspan="3"></td>
+          <td colspan="2"></td>
         </tr>
       </tfoot>
     </table></div></div>`;
