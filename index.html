@@ -1361,7 +1361,7 @@ function getDefaultCapByKey(key) {
   return masterRooms[key]?.defaultCapPerRoom || 4;
 }
 
-function addTeam(name="", pattern="ROUND", nights="", price="", memo="", isSplitRoom=false, isRiding=false){
+function addTeam(name="", pattern="ROUND", nights="", price="", memo="", isSplitRoom=false, specialNote=""){
   const teamId = "team_" + (teamSeq++);
   const teamDiv = document.createElement("div");
   teamDiv.className = "team-card";
@@ -1385,13 +1385,16 @@ function addTeam(name="", pattern="ROUND", nights="", price="", memo="", isSplit
       </div>
       
       <input type="text" class="teamPrice" placeholder="금액" value="${esc(price)}" style="max-width:90px;">
-      
+
+      <select class="specialNoteSelect" style="max-width:120px; font-weight:bold; color:#e65100;">
+        <option value="" ${specialNote===''?'selected':''}>특이사항</option>
+        <option value="LOUNGE_ROUND" ${specialNote==='LOUNGE_ROUND'?'selected':''}>라운지 왕복</option>
+        <option value="LOUNGE_ONEWAY" ${specialNote==='LOUNGE_ONEWAY'?'selected':''}>라운지 편도</option>
+        <option value="RIDING" ${specialNote==='RIDING'?'selected':''}>🚴 라이딩</option>
+      </select>
+
       <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; margin:0; font-weight:bold; color:#1769aa;">
         <input type="checkbox" class="splitRoomCheck" onchange="toggleRoomSplitUI('${teamId}')" ${isSplitRoom?'checked':''}> 입/출국 객실 분리
-      </label>
-
-      <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; margin:0; font-weight:bold; color:#e65100;">
-        <input type="checkbox" class="ridingCheck" ${isRiding?'checked':''}> 🚴 라이딩
       </label>
 
       <button class="danger" type="button" onclick="document.getElementById('${teamId}').remove()" style="margin-left:auto;">삭제</button>
@@ -1486,7 +1489,7 @@ function restoreTeamUI(teamData){
   teamDiv.className = "team-card";
   teamDiv.id = teamId;
   const isSplit = teamData.isSplitRoom || false;
-  const isRiding = teamData.isRiding || false;
+  const specialNote = teamData.specialNote || (teamData.isRiding ? 'RIDING' : '');
   const _p = normalizePattern(teamData.pattern);
 
   const defaultNights = getDefaultNightsByDate(selectedDate);
@@ -1506,13 +1509,16 @@ function restoreTeamUI(teamData){
       </div>
       
       <input type="text" class="teamPrice" placeholder="금액" value="${esc(teamData.price||'')}" style="max-width:90px;">
-      
+
+      <select class="specialNoteSelect" style="max-width:120px; font-weight:bold; color:#e65100;">
+        <option value="" ${specialNote===''?'selected':''}>특이사항</option>
+        <option value="LOUNGE_ROUND" ${specialNote==='LOUNGE_ROUND'?'selected':''}>라운지 왕복</option>
+        <option value="LOUNGE_ONEWAY" ${specialNote==='LOUNGE_ONEWAY'?'selected':''}>라운지 편도</option>
+        <option value="RIDING" ${specialNote==='RIDING'?'selected':''}>🚴 라이딩</option>
+      </select>
+
       <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; margin:0; font-weight:bold; color:#1769aa;">
         <input type="checkbox" class="splitRoomCheck" onchange="toggleRoomSplitUI('${teamId}')" ${isSplit?'checked':''}> 입/출국 객실 분리
-      </label>
-
-      <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; margin:0; font-weight:bold; color:#e65100;">
-        <input type="checkbox" class="ridingCheck" ${isRiding?'checked':''}> 🚴 라이딩
       </label>
 
       <button class="danger" type="button" onclick="document.getElementById('${teamId}').remove()" style="margin-left:auto;">삭제</button>
@@ -1633,7 +1639,8 @@ function runSimulation(shouldSave = true){
     const price = card.querySelector(".teamPrice").value.trim();
     const memo = card.querySelector(".teamMemo").value.trim();
     const isSplitRoom = card.querySelector(".splitRoomCheck").checked;
-    const isRiding = card.querySelector(".ridingCheck").checked;
+    const specialNote = card.querySelector(".specialNoteSelect").value;
+    const isRiding = (specialNote === 'RIDING');
 
     if (!name && !card.querySelector(".assignPeople")?.value) continue;
 
@@ -1700,7 +1707,7 @@ function runSimulation(shouldSave = true){
 
     todayTeams.push({
       name: name || `단체 ${idx+1}`,
-      pattern, nights, price, memo, isSplitRoom, isRiding,
+      pattern, nights, price, memo, isSplitRoom, isRiding, specialNote,
       totalPeople: teamTotalPeople,
       allocations, outAllocations, inAllocations,
       itineraryStr, returnDate,
