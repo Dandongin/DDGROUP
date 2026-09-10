@@ -45,6 +45,32 @@ input.assignPeople, input.teamNights, select.typeSelect {
   color:#0d47a1;
 }
 
+  /* 박수(Nights) 입력란 크기 및 글자 확대 */
+input.teamNights {
+  width: 75px !important;        /* 너비 확대 (원하는 크기로 조정 가능) */
+  height: 42px !important;       /* 높이 확대 */
+  font-size: 16px !important;    /* 숫자 크기 확대 */
+  padding: 4px 6px !important;
+}
+
+/* 1. 평소에는 ▲▼ 화살표 버튼 숨기기 */
+input.teamNights::-webkit-inner-spin-button,
+input.teamNights::-webkit-outer-spin-button {
+  width: 22px;                   /* 화살표 너비 크기 확대 */
+  height: 38px;                  /* 화살표 높이 크기 확대 */
+  opacity: 0;                    /* 평소에는 투명하게 숨김 */
+  cursor: pointer;
+  transition: opacity 0.15s ease-in-out;
+}
+
+/* 2. 마우스 커서를 올렸을 때(hover) 또는 클릭(focus)했을 때만 큰 화살표 표시 */
+input.teamNights:hover::-webkit-inner-spin-button,
+input.teamNights:focus::-webkit-inner-spin-button,
+input.teamNights:hover::-webkit-outer-spin-button,
+input.teamNights:focus::-webkit-outer-spin-button {
+  opacity: 1;                    /* 마우스 올리면 크게 표시 */
+}
+  
 button{border:0;border-radius:7px;padding:8px 12px;cursor:pointer;font-weight:700}
 .primary{background:#1769aa;color:#fff}
 .secondary{background:#e9eef4;color:#263746}
