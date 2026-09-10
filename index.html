@@ -931,7 +931,7 @@ function showRidingStats() {
     const sortedMonths = Object.keys(monthlyStats).sort();
 
     if (sortedMonths.length === 0) {
-      openStatsModal("🚴 라이딩 통계(편도 기준)", "<div style='text-align:center; padding:20px; color:#666;'>등록된 라이딩 단체가 없습니다.</div>");
+      openStatsModal("🚴 라이딩 통계(편도 기준)", "<div style='text-align:center; padding:20px; color:#666;'>등록된 라이딩 단체가 없슴다.</div>");
       return;
     }
 
@@ -1038,7 +1038,7 @@ function showRidingMonthlyStats() {
     ridingTeams.sort((a, b) => a.goDate.localeCompare(b.goDate));
 
     if (ridingTeams.length === 0) {
-      openStatsModal(`🚴 ${month}월 라이딩 이용 단체`, "<div style='text-align:center; padding:20px; color:#666;'>이번 달 등록된 라이딩 이용 단체가 없습니다.</div>");
+      openStatsModal(`🚴 ${month}월 라이딩 이용 단체`, "<div style='text-align:center; padding:20px; color:#666;'>이번 달 등록된 라이딩 이용 단체가 없슴다.</div>");
       return;
     }
 
@@ -1143,7 +1143,7 @@ function showLoungeStats() {
     loungeTeams.sort((a, b) => a.goDate.localeCompare(b.goDate));
 
     if (loungeTeams.length === 0) {
-      openStatsModal(`🎤 ${month}월 라운지 이용 단체`, "<div style='text-align:center; padding:20px; color:#666;'>이번 달 등록된 라운지 이용 단체가 없습니다.</div>");
+      openStatsModal(`🎤 ${month}월 라운지 이용 단체`, "<div style='text-align:center; padding:20px; color:#666;'>이번 달 등록된 라운지 이용 단체가 없슴다.</div>");
       return;
     }
 
