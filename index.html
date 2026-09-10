@@ -1642,11 +1642,11 @@ function addTeam(name="", pattern="ROUND", nights="", price="", memo="", isSplit
 
       <select class="specialNoteSelect" style="max-width:120px; font-weight:bold; color:#e65100;">
         <option value="" ${specialNote===''?'selected':''}>특이사항</option>
-        <option value="LOUNGE_ROUND" ${specialNote==='LOUNGE_ROUND'?'selected':''}>라운지 왕복</option>
-        <option value="LOUNGE_ONEWAY" ${specialNote==='LOUNGE_ONEWAY'?'selected':''}>라운지 편도</option>
-        <option value="RIDING" ${specialNote==='RIDING'?'selected':''}>🚴 라이딩</option>
-        <option value="RIDING_LOUNGE_ROUND" ${specialNote==='RIDING_LOUNGE_ROUND'?'selected':''}>🚴+🎤왕복</option>
-        <option value="RIDING_LOUNGE_ONEWAY" ${specialNote==='RIDING_LOUNGE_ONEWAY'?'selected':''}>🚴+🎤편도</option>
+        <option value="LOUNGE_ROUND" ${specialNote==='LOUNGE_ROUND'?'selected':''}>🎤 라운지 왕복</option>
+        <option value="LOUNGE_ONEWAY" ${specialNote==='LOUNGE_ONEWAY'?'selected':''}>🎤 라운지 편도</option>
+        <option value="RIDING" ${specialNote==='RIDING'?'selected':''}>🚴 라이딩 왕복</option>
+        <option value="RIDING_LOUNGE_ROUND" ${specialNote==='RIDING_LOUNGE_ROUND'?'selected':''}>🚴왕복+🎤왕복</option>
+        <option value="RIDING_LOUNGE_ONEWAY" ${specialNote==='RIDING_LOUNGE_ONEWAY'?'selected':''}>🚴왕복+🎤편도</option>
       </select>
 
       <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; margin:0; font-weight:bold; color:#1769aa;">
