@@ -69,11 +69,23 @@ th{background:#f1f4f7}
 .tag-pattern{background:#e3f2fd; color:#0d47a1; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:bold;}
 .tag-linked{background:#e8f5e9; color:#2e7d32; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:bold;}
 .tag-riding{background:#fff3e0; color:#e65100; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:bold;}
+.tag-lounge{background:#fce4ec; color:#ad1457; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:bold;}
 
 .section-subtitle{font-size:13px; font-weight:bold; color:#1769aa; margin:8px 0 4px 0; border-left:3px solid #1769aa; padding-left:6px;}
 
 .fc .fc-day-sat a { color: #0000ff !important; }
 .fc .fc-day-sun a { color: #d32f2f !important; }
+
+.fc-daygrid-day-frame { position: relative; }
+.lounge-emoji-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 13px;
+  line-height: 1;
+  pointer-events: none;
+  z-index: 5;
+}
 
 .collapsible-toggle {
   display: flex;
@@ -470,6 +482,20 @@ function getDayColor(dateStr) {
     return '#87CEEB';
   }
   return '#1769aa';
+}
+
+function markLoungeDates(loungeDates) {
+  document.querySelectorAll('.lounge-emoji-badge').forEach(el => el.remove());
+  loungeDates.forEach(d => {
+    const cell = document.querySelector(`.fc-daygrid-day[data-date="${d}"]`);
+    if (!cell) return;
+    const frame = cell.querySelector('.fc-daygrid-day-frame') || cell;
+    const badge = document.createElement('span');
+    badge.className = 'lounge-emoji-badge';
+    badge.title = '라운지 왕복/편도 단체 있음';
+    badge.textContent = '🎤🎵';
+    frame.appendChild(badge);
+  });
 }
 
 function getDefaultNightsByDate(dateStr) {
@@ -1041,6 +1067,7 @@ document.addEventListener('DOMContentLoaded', function() {
           if(!db) { successCallback([]); return; }
           db.collection("schedules").get().then((querySnapshot) => {
             let dailyAll = {};
+            let loungeDates = new Set();
 
             querySnapshot.forEach((doc) => {
               const regDate = doc.id;
@@ -1071,6 +1098,11 @@ document.addEventListener('DOMContentLoaded', function() {
                       dailyAll[regDate] = (dailyAll[regDate] || 0) + p;
                     }
                   }
+
+                  if (t.specialNote === 'LOUNGE_ROUND' || t.specialNote === 'LOUNGE_ONEWAY') {
+                    loungeDates.add(regDate);
+                    if (t.specialNote === 'LOUNGE_ROUND') loungeDates.add(returnDate);
+                  }
                 });
               }
             });
@@ -1088,6 +1120,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
 
             successCallback(events);
+            markLoungeDates(loungeDates);
           }).catch(() => successCallback([]));
         }
       },
@@ -1728,6 +1761,9 @@ function runSimulation(shouldSave = true){
   const todayOutTeams = todayTeams.filter(t => t.pattern === 'ROUND' || t.pattern === 'ONEWAY_OUT');
   const outBoardingTeams = [...todayOutTeams, ...linkedReturnTeams];
 
+  const isLoungeTeam = (t) => t.specialNote === 'LOUNGE_ROUND' || t.specialNote === 'LOUNGE_ONEWAY';
+  outBoardingTeams.sort((a, b) => (isLoungeTeam(a) ? 0 : 1) - (isLoungeTeam(b) ? 0 : 1));
+
   const groupTotalPeople = outBoardingTeams.reduce((s,t) => {
     if (t.isReturnOnTarget) {
       if (t.isSplitRoom) {
@@ -1834,9 +1870,12 @@ function runSimulation(shouldSave = true){
         ? `<span class="tag-linked">🔄 리턴 출국 (${formatShortDate(team.regDate)} 등록)</span>`
         : '';
       const ridingTag = team.isRiding ? `<span class="tag-riding">🚴 라이딩</span>` : '';
+      let loungeTag = '';
+      if (team.specialNote === 'LOUNGE_ROUND') loungeTag = `<span class="tag-lounge">🎤 라운지 왕복</span>`;
+      else if (team.specialNote === 'LOUNGE_ONEWAY') loungeTag = `<span class="tag-lounge">🎤 라운지 편도</span>`;
 
       teamResultsHtml += `<div style="margin-bottom:16px; border-bottom:1px solid #e1e7ef; padding-bottom:12px;">
-        <h3 style="margin-bottom:4px; color:#1769aa;">🚩 ${esc(team.name)} (${teamBoardingPeople}명) <span class="tag-pattern">${patternLabel}</span> ${ridingTag} ${statusTag}${priceText}</h3>
+        <h3 style="margin-bottom:4px; color:#1769aa;">🚩 ${esc(team.name)} (${teamBoardingPeople}명) <span class="tag-pattern">${patternLabel}</span> ${loungeTag} ${ridingTag} ${statusTag}${priceText}</h3>
         <div style="font-size:13px; font-weight:bold; color:#2e7d32; margin-bottom:6px;">🗓️ 여정 정보: ${team.itineraryStr || (isReturn ? `리턴일: ${formatShortDate(selectedDate)} (원출발: ${formatShortDate(team.regDate)})` : '')}</div>
         ${team.memo ? `<div class="memo-box"><b>📌 메모:</b> ${esc(team.memo)}</div>` : ''}`;
 
