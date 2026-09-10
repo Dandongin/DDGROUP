@@ -1410,12 +1410,6 @@ function addTeam(name="", pattern="ROUND", nights="", price="", memo="", isSplit
     <div class="team-head">
       <input type="text" class="teamName" placeholder="단체명" value="${esc(name)}" style="max-width:140px; font-weight:bold;">
       
-      <select class="groupCategory" style="max-width:140px; font-weight:bold; color:#1769aa;" onchange="handleCategoryChange('${teamId}')">
-        <option value="LOUNGE_ROUND" ${groupCategory==='LOUNGE_ROUND'?'selected':''}>🛋️ 라운지 왕복</option>
-        <option value="LOUNGE_ONEWAY" ${groupCategory==='LOUNGE_ONEWAY'?'selected':''}>🛋️ 라운지 편도</option>
-        <option value="RIDING" ${groupCategory==='RIDING'?'selected':''}>🚴 라이딩</option>
-      </select>
-
       <select class="teamPattern" style="max-width:150px;" onchange="togglePatternUI('${teamId}')">
         <option value="ROUND" ${_p==='ROUND'?'selected':''}>🔄 왕복 (출→출)</option>
         <option value="ONEWAY_OUT" ${_p==='ONEWAY_OUT'?'selected':''}>➡️ 편도 출국</option>
@@ -1427,14 +1421,17 @@ function addTeam(name="", pattern="ROUND", nights="", price="", memo="", isSplit
       </div>
       
       <input type="text" class="teamPrice" placeholder="금액" value="${esc(price)}" style="max-width:80px;">
+
+      <select class="groupCategory" style="max-width:140px; font-weight:bold; color:#1769aa;" onchange="handleCategoryChange('${teamId}')">
+        <option value="LOUNGE_ROUND" ${groupCategory==='LOUNGE_ROUND'?'selected':''}>🛋️ 라운지 왕복</option>
+        <option value="LOUNGE_ONEWAY" ${groupCategory==='LOUNGE_ONEWAY'?'selected':''}>🛋️ 라운지 편도</option>
+        <option value="RIDING" ${groupCategory==='RIDING'?'selected':''}>🚴 라이딩</option>
+      </select>
       
       <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; margin:0; font-weight:bold; color:#1769aa;">
         <input type="checkbox" class="splitRoomCheck" onchange="toggleRoomSplitUI('${teamId}')" ${isSplitRoom?'checked':''}> 객실 분리
       </label>
 
-      <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; margin:0; font-weight:bold; color:#e65100;" title="라운지 선택 시 라이딩 중복 체크용">
-        <input type="checkbox" class="ridingExtraCheck" ${isRiding?'checked':''}> 🚴 라이딩 동시 적용
-      </label>
 
       <button class="danger" type="button" onclick="document.getElementById('${teamId}').remove()" style="margin-left:auto;">삭제</button>
     </div>
