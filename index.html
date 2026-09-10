@@ -513,6 +513,16 @@ function normalizePattern(p){
   return p || 'ROUND';
 }
 
+function getLoungeType(specialNote){
+  if (specialNote === 'LOUNGE_ROUND' || specialNote === 'RIDING_LOUNGE_ROUND') return 'ROUND';
+  if (specialNote === 'LOUNGE_ONEWAY' || specialNote === 'RIDING_LOUNGE_ONEWAY') return 'ONEWAY';
+  return null;
+}
+
+function isRidingNote(specialNote){
+  return specialNote === 'RIDING' || specialNote === 'RIDING_LOUNGE_ROUND' || specialNote === 'RIDING_LOUNGE_ONEWAY';
+}
+
 function toggleMasterArea(){
   const content = document.getElementById("masterAreaContent");
   const icon = document.getElementById("masterToggleIcon");
@@ -1004,7 +1014,8 @@ function showLoungeStats() {
       if (!data.teams || data.teams.length === 0) return;
 
       data.teams.forEach(t => {
-        if (t.specialNote !== 'LOUNGE_ROUND' && t.specialNote !== 'LOUNGE_ONEWAY') return;
+        const loungeType = getLoungeType(t.specialNote);
+        if (!loungeType) return;
 
         const defaultNights = getDefaultNightsByDate(regDate);
         const nights = parseInt(t.nights || defaultNights, 10);
@@ -1018,7 +1029,7 @@ function showLoungeStats() {
         loungeTeams.push({
           name: t.name || "",
           people: people,
-          isRound: t.specialNote === 'LOUNGE_ROUND',
+          isRound: loungeType === 'ROUND',
           goDate: regDate,
           returnDate: returnDate
         });
@@ -1204,9 +1215,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                   }
 
-                  if (t.specialNote === 'LOUNGE_ROUND' || t.specialNote === 'LOUNGE_ONEWAY') {
+                  const loungeTypeForDate = getLoungeType(t.specialNote);
+                  if (loungeTypeForDate) {
                     loungeDates.add(regDate);
-                    if (t.specialNote === 'LOUNGE_ROUND') loungeDates.add(returnDate);
+                    if (loungeTypeForDate === 'ROUND') loungeDates.add(returnDate);
                   }
                 });
               }
@@ -1529,6 +1541,8 @@ function addTeam(name="", pattern="ROUND", nights="", price="", memo="", isSplit
         <option value="LOUNGE_ROUND" ${specialNote==='LOUNGE_ROUND'?'selected':''}>라운지 왕복</option>
         <option value="LOUNGE_ONEWAY" ${specialNote==='LOUNGE_ONEWAY'?'selected':''}>라운지 편도</option>
         <option value="RIDING" ${specialNote==='RIDING'?'selected':''}>🚴 라이딩</option>
+        <option value="RIDING_LOUNGE_ROUND" ${specialNote==='RIDING_LOUNGE_ROUND'?'selected':''}>🚴+🎤왕복</option>
+        <option value="RIDING_LOUNGE_ONEWAY" ${specialNote==='RIDING_LOUNGE_ONEWAY'?'selected':''}>🚴+🎤편도</option>
       </select>
 
       <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; margin:0; font-weight:bold; color:#1769aa;">
@@ -1653,6 +1667,8 @@ function restoreTeamUI(teamData){
         <option value="LOUNGE_ROUND" ${specialNote==='LOUNGE_ROUND'?'selected':''}>라운지 왕복</option>
         <option value="LOUNGE_ONEWAY" ${specialNote==='LOUNGE_ONEWAY'?'selected':''}>라운지 편도</option>
         <option value="RIDING" ${specialNote==='RIDING'?'selected':''}>🚴 라이딩</option>
+        <option value="RIDING_LOUNGE_ROUND" ${specialNote==='RIDING_LOUNGE_ROUND'?'selected':''}>🚴+🎤왕복</option>
+        <option value="RIDING_LOUNGE_ONEWAY" ${specialNote==='RIDING_LOUNGE_ONEWAY'?'selected':''}>🚴+🎤편도</option>
       </select>
 
       <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; margin:0; font-weight:bold; color:#1769aa;">
@@ -1778,7 +1794,7 @@ function runSimulation(shouldSave = true){
     const memo = card.querySelector(".teamMemo").value.trim();
     const isSplitRoom = card.querySelector(".splitRoomCheck").checked;
     const specialNote = card.querySelector(".specialNoteSelect").value;
-    const isRiding = (specialNote === 'RIDING');
+    const isRiding = isRidingNote(specialNote);
 
     if (!name && !card.querySelector(".assignPeople")?.value) continue;
 
@@ -1866,7 +1882,7 @@ function runSimulation(shouldSave = true){
   const todayOutTeams = todayTeams.filter(t => t.pattern === 'ROUND' || t.pattern === 'ONEWAY_OUT');
   const outBoardingTeams = [...todayOutTeams, ...linkedReturnTeams];
 
-  const isLoungeTeam = (t) => t.specialNote === 'LOUNGE_ROUND' || t.specialNote === 'LOUNGE_ONEWAY';
+  const isLoungeTeam = (t) => !!getLoungeType(t.specialNote);
   outBoardingTeams.sort((a, b) => (isLoungeTeam(a) ? 0 : 1) - (isLoungeTeam(b) ? 0 : 1));
 
   const groupTotalPeople = outBoardingTeams.reduce((s,t) => {
@@ -1976,8 +1992,9 @@ function runSimulation(shouldSave = true){
         : '';
       const ridingTag = team.isRiding ? `<span class="tag-riding">🚴 라이딩</span>` : '';
       let loungeTag = '';
-      if (team.specialNote === 'LOUNGE_ROUND') loungeTag = `<span class="tag-lounge">🎤 라운지 왕복</span>`;
-      else if (team.specialNote === 'LOUNGE_ONEWAY') loungeTag = `<span class="tag-lounge">🎤 라운지 편도</span>`;
+      const loungeTypeForTag = getLoungeType(team.specialNote);
+      if (loungeTypeForTag === 'ROUND') loungeTag = `<span class="tag-lounge">🎤 라운지 왕복</span>`;
+      else if (loungeTypeForTag === 'ONEWAY') loungeTag = `<span class="tag-lounge">🎤 라운지 편도</span>`;
 
       teamResultsHtml += `<div style="margin-bottom:16px; border-bottom:1px solid #e1e7ef; padding-bottom:12px;">
         <h3 style="margin-bottom:4px; color:#1769aa;">🚩 ${esc(team.name)} (${teamBoardingPeople}명) <span class="tag-pattern">${patternLabel}</span> ${loungeTag} ${ridingTag} ${statusTag}${priceText}</h3>
