@@ -2177,13 +2177,39 @@ function downloadMonthlyExcel(year, month){
   const todayStr = `${today.getMonth() + 1}/${today.getDate()}`;
   const titleText = `${year}년 ${month}월 (${todayStr} 기준)`;
 
-  function formatGroupNames(namesArray) {
-    if (!namesArray || namesArray.length === 0) return "";
-    let lines = [];
-    for (let i = 0; i < namesArray.length; i += 3) {
-      const chunk = namesArray.slice(i, i + 3);
-      lines.push(chunk.join(", "));
+  // 한글 등 전각 문자는 2칸, 영문/숫자 등 반각 문자는 1칸으로 계산해 실제 표시 너비를 구함
+  function getVisualWidth(str) {
+    let width = 0;
+    for (const ch of String(str)) {
+      const code = ch.codePointAt(0);
+      const isWide = (
+        (code >= 0x1100 && code <= 0x115F) ||
+        (code >= 0x2E80 && code <= 0xA4CF) ||
+        (code >= 0xAC00 && code <= 0xD7A3) ||
+        (code >= 0xF900 && code <= 0xFAFF) ||
+        (code >= 0xFF00 && code <= 0xFF60) ||
+        (code >= 0xFFE0 && code <= 0xFFE6)
+      );
+      width += isWide ? 2 : 1;
     }
+    return width;
+  }
+
+  // 열 너비(wch)에 맞춰 미리 줄바꿈해 엑셀의 자동 wrap과 높이 계산을 일치시킴
+  function formatGroupNames(namesArray, maxCharsPerLine = 40) {
+    if (!namesArray || namesArray.length === 0) return "";
+    const lines = [];
+    let current = "";
+    namesArray.forEach(name => {
+      const candidate = current ? current + ", " + name : name;
+      if (current && getVisualWidth(candidate) > maxCharsPerLine) {
+        lines.push(current);
+        current = name;
+      } else {
+        current = candidate;
+      }
+    });
+    if (current) lines.push(current);
     return lines.join("\n");
   }
 
@@ -2277,8 +2303,13 @@ function downloadMonthlyExcel(year, month){
 
       aoa.push([lDateDisp, lNamesDisp, lTotalDisp, rDateDisp, rNamesDisp, rTotalDisp]);
 
-      const lLines = lNamesDisp ? lNamesDisp.split("\n").length : 1;
-      const rLines = rNamesDisp ? rNamesDisp.split("\n").length : 1;
+      // ê° ì¤(\nì¼ë¡ êµ¬ë¶ë í­ëª©)ì ì¤ì  íì ëë¹ê¹ì§ ë°ìí´ ì¤ìë¥¼ ê³ì° (í¹ì í í­ëª©ë§ì¼ë¡ë 40ì ëì´ê°ë ê²½ì° ëë¹)
+      const countWrappedLines = (text) => {
+        if (!text) return 1;
+        return text.split("\n").reduce((sum, line) => sum + Math.max(1, Math.ceil(getVisualWidth(line) / 40)), 0);
+      };
+      const lLines = countWrappedLines(lNamesDisp);
+      const rLines = countWrappedLines(rNamesDisp);
       rowLineCounts.push(Math.max(lLines, rLines, 1));
     }
 
@@ -2298,7 +2329,7 @@ function downloadMonthlyExcel(year, month){
       { wch: 13 }, { wch: 45 }, { wch: 10 }
     ];
 
-    ws['!rows'] = rowLineCounts.map(lines => ({ hpx: Math.max(20, lines * 16) }));
+    ws['!rows'] = rowLineCounts.map(lines => ({ hpx: Math.max(22, lines * 18) }));
 
     for (let r = 0; r < aoa.length; r++) {
       for (let c = 0; c < 6; c++) {
