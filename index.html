@@ -290,17 +290,7 @@ th{background:#f1f4f7}
   background: rgba(255,255,255,0.4);
 }
 
-/* 엑셀 통계(A4 세로 1장) 미리보기 전용 스타일 */
-.stats-a4-modal-box {
-  max-width: 95vw !important;
-  width: 860px !important;
-}
-.a4-scroll-wrap {
-  overflow-x: auto;
-  background: #dfe4ea;
-  border-radius: 8px;
-  padding: 10px;
-}
+/* 엑셀 통계 이미지 캡처 전용 스타일 (화면에 보이지 않는 A4 세로 1장 레이아웃) */
 .a4-portrait {
   width: 794px;
   min-height: 1123px;
@@ -394,7 +384,8 @@ th{background:#f1f4f7}
         <button type="button" onclick="showRidingStats()">🚴 라이딩 월별</button>
         <button type="button" onclick="showRidingMonthlyStats()">🚴 라이딩 당월</button>
         <button type="button" onclick="showLoungeStats()">🎤 라운지 당월</button>
-        <button type="button" onclick="showMonthlyExcelStats()">🟩 엑셀 통계</button>
+        <button type="button" onclick="downloadMonthlyStatsImageDirect()">🖼️ 통계 이미지</button>
+        <button type="button" onclick="triggerMonthlyExcelDownload()">🟩 통계 엑셀</button>
         <button type="button" onclick="showNoticeModal()">📌 공지문</button>
       </div>
     </div>
@@ -633,7 +624,6 @@ document.addEventListener('click', function(e) {
 function openStatsModal(title, htmlContent, extraFooterHtml = "") {
   const modalBox = document.getElementById("statsModalBox");
   modalBox.classList.remove("notice-modal-box");
-  modalBox.classList.remove("stats-a4-modal-box");
   
   document.getElementById("modalTitle").innerText = title;
   document.getElementById("modalContent").innerHTML = htmlContent;
@@ -2516,57 +2506,53 @@ function buildStatsTableHtml(data){
   `;
 }
 
-let currentMonthlyStatsData = null;
+// "🟩 통계 엑셀" 버튼 → 드롭다운 닫고 엑셀 바로 다운로드
+function triggerMonthlyExcelDownload(){
+  const dropdown = document.getElementById("statsDropdown");
+  if (dropdown) dropdown.classList.remove("show");
 
-// "🟩 엑셀 통계" 버튼 → 통계표를 먼저 보여주고, 이미지/엑셀 중 선택해 다운로드
-function showMonthlyExcelStats(){
+  const currentDate = calendar ? calendar.view.currentStart : new Date();
+  downloadMonthlyExcel(currentDate.getFullYear(), currentDate.getMonth() + 1);
+}
+
+// "🖼️ 통계 이미지" 버튼 → 화면 밖에 A4 표를 잠시 그려서 캡처 후 바로 다운로드 (미리보기 없음)
+function downloadMonthlyStatsImageDirect(){
   if(!db){ alert("데이터베이스 연결이 없습니다."); return; }
+
+  const dropdown = document.getElementById("statsDropdown");
+  if (dropdown) dropdown.classList.remove("show");
 
   const currentDate = calendar ? calendar.view.currentStart : new Date();
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth() + 1;
 
-  openStatsModal(`${month}월 엑셀 통계`, "<div style='text-align:center; padding:30px;'>통계 데이터를 불러오는 중...</div>");
-  document.getElementById("statsModalBox").classList.add("stats-a4-modal-box");
-
   computeMonthlyGroupData(year, month).then(data => {
-    currentMonthlyStatsData = data;
     const tableHtml = buildStatsTableHtml(data);
 
-    document.getElementById("modalContent").innerHTML =
-      `<div class="a4-scroll-wrap"><div id="monthlyStatsCapture" class="a4-portrait">${tableHtml}</div></div>`;
+    const captureEl = document.createElement("div");
+    captureEl.className = "a4-portrait";
+    captureEl.style.position = "fixed";
+    captureEl.style.left = "-9999px";
+    captureEl.style.top = "0";
+    captureEl.innerHTML = tableHtml;
+    document.body.appendChild(captureEl);
 
-    document.getElementById("modalFooter").innerHTML = `
-      <button type="button" class="success" style="margin-right:auto;" onclick="downloadMonthlyStatsImage()">🖼️ 이미지 다운로드</button>
-      <button type="button" style="background:#1769aa; color:#fff;" onclick="downloadMonthlyExcelFromModal()">🟩 엑셀 다운로드</button>
-      <button class="secondary" onclick="closeStatsModal()">닫기</button>
-    `;
+    setTimeout(() => {
+      html2canvas(captureEl, { scale: 2, backgroundColor: "#ffffff" }).then(canvas => {
+        const link = document.createElement("a");
+        link.download = `단동훼리_${data.year}년${data.mm}월_단체운항현황.png`;
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+        document.body.removeChild(captureEl);
+      }).catch(e => {
+        console.error(e);
+        alert("이미지 다운로드 중 오류가 발생했습니다: " + e.message);
+        document.body.removeChild(captureEl);
+      });
+    }, 50);
   }).catch(e => {
     console.error(e);
-    document.getElementById("modalContent").innerHTML =
-      "<div style='color:red; text-align:center; padding:20px;'>통계 데이터를 불러오는 중 오류가 발생했습니다.</div>";
-  });
-}
-
-function downloadMonthlyExcelFromModal(){
-  if(!currentMonthlyStatsData){ alert("불러온 통계 데이터가 없습니다."); return; }
-  buildExcelFromData(currentMonthlyStatsData);
-}
-
-function downloadMonthlyStatsImage(){
-  const area = document.getElementById("monthlyStatsCapture");
-  if(!area){ alert("캡처할 통계 화면이 없습니다."); return; }
-
-  html2canvas(area, { scale: 2, backgroundColor: "#ffffff" }).then(canvas => {
-    const link = document.createElement("a");
-    const year = currentMonthlyStatsData ? currentMonthlyStatsData.year : new Date().getFullYear();
-    const mm = currentMonthlyStatsData ? currentMonthlyStatsData.mm : String(new Date().getMonth() + 1).padStart(2, '0');
-    link.download = `단동훼리_${year}년${mm}월_단체운항현황.png`;
-    link.href = canvas.toDataURL("image/png");
-    link.click();
-  }).catch(e => {
-    console.error(e);
-    alert("이미지 다운로드 중 오류가 발생했습니다: " + e.message);
+    alert("데이터를 불러오는 중 오류가 발생했습니다: " + (e && e.message ? e.message : e));
   });
 }
 
