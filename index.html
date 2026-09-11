@@ -2254,10 +2254,10 @@ function downloadMonthlyExcel(year, month){
       </tr>
       <tr style="background-color:#f2f2f2; font-weight:bold; height:32px;">
         <th style="${cellStyle} width:90px;">날짜</th>
-        <th style="${cellStyle} width:320px;">한국출발, 중국리턴단체</th>
+        <th style="${cellStyle} width:320px;">OUT</th>
         <th style="${cellStyle} width:70px;">총인원</th>
         <th style="${cellStyle} width:90px;">날짜</th>
-        <th style="${cellStyle} width:320px;">한국리턴, 중국출발단체</th>
+        <th style="${cellStyle} width:320px;">IN</th>
         <th style="${cellStyle} width:70px;">총인원</th>
       </tr>
     `;
@@ -2278,18 +2278,18 @@ function downloadMonthlyExcel(year, month){
         <tr>
           <td style="${cellStyle} text-align:center; padding:5px;">${lDateDisp}</td>
           <td style="${cellStyle} text-align:left; padding:5px 8px; white-space:pre-line;">${lNamesDisp}</td>
-          <td style="${cellStyle} text-align:right; padding:5px 8px;">${lTotalDisp}</td>
+          <td style="${cellStyle} text-align:center; padding:5px 8px;">${lTotalDisp}</td>
 
           <td style="${cellStyle} text-align:center; padding:5px;">${rDateDisp}</td>
           <td style="${cellStyle} text-align:left; padding:5px 8px; white-space:pre-line;">${rNamesDisp}</td>
-          <td style="${cellStyle} text-align:right; padding:5px 8px;">${rTotalDisp}</td>
+          <td style="${cellStyle} text-align:center; padding:5px 8px;">${rTotalDisp}</td>
         </tr>
       `;
     }
 
     tableHtml += `
       <tr>
-        <td colspan="6" style="${cellStyle} text-align:left; font-size:11px; color:#d32f2f; font-weight:bold; height:30px; padding-left:8px;">
+        <td colspan="6" style="${cellStyle} text-align:center; font-size:11px; color:#d32f2f; font-weight:bold; height:30px;">
           * 위 예약상황은 모객 중이므로 인원이 변동될 수 있습니다. (토요일 휴항 제외)
         </td>
       </tr>
