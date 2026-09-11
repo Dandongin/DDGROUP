@@ -87,6 +87,16 @@ th{background:#f1f4f7}
   z-index: 5;
 }
 
+/* 라이딩 블록 이벤트 스타일 */
+.fc-event.riding-block-event {
+  text-align: center;
+  font-weight: bold;
+  font-size: 11px;
+  padding: 2px 0;
+  border-radius: 4px;
+  margin-top: 2px;
+}
+
 .collapsible-toggle {
   display: flex;
   justify-content: space-between;
@@ -568,10 +578,6 @@ function closeStatsModal() {
   document.getElementById("statsModal").classList.add("hidden");
 }
 
-/* ------------------------------------------------------------------
-   [공지문 팝업 및 이미지 확대/축소/삭제/전체화면/다운로드 제어 스크립트]
-   (Firebase Firestore 연동 방식으로 수정 완료)
-   ------------------------------------------------------------------ */
 let noticeZoomScale = 1;
 let noticeTranslateX = 0;
 let noticeTranslateY = 0;
@@ -1208,6 +1214,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initialView: 'dayGridMonth',
     locale: 'ko',
     headerToolbar: { left: 'title', center: '', right: 'today prev,next' },
+    eventOrder: 'order,start',
     dateClick: function(info) {
       closeEventSection();
       openDateSim(info.dateStr);
@@ -1232,7 +1239,8 @@ document.addEventListener('DOMContentLoaded', function() {
               allDay: true,
               backgroundColor: '#f57c00',
               borderColor: '#e65100',
-              textColor: '#ffffff'
+              textColor: '#ffffff',
+              order: 1
             })));
           } catch(e) { successCallback([]); }
         }
@@ -1274,7 +1282,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 allDay: true,
                 backgroundColor: '#e1bee7',
                 borderColor: '#ce93d8',
-                textColor: '#4a148c'
+                textColor: '#4a148c',
+                order: 1
               });
               cur.setDate(cur.getDate() + 1);
             }
@@ -1287,6 +1296,7 @@ document.addEventListener('DOMContentLoaded', function() {
           if(!db) { successCallback([]); return; }
           db.collection("schedules").get().then((querySnapshot) => {
             let dailyAll = {};
+            let ridingDates = new Set();
             let loungeDates = new Set();
 
             querySnapshot.forEach((doc) => {
@@ -1319,6 +1329,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                   }
 
+                  if (t.isRiding) {
+                    ridingDates.add(regDate);
+                    if (pattern === 'ROUND') ridingDates.add(returnDate);
+                  }
+
                   const loungeTypeForDate = getLoungeType(t.specialNote);
                   if (loungeTypeForDate) {
                     loungeDates.add(regDate);
@@ -1335,9 +1350,22 @@ document.addEventListener('DOMContentLoaded', function() {
                   title: `${dailyAll[d]}`, 
                   start: d, 
                   color: getDayColor(d),
-                  textColor: '#000000'
+                  textColor: '#000000',
+                  order: 2
                 });
               }
+            });
+
+            ridingDates.forEach(d => {
+              events.push({
+                title: '🚴 라이딩',
+                start: d,
+                backgroundColor: '#fff3e0',
+                borderColor: '#ffe0b2',
+                textColor: '#e65100',
+                className: 'riding-block-event',
+                order: 99
+              });
             });
 
             successCallback(events);
@@ -1375,7 +1403,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 title: titleText,
                 start: doc.id,
                 color: evtColor,
-                textColor: txtColor
+                textColor: txtColor,
+                order: 3
               });
             });
             successCallback(events);
@@ -2177,7 +2206,6 @@ function downloadMonthlyExcel(year, month){
   const todayStr = `${today.getMonth() + 1}/${today.getDate()}`;
   const titleText = `${year}년 ${month}월 (${todayStr} 기준)`;
 
-  // 한글 등 전각 문자는 2칸, 영문/숫자 등 반각 문자는 1칸으로 계산해 실제 표시 너비를 구함
   function getVisualWidth(str) {
     let width = 0;
     for (const ch of String(str)) {
@@ -2195,7 +2223,6 @@ function downloadMonthlyExcel(year, month){
     return width;
   }
 
-  // 열 너비(wch)에 맞춰 미리 줄바꿈해 엑셀의 자동 wrap과 높이 계산을 일치시킴
   function formatGroupNames(namesArray, maxCharsPerLine = 40) {
     if (!namesArray || namesArray.length === 0) return "";
     const lines = [];
@@ -2269,14 +2296,13 @@ function downloadMonthlyExcel(year, month){
 
     const maxRows = Math.max(leftDates.length, rightDates.length);
 
-    // 공통 테두리(모든 테두리, 검은색)
     const borderAll = {
       top: { style: "thin", color: { rgb: "000000" } },
       bottom: { style: "thin", color: { rgb: "000000" } },
       left: { style: "thin", color: { rgb: "000000" } },
       right: { style: "thin", color: { rgb: "000000" } }
     };
-    // 단체명(OUT/IN 명단) 칸만 왼쪽 맞춤, 나머지는 전부 가운데 맞춤
+
     const centerStyle = { border: borderAll, alignment: { horizontal: "center", vertical: "center", wrapText: true } };
     const leftStyle = { border: borderAll, alignment: { horizontal: "left", vertical: "center", wrapText: true } };
     const titleStyle = { border: borderAll, alignment: { horizontal: "center", vertical: "center" }, font: { bold: true, sz: 16 }, fill: { fgColor: { rgb: "E2EFDA" } } };
@@ -2287,7 +2313,7 @@ function downloadMonthlyExcel(year, month){
     aoa.push([`${titleText} 단체 운항 현황`, "", "", "", "", ""]);
     aoa.push(["날짜", "OUT", "총인원", "날짜", "IN", "총인원"]);
 
-    const rowLineCounts = [1, 1]; // 제목, 헤더 행
+    const rowLineCounts = [1, 1];
 
     for (let i = 0; i < maxRows; i++) {
       const lDate = leftDates[i] || "";
@@ -2303,7 +2329,6 @@ function downloadMonthlyExcel(year, month){
 
       aoa.push([lDateDisp, lNamesDisp, lTotalDisp, rDateDisp, rNamesDisp, rTotalDisp]);
 
-      // ê° ì¤(\nì¼ë¡ êµ¬ë¶ë í­ëª©)ì ì¤ì  íì ëë¹ê¹ì§ ë°ìí´ ì¤ìë¥¼ ê³ì° (í¹ì í í­ëª©ë§ì¼ë¡ë 40ì ëì´ê°ë ê²½ì° ëë¹)
       const countWrappedLines = (text) => {
         if (!text) return 1;
         return text.split("\n").reduce((sum, line) => sum + Math.max(1, Math.ceil(getVisualWidth(line) / 40)), 0);
@@ -2343,7 +2368,6 @@ function downloadMonthlyExcel(year, month){
         } else if (r === noteRowIdx) {
           ws[addr].s = noteStyle;
         } else {
-          // 데이터 행: 단체명(1,4열)은 왼쪽 맞춤, 나머지는 가운데 맞춤
           ws[addr].s = (c === 1 || c === 4) ? leftStyle : centerStyle;
         }
       }
