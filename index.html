@@ -290,6 +290,77 @@ th{background:#f1f4f7}
   background: rgba(255,255,255,0.4);
 }
 
+/* 엑셀 통계(A4 세로 1장) 미리보기 전용 스타일 */
+.stats-a4-modal-box {
+  max-width: 95vw !important;
+  width: 860px !important;
+}
+.a4-scroll-wrap {
+  overflow-x: auto;
+  background: #dfe4ea;
+  border-radius: 8px;
+  padding: 10px;
+}
+.a4-portrait {
+  width: 794px;
+  min-height: 1123px;
+  margin: 0 auto;
+  background: #ffffff;
+  padding: 30px 26px;
+  box-sizing: border-box;
+  font-family: Arial, "Malgun Gothic", sans-serif;
+  color: #202733;
+}
+.a4-title {
+  text-align: center;
+  font-size: 19px;
+  font-weight: bold;
+  background: #e2efda;
+  border: 1px solid #333;
+  padding: 10px 6px;
+}
+.a4-stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 12px;
+  margin-top: -1px;
+}
+.a4-stats-table th, .a4-stats-table td {
+  border: 1px solid #333;
+  padding: 5px 6px;
+  vertical-align: middle;
+  word-break: break-word;
+}
+.a4-stats-table thead th {
+  background: #f2f2f2;
+  text-align: center;
+  font-weight: bold;
+  font-size: 12.5px;
+}
+.a4-stats-table td.a4-col-date,
+.a4-stats-table td.a4-col-total {
+  text-align: center;
+  white-space: nowrap;
+}
+.a4-stats-table td.a4-col-names {
+  text-align: left;
+  line-height: 1.35;
+}
+.a4-note {
+  margin-top: -1px;
+  text-align: center;
+  font-weight: bold;
+  color: #d32f2f;
+  font-size: 11px;
+  border: 1px solid #333;
+  border-top: none;
+  padding: 6px;
+}
+@media print {
+  .a4-portrait { width: 210mm; min-height: 297mm; }
+}
+
 @media (max-width: 768px) {
   header{padding:12px 16px;}
   header h1{font-size:16px;}
@@ -323,7 +394,7 @@ th{background:#f1f4f7}
         <button type="button" onclick="showRidingStats()">🚴 라이딩 월별</button>
         <button type="button" onclick="showRidingMonthlyStats()">🚴 라이딩 당월</button>
         <button type="button" onclick="showLoungeStats()">🎤 라운지 당월</button>
-        <button type="button" onclick="triggerMonthlyExcelDownload()">🟩 엑셀 단체</button>
+        <button type="button" onclick="showMonthlyExcelStats()">🟩 엑셀 통계</button>
         <button type="button" onclick="showNoticeModal()">📌 공지문</button>
       </div>
     </div>
@@ -562,6 +633,7 @@ document.addEventListener('click', function(e) {
 function openStatsModal(title, htmlContent, extraFooterHtml = "") {
   const modalBox = document.getElementById("statsModalBox");
   modalBox.classList.remove("notice-modal-box");
+  modalBox.classList.remove("stats-a4-modal-box");
   
   document.getElementById("modalTitle").innerText = title;
   document.getElementById("modalContent").innerHTML = htmlContent;
@@ -895,14 +967,6 @@ function showMonthlyStats() {
     console.error(e);
     openStatsModal(`${month}월 단체 (편도 기준)`, "<div style='color:red; text-align:center;'>데이터를 불러오는 도중 오류가 발생했습니다.</div>");
   });
-}
-
-function triggerMonthlyExcelDownload() {
-  const dropdown = document.getElementById("statsDropdown");
-  if (dropdown) dropdown.classList.remove("show");
-
-  const currentDate = calendar ? calendar.view.currentStart : new Date();
-  downloadMonthlyExcel(currentDate.getFullYear(), currentDate.getMonth() + 1);
 }
 
 function showRidingStats() {
@@ -2205,106 +2269,118 @@ function formatDateMDShort(dateStr){
   return `${mm}-${dd}(${wd})`;
 }
 
-function downloadMonthlyExcel(year, month){
-  if(!db){ alert("데이터베이스 연결이 없습니다."); return; }
+function getVisualWidth(str) {
+  let width = 0;
+  for (const ch of String(str)) {
+    const code = ch.codePointAt(0);
+    const isWide = (
+      (code >= 0x1100 && code <= 0x115F) ||
+      (code >= 0x2E80 && code <= 0xA4CF) ||
+      (code >= 0xAC00 && code <= 0xD7A3) ||
+      (code >= 0xF900 && code <= 0xFAFF) ||
+      (code >= 0xFF00 && code <= 0xFF60) ||
+      (code >= 0xFFE0 && code <= 0xFFE6)
+    );
+    width += isWide ? 2 : 1;
+  }
+  return width;
+}
 
-  const mm = String(month).padStart(2, '0');
-  const lastDay = new Date(year, month, 0).getDate();
-
-  const today = new Date();
-  const todayStr = `${today.getMonth() + 1}/${today.getDate()}`;
-  const titleText = `${year}년 ${month}월 (${todayStr} 기준)`;
-
-  function getVisualWidth(str) {
-    let width = 0;
-    for (const ch of String(str)) {
-      const code = ch.codePointAt(0);
-      const isWide = (
-        (code >= 0x1100 && code <= 0x115F) ||
-        (code >= 0x2E80 && code <= 0xA4CF) ||
-        (code >= 0xAC00 && code <= 0xD7A3) ||
-        (code >= 0xF900 && code <= 0xFAFF) ||
-        (code >= 0xFF00 && code <= 0xFF60) ||
-        (code >= 0xFFE0 && code <= 0xFFE6)
-      );
-      width += isWide ? 2 : 1;
+function formatGroupNames(namesArray, maxCharsPerLine = 40) {
+  if (!namesArray || namesArray.length === 0) return "";
+  const lines = [];
+  let current = "";
+  namesArray.forEach(name => {
+    const candidate = current ? current + ", " + name : name;
+    if (current && getVisualWidth(candidate) > maxCharsPerLine) {
+      lines.push(current);
+      current = name;
+    } else {
+      current = candidate;
     }
-    return width;
-  }
+  });
+  if (current) lines.push(current);
+  return lines.join("\n");
+}
 
-  function formatGroupNames(namesArray, maxCharsPerLine = 40) {
-    if (!namesArray || namesArray.length === 0) return "";
-    const lines = [];
-    let current = "";
-    namesArray.forEach(name => {
-      const candidate = current ? current + ", " + name : name;
-      if (current && getVisualWidth(candidate) > maxCharsPerLine) {
-        lines.push(current);
-        current = name;
-      } else {
-        current = candidate;
-      }
-    });
-    if (current) lines.push(current);
-    return lines.join("\n");
-  }
+// 엑셀/이미지 통계가 공유하는 데이터 집계 로직
+function computeMonthlyGroupData(year, month){
+  return new Promise((resolve, reject) => {
+    if(!db){ reject(new Error("데이터베이스 연결이 없습니다.")); return; }
 
-  db.collection("schedules").get().then((querySnapshot) => {
-    let outGroups = {}; 
+    const mm = String(month).padStart(2, '0');
+    const lastDay = new Date(year, month, 0).getDate();
 
-    querySnapshot.forEach(doc => {
-      const regDate = doc.id;
-      const data = doc.data();
-      if(!data.teams || data.teams.length === 0) return;
+    const today = new Date();
+    const todayStr = `${today.getMonth() + 1}/${today.getDate()}`;
+    const titleText = `${year}년 ${month}월 (${todayStr} 기준)`;
 
-      data.teams.forEach(t => {
-        const name = t.name || "";
-        const defaultNights = getDefaultNightsByDate(regDate);
-        const nights = parseInt(t.nights || defaultNights, 10);
-        const pattern = normalizePattern(t.pattern);
-        const returnDate = getReturnDate(regDate, nights);
+    db.collection("schedules").get().then((querySnapshot) => {
+      let outGroups = {};
 
-        let outP = parseInt(t.totalPeople || 0, 10);
-        let inP = parseInt(t.totalPeople || 0, 10);
+      querySnapshot.forEach(doc => {
+        const regDate = doc.id;
+        const data = doc.data();
+        if(!data.teams || data.teams.length === 0) return;
 
-        if (t.isSplitRoom) {
-          outP = (t.outAllocations || []).reduce((sum, a) => sum + (parseInt(a.people, 10) || 0), 0);
-          inP = (t.inAllocations || []).reduce((sum, a) => sum + (parseInt(a.people, 10) || 0), 0);
-        }
+        data.teams.forEach(t => {
+          const name = t.name || "";
+          const defaultNights = getDefaultNightsByDate(regDate);
+          const nights = parseInt(t.nights || defaultNights, 10);
+          const pattern = normalizePattern(t.pattern);
+          const returnDate = getReturnDate(regDate, nights);
 
-        if(pattern === 'ROUND'){
-          if(!outGroups[regDate]) outGroups[regDate] = { names: [], total: 0 };
-          outGroups[regDate].names.push(`${name} ${outP}명`);
-          outGroups[regDate].total += outP;
+          let outP = parseInt(t.totalPeople || 0, 10);
+          let inP = parseInt(t.totalPeople || 0, 10);
 
-          if(!outGroups[returnDate]) outGroups[returnDate] = { names: [], total: 0 };
-          outGroups[returnDate].names.push(`${name} ${inP}명`);
-          outGroups[returnDate].total += inP;
+          if (t.isSplitRoom) {
+            outP = (t.outAllocations || []).reduce((sum, a) => sum + (parseInt(a.people, 10) || 0), 0);
+            inP = (t.inAllocations || []).reduce((sum, a) => sum + (parseInt(a.people, 10) || 0), 0);
+          }
 
-        } else if(pattern === 'ONEWAY_OUT' || pattern === 'ONEWAY_IN'){
-          if(!outGroups[regDate]) outGroups[regDate] = { names: [], total: 0 };
-          outGroups[regDate].names.push(`${name} ${outP}명`);
-          outGroups[regDate].total += outP;
-        }
+          if(pattern === 'ROUND'){
+            if(!outGroups[regDate]) outGroups[regDate] = { names: [], total: 0 };
+            outGroups[regDate].names.push(`${name} ${outP}명`);
+            outGroups[regDate].total += outP;
+
+            if(!outGroups[returnDate]) outGroups[returnDate] = { names: [], total: 0 };
+            outGroups[returnDate].names.push(`${name} ${inP}명`);
+            outGroups[returnDate].total += inP;
+
+          } else if(pattern === 'ONEWAY_OUT' || pattern === 'ONEWAY_IN'){
+            if(!outGroups[regDate]) outGroups[regDate] = { names: [], total: 0 };
+            outGroups[regDate].names.push(`${name} ${outP}명`);
+            outGroups[regDate].total += outP;
+          }
+        });
       });
-    });
 
-    let leftDates = [];  
-    let rightDates = []; 
+      let leftDates = [];
+      let rightDates = [];
 
-    for (let day = 1; day <= lastDay; day++) {
-      const curDateStr = `${year}-${mm}-${String(day).padStart(2, '0')}`;
-      const dow = new Date(curDateStr).getDay();
+      for (let day = 1; day <= lastDay; day++) {
+        const curDateStr = `${year}-${mm}-${String(day).padStart(2, '0')}`;
+        const dow = new Date(curDateStr).getDay();
 
-      if (dow === 1 || dow === 3 || dow === 5) {
-        leftDates.push(curDateStr);
-      } else if (dow === 2 || dow === 4 || dow === 0) {
-        rightDates.push(curDateStr);
+        if (dow === 1 || dow === 3 || dow === 5) {
+          leftDates.push(curDateStr);
+        } else if (dow === 2 || dow === 4 || dow === 0) {
+          rightDates.push(curDateStr);
+        }
       }
-    }
 
-    const maxRows = Math.max(leftDates.length, rightDates.length);
+      const maxRows = Math.max(leftDates.length, rightDates.length);
 
+      resolve({ year, month, mm, titleText, leftDates, rightDates, outGroups, maxRows });
+    }).catch(reject);
+  });
+}
+
+// [엑셀 다운로드] computeMonthlyGroupData 결과로 xlsx 파일 생성
+function buildExcelFromData(data){
+  const { year, mm, titleText, leftDates, rightDates, outGroups, maxRows } = data;
+
+  {
     const borderAll = {
       top: { style: "thin", color: { rgb: "000000" } },
       bottom: { style: "thin", color: { rgb: "000000" } },
@@ -2386,10 +2462,111 @@ function downloadMonthlyExcel(year, month){
     XLSX.utils.book_append_sheet(wb, ws, "월별단체현황");
 
     XLSX.writeFile(wb, `단동훼리_${year}년${mm}월_단체운항현황.xlsx`);
+  }
+}
 
+// 엑셀 통계 버튼 → 데이터 조회 후 엑셀 다운로드까지 한번에 실행 (기존 동작 유지용)
+function downloadMonthlyExcel(year, month){
+  computeMonthlyGroupData(year, month).then(data => {
+    buildExcelFromData(data);
   }).catch(e => {
     console.error(e);
-    alert("다운로드 중 오류가 발생했습니다: " + e.message);
+    alert("다운로드 중 오류가 발생했습니다: " + (e && e.message ? e.message : e));
+  });
+}
+
+// computeMonthlyGroupData 결과로 A4 세로 1장용 미리보기 테이블 HTML 생성
+function buildStatsTableHtml(data){
+  const { titleText, leftDates, rightDates, outGroups, maxRows } = data;
+
+  let rows = "";
+  for (let i = 0; i < maxRows; i++) {
+    const lDate = leftDates[i] || "";
+    const rDate = rightDates[i] || "";
+
+    const lDateDisp = lDate ? formatDateMDShort(lDate) : "";
+    const lNamesDisp = (lDate && outGroups[lDate]) ? formatGroupNames(outGroups[lDate].names) : "";
+    const lTotalDisp = (lDate && outGroups[lDate]) ? outGroups[lDate].total : "";
+
+    const rDateDisp = rDate ? formatDateMDShort(rDate) : "";
+    const rNamesDisp = (rDate && outGroups[rDate]) ? formatGroupNames(outGroups[rDate].names) : "";
+    const rTotalDisp = (rDate && outGroups[rDate]) ? outGroups[rDate].total : "";
+
+    rows += `<tr>
+      <td class="a4-col-date">${esc(lDateDisp)}</td>
+      <td class="a4-col-names">${esc(lNamesDisp).replace(/\n/g,"<br>")}</td>
+      <td class="a4-col-total">${esc(lTotalDisp === "" ? "" : String(lTotalDisp))}</td>
+      <td class="a4-col-date">${esc(rDateDisp)}</td>
+      <td class="a4-col-names">${esc(rNamesDisp).replace(/\n/g,"<br>")}</td>
+      <td class="a4-col-total">${esc(rTotalDisp === "" ? "" : String(rTotalDisp))}</td>
+    </tr>`;
+  }
+
+  return `
+    <div class="a4-title">${esc(titleText)} 단체 운항 현황</div>
+    <table class="a4-stats-table">
+      <colgroup>
+        <col style="width:10%"><col style="width:33%"><col style="width:7%">
+        <col style="width:10%"><col style="width:33%"><col style="width:7%">
+      </colgroup>
+      <thead><tr><th>날짜</th><th>OUT</th><th>총인원</th><th>날짜</th><th>IN</th><th>총인원</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="a4-note">* 위 예약상황은 모객 중이므로 인원이 많이 변동될 수 있습니다.</div>
+  `;
+}
+
+let currentMonthlyStatsData = null;
+
+// "🟩 엑셀 통계" 버튼 → 통계표를 먼저 보여주고, 이미지/엑셀 중 선택해 다운로드
+function showMonthlyExcelStats(){
+  if(!db){ alert("데이터베이스 연결이 없습니다."); return; }
+
+  const currentDate = calendar ? calendar.view.currentStart : new Date();
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth() + 1;
+
+  openStatsModal(`${month}월 엑셀 통계`, "<div style='text-align:center; padding:30px;'>통계 데이터를 불러오는 중...</div>");
+  document.getElementById("statsModalBox").classList.add("stats-a4-modal-box");
+
+  computeMonthlyGroupData(year, month).then(data => {
+    currentMonthlyStatsData = data;
+    const tableHtml = buildStatsTableHtml(data);
+
+    document.getElementById("modalContent").innerHTML =
+      `<div class="a4-scroll-wrap"><div id="monthlyStatsCapture" class="a4-portrait">${tableHtml}</div></div>`;
+
+    document.getElementById("modalFooter").innerHTML = `
+      <button type="button" class="success" style="margin-right:auto;" onclick="downloadMonthlyStatsImage()">🖼️ 이미지 다운로드</button>
+      <button type="button" style="background:#1769aa; color:#fff;" onclick="downloadMonthlyExcelFromModal()">🟩 엑셀 다운로드</button>
+      <button class="secondary" onclick="closeStatsModal()">닫기</button>
+    `;
+  }).catch(e => {
+    console.error(e);
+    document.getElementById("modalContent").innerHTML =
+      "<div style='color:red; text-align:center; padding:20px;'>통계 데이터를 불러오는 중 오류가 발생했습니다.</div>";
+  });
+}
+
+function downloadMonthlyExcelFromModal(){
+  if(!currentMonthlyStatsData){ alert("불러온 통계 데이터가 없습니다."); return; }
+  buildExcelFromData(currentMonthlyStatsData);
+}
+
+function downloadMonthlyStatsImage(){
+  const area = document.getElementById("monthlyStatsCapture");
+  if(!area){ alert("캡처할 통계 화면이 없습니다."); return; }
+
+  html2canvas(area, { scale: 2, backgroundColor: "#ffffff" }).then(canvas => {
+    const link = document.createElement("a");
+    const year = currentMonthlyStatsData ? currentMonthlyStatsData.year : new Date().getFullYear();
+    const mm = currentMonthlyStatsData ? currentMonthlyStatsData.mm : String(new Date().getMonth() + 1).padStart(2, '0');
+    link.download = `단동훼리_${year}년${mm}월_단체운항현황.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  }).catch(e => {
+    console.error(e);
+    alert("이미지 다운로드 중 오류가 발생했습니다: " + e.message);
   });
 }
 
