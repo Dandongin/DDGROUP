@@ -1296,7 +1296,7 @@ document.addEventListener('DOMContentLoaded', function() {
           if(!db) { successCallback([]); return; }
           db.collection("schedules").get().then((querySnapshot) => {
             let dailyAll = {};
-            let ridingDates = new Set();
+            let ridingCounts = {};
             let loungeDates = new Set();
 
             querySnapshot.forEach((doc) => {
@@ -1309,9 +1309,12 @@ document.addEventListener('DOMContentLoaded', function() {
                   const pattern = normalizePattern(t.pattern);
                   const returnDate = getReturnDate(regDate, nights);
 
+                  let outP = 0;
+                  let inP = 0;
+
                   if (t.isSplitRoom) {
-                    const outP = (t.outAllocations || []).reduce((sum, a) => sum + (parseInt(a.people, 10) || 0), 0);
-                    const inP = (t.inAllocations || []).reduce((sum, a) => sum + (parseInt(a.people, 10) || 0), 0);
+                    outP = (t.outAllocations || []).reduce((sum, a) => sum + (parseInt(a.people, 10) || 0), 0);
+                    inP = (t.inAllocations || []).reduce((sum, a) => sum + (parseInt(a.people, 10) || 0), 0);
 
                     if (pattern === 'ROUND') {
                       dailyAll[regDate] = (dailyAll[regDate] || 0) + outP;
@@ -1321,6 +1324,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                   } else {
                     const p = parseInt(t.totalPeople || 0, 10);
+                    outP = p;
+                    inP = p;
                     if (pattern === 'ROUND') {
                       dailyAll[regDate] = (dailyAll[regDate] || 0) + p;
                       dailyAll[returnDate] = (dailyAll[returnDate] || 0) + p;
@@ -1330,8 +1335,10 @@ document.addEventListener('DOMContentLoaded', function() {
                   }
 
                   if (t.isRiding) {
-                    ridingDates.add(regDate);
-                    if (pattern === 'ROUND') ridingDates.add(returnDate);
+                    ridingCounts[regDate] = (ridingCounts[regDate] || 0) + outP;
+                    if (pattern === 'ROUND') {
+                      ridingCounts[returnDate] = (ridingCounts[returnDate] || 0) + inP;
+                    }
                   }
 
                   const loungeTypeForDate = getLoungeType(t.specialNote);
@@ -1356,16 +1363,18 @@ document.addEventListener('DOMContentLoaded', function() {
               }
             });
 
-            ridingDates.forEach(d => {
-              events.push({
-                title: '🚴라이딩',
-                start: d,
-                backgroundColor: '#fff3e0',
-                borderColor: '#ffe0b2',
-                textColor: '#e65100',
-                className: 'riding-block-event',
-                order: 99
-              });
+            Object.keys(ridingCounts).forEach(d => {
+              if (ridingCounts[d] > 0) {
+                events.push({
+                  title: `🚴${ridingCounts[d]}`,
+                  start: d,
+                  backgroundColor: '#fff3e0',
+                  borderColor: '#ffe0b2',
+                  textColor: '#e65100',
+                  className: 'riding-block-event',
+                  order: 99
+                });
+              }
             });
 
             successCallback(events);
