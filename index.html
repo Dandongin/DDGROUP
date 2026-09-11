@@ -86,21 +86,6 @@ th{background:#f1f4f7}
   pointer-events: none;
   z-index: 5;
 }
-.riding-emoji-badge {
-  position: absolute;
-  top: 2px;
-  right: 4px;
-  font-size: 11px;
-  font-weight: bold;
-  background: #fff3e0;
-  color: #e65100;
-  padding: 1px 4px;
-  border-radius: 4px;
-  line-height: 1.2;
-  pointer-events: none;
-  z-index: 5;
-  border: 1px solid #ffe0b2;
-}
 
 .collapsible-toggle {
   display: flex;
@@ -511,20 +496,6 @@ function markLoungeDates(loungeDates) {
     badge.className = 'lounge-emoji-badge';
     badge.title = '라운지 왕복/편도 단체 있음';
     badge.textContent = '🎤';
-    frame.appendChild(badge);
-  });
-}
-
-function markRidingDates(ridingDates) {
-  document.querySelectorAll('.riding-emoji-badge').forEach(el => el.remove());
-  ridingDates.forEach(d => {
-    const cell = document.querySelector(`.fc-daygrid-day[data-date="${d}"]`);
-    if (!cell) return;
-    const frame = cell.querySelector('.fc-daygrid-day-frame') || cell;
-    const badge = document.createElement('span');
-    badge.className = 'riding-emoji-badge';
-    badge.title = '라이딩 단체 있음';
-    badge.textContent = '🚴 라이딩';
     frame.appendChild(badge);
   });
 }
@@ -1317,7 +1288,6 @@ document.addEventListener('DOMContentLoaded', function() {
           db.collection("schedules").get().then((querySnapshot) => {
             let dailyAll = {};
             let loungeDates = new Set();
-            let ridingDates = new Set();
 
             querySnapshot.forEach((doc) => {
               const regDate = doc.id;
@@ -1354,11 +1324,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     loungeDates.add(regDate);
                     if (loungeTypeForDate === 'ROUND') loungeDates.add(returnDate);
                   }
-
-                  if (t.isRiding || isRidingNote(t.specialNote)) {
-                    ridingDates.add(regDate);
-                    if (pattern === 'ROUND') ridingDates.add(returnDate);
-                  }
                 });
               }
             });
@@ -1377,7 +1342,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
             successCallback(events);
             markLoungeDates(loungeDates);
-            markRidingDates(ridingDates);
           }).catch(() => successCallback([]));
         }
       },
@@ -2209,78 +2173,198 @@ function downloadMonthlyExcel(year, month){
   const mm = String(month).padStart(2, '0');
   const lastDay = new Date(year, month, 0).getDate();
 
-  db.collection("schedules").get().then((querySnapshot) => {
-    let schedulesByDate = {};
-    querySnapshot.forEach((doc) => {
-      const regDate = doc.id;
-      if (regDate.startsWith(`${year}-${mm}`)) {
-        schedulesByDate[regDate] = doc.data();
+  const today = new Date();
+  const todayStr = `${today.getMonth() + 1}/${today.getDate()}`;
+  const titleText = `${year}년 ${month}월 (${todayStr} 기준)`;
+
+  // 한글 등 전각 문자는 2칸, 영문/숫자 등 반각 문자는 1칸으로 계산해 실제 표시 너비를 구함
+  function getVisualWidth(str) {
+    let width = 0;
+    for (const ch of String(str)) {
+      const code = ch.codePointAt(0);
+      const isWide = (
+        (code >= 0x1100 && code <= 0x115F) ||
+        (code >= 0x2E80 && code <= 0xA4CF) ||
+        (code >= 0xAC00 && code <= 0xD7A3) ||
+        (code >= 0xF900 && code <= 0xFAFF) ||
+        (code >= 0xFF00 && code <= 0xFF60) ||
+        (code >= 0xFFE0 && code <= 0xFFE6)
+      );
+      width += isWide ? 2 : 1;
+    }
+    return width;
+  }
+
+  // 열 너비(wch)에 맞춰 미리 줄바꿈해 엑셀의 자동 wrap과 높이 계산을 일치시킴
+  function formatGroupNames(namesArray, maxCharsPerLine = 40) {
+    if (!namesArray || namesArray.length === 0) return "";
+    const lines = [];
+    let current = "";
+    namesArray.forEach(name => {
+      const candidate = current ? current + ", " + name : name;
+      if (current && getVisualWidth(candidate) > maxCharsPerLine) {
+        lines.push(current);
+        current = name;
+      } else {
+        current = candidate;
       }
     });
+    if (current) lines.push(current);
+    return lines.join("\n");
+  }
 
-    let wb = XLSX.utils.book_new();
-    let wsData = [
-      [`${year}년 ${month}월 단체 현황표`],
-      [],
-      ["날짜", "요일", "구분", "단체명", "패턴", "박수", "인원", "특이사항", "메모"]
-    ];
+  db.collection("schedules").get().then((querySnapshot) => {
+    let outGroups = {}; 
+
+    querySnapshot.forEach(doc => {
+      const regDate = doc.id;
+      const data = doc.data();
+      if(!data.teams || data.teams.length === 0) return;
+
+      data.teams.forEach(t => {
+        const name = t.name || "";
+        const defaultNights = getDefaultNightsByDate(regDate);
+        const nights = parseInt(t.nights || defaultNights, 10);
+        const pattern = normalizePattern(t.pattern);
+        const returnDate = getReturnDate(regDate, nights);
+
+        let outP = parseInt(t.totalPeople || 0, 10);
+        let inP = parseInt(t.totalPeople || 0, 10);
+
+        if (t.isSplitRoom) {
+          outP = (t.outAllocations || []).reduce((sum, a) => sum + (parseInt(a.people, 10) || 0), 0);
+          inP = (t.inAllocations || []).reduce((sum, a) => sum + (parseInt(a.people, 10) || 0), 0);
+        }
+
+        if(pattern === 'ROUND'){
+          if(!outGroups[regDate]) outGroups[regDate] = { names: [], total: 0 };
+          outGroups[regDate].names.push(`${name} ${outP}명`);
+          outGroups[regDate].total += outP;
+
+          if(!outGroups[returnDate]) outGroups[returnDate] = { names: [], total: 0 };
+          outGroups[returnDate].names.push(`${name} ${inP}명`);
+          outGroups[returnDate].total += inP;
+
+        } else if(pattern === 'ONEWAY_OUT' || pattern === 'ONEWAY_IN'){
+          if(!outGroups[regDate]) outGroups[regDate] = { names: [], total: 0 };
+          outGroups[regDate].names.push(`${name} ${outP}명`);
+          outGroups[regDate].total += outP;
+        }
+      });
+    });
+
+    let leftDates = [];  
+    let rightDates = []; 
 
     for (let day = 1; day <= lastDay; day++) {
-      const dd = String(day).padStart(2, '0');
-      const dateStr = `${year}-${mm}-${dd}`;
-      const d = new Date(dateStr);
-      const dow = d.getDay();
-      const dowStr = WEEKDAYS_KR[dow];
+      const curDateStr = `${year}-${mm}-${String(day).padStart(2, '0')}`;
+      const dow = new Date(curDateStr).getDay();
 
-      let typeStr = "";
-      if (dow === 1 || dow === 3 || dow === 5) typeStr = "한단";
-      else if (dow === 2 || dow === 4 || dow === 0) typeStr = "중단";
-
-      const data = schedulesByDate[dateStr];
-
-      if (data && data.teams && data.teams.length > 0) {
-        data.teams.forEach(t => {
-          let patternText = "왕복";
-          if (t.pattern === 'ONEWAY_OUT') patternText = "편도";
-
-          let specialNoteText = "";
-          if (t.specialNote === 'LOUNGE_ROUND') specialNoteText = "라운지 왕복";
-          else if (t.specialNote === 'LOUNGE_ONEWAY') specialNoteText = "라운지 편도";
-          else if (t.specialNote === 'RIDING') specialNoteText = "라이딩";
-          else if (t.specialNote === 'RIDING_LOUNGE_ROUND') specialNoteText = "라이딩+라운지왕복";
-          else if (t.specialNote === 'RIDING_LOUNGE_ONEWAY') specialNoteText = "라이딩+라운지편도";
-
-          wsData.push([
-            dateStr,
-            dowStr,
-            typeStr,
-            t.name || "",
-            patternText,
-            t.nights || "",
-            t.totalPeople || 0,
-            specialNoteText,
-            t.memo || ""
-          ]);
-        });
-      } else {
-        wsData.push([dateStr, dowStr, typeStr, "-", "-", "-", 0, "", ""]);
+      if (dow === 1 || dow === 3 || dow === 5) {
+        leftDates.push(curDateStr);
+      } else if (dow === 2 || dow === 4 || dow === 0) {
+        rightDates.push(curDateStr);
       }
     }
 
-    let ws = XLSX.utils.aoa_to_sheet(wsData);
-    XLSX.utils.book_append_sheet(wb, ws, `${month}월 단체현황`);
-    XLSX.writeFile(wb, `${year}년_${month}월_단체현황표.xlsx`);
-  }).catch(err => {
-    alert("엑셀 다운로드 중 오류 발생: " + err);
+    const maxRows = Math.max(leftDates.length, rightDates.length);
+
+    // 공통 테두리(모든 테두리, 검은색)
+    const borderAll = {
+      top: { style: "thin", color: { rgb: "000000" } },
+      bottom: { style: "thin", color: { rgb: "000000" } },
+      left: { style: "thin", color: { rgb: "000000" } },
+      right: { style: "thin", color: { rgb: "000000" } }
+    };
+    // 단체명(OUT/IN 명단) 칸만 왼쪽 맞춤, 나머지는 전부 가운데 맞춤
+    const centerStyle = { border: borderAll, alignment: { horizontal: "center", vertical: "center", wrapText: true } };
+    const leftStyle = { border: borderAll, alignment: { horizontal: "left", vertical: "center", wrapText: true } };
+    const titleStyle = { border: borderAll, alignment: { horizontal: "center", vertical: "center" }, font: { bold: true, sz: 16 }, fill: { fgColor: { rgb: "E2EFDA" } } };
+    const headerStyle = { border: borderAll, alignment: { horizontal: "center", vertical: "center" }, font: { bold: true }, fill: { fgColor: { rgb: "F2F2F2" } } };
+    const noteStyle = { border: borderAll, alignment: { horizontal: "center", vertical: "center" }, font: { bold: true, color: { rgb: "D32F2F" }, sz: 11 } };
+
+    const aoa = [];
+    aoa.push([`${titleText} 단체 운항 현황`, "", "", "", "", ""]);
+    aoa.push(["날짜", "OUT", "총인원", "날짜", "IN", "총인원"]);
+
+    const rowLineCounts = [1, 1]; // 제목, 헤더 행
+
+    for (let i = 0; i < maxRows; i++) {
+      const lDate = leftDates[i] || "";
+      const rDate = rightDates[i] || "";
+
+      const lDateDisp = lDate ? formatDateMDShort(lDate) : "";
+      const lNamesDisp = (lDate && outGroups[lDate]) ? formatGroupNames(outGroups[lDate].names) : "";
+      const lTotalDisp = (lDate && outGroups[lDate]) ? outGroups[lDate].total : "";
+
+      const rDateDisp = rDate ? formatDateMDShort(rDate) : "";
+      const rNamesDisp = (rDate && outGroups[rDate]) ? formatGroupNames(outGroups[rDate].names) : "";
+      const rTotalDisp = (rDate && outGroups[rDate]) ? outGroups[rDate].total : "";
+
+      aoa.push([lDateDisp, lNamesDisp, lTotalDisp, rDateDisp, rNamesDisp, rTotalDisp]);
+
+      // ê° ì¤(\nì¼ë¡ êµ¬ë¶ë í­ëª©)ì ì¤ì  íì ëë¹ê¹ì§ ë°ìí´ ì¤ìë¥¼ ê³ì° (í¹ì í í­ëª©ë§ì¼ë¡ë 40ì ëì´ê°ë ê²½ì° ëë¹)
+      const countWrappedLines = (text) => {
+        if (!text) return 1;
+        return text.split("\n").reduce((sum, line) => sum + Math.max(1, Math.ceil(getVisualWidth(line) / 40)), 0);
+      };
+      const lLines = countWrappedLines(lNamesDisp);
+      const rLines = countWrappedLines(rNamesDisp);
+      rowLineCounts.push(Math.max(lLines, rLines, 1));
+    }
+
+    const noteRowIdx = 2 + maxRows;
+    aoa.push(["* 위 예약상황은 모객 중이므로 인원이 많이 변동될 수 있습니다.", "", "", "", "", ""]);
+    rowLineCounts.push(1);
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } },
+      { s: { r: noteRowIdx, c: 0 }, e: { r: noteRowIdx, c: 5 } }
+    ];
+
+    ws['!cols'] = [
+      { wch: 13 }, { wch: 45 }, { wch: 10 },
+      { wch: 13 }, { wch: 45 }, { wch: 10 }
+    ];
+
+    ws['!rows'] = rowLineCounts.map(lines => ({ hpx: Math.max(22, lines * 18) }));
+
+    for (let r = 0; r < aoa.length; r++) {
+      for (let c = 0; c < 6; c++) {
+        const addr = XLSX.utils.encode_cell({ r, c });
+        if (!ws[addr]) ws[addr] = { t: "s", v: "" };
+
+        if (r === 0) {
+          ws[addr].s = titleStyle;
+        } else if (r === 1) {
+          ws[addr].s = headerStyle;
+        } else if (r === noteRowIdx) {
+          ws[addr].s = noteStyle;
+        } else {
+          // 데이터 행: 단체명(1,4열)은 왼쪽 맞춤, 나머지는 가운데 맞춤
+          ws[addr].s = (c === 1 || c === 4) ? leftStyle : centerStyle;
+        }
+      }
+    }
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "월별단체현황");
+
+    XLSX.writeFile(wb, `단동훼리_${year}년${mm}월_단체운항현황.xlsx`);
+
+  }).catch(e => {
+    console.error(e);
+    alert("다운로드 중 오류가 발생했습니다: " + e.message);
   });
 }
 
-function downloadResultImage() {
+function downloadResultImage(){
   const area = document.getElementById("captureArea");
-  if (!area) return;
   html2canvas(area, { scale: 2, backgroundColor: "#f4f6f9" }).then(canvas => {
     const link = document.createElement("a");
-    link.download = `출국_요약_${selectedDate}.png`;
+    link.download = `단동훼리_객실배정_${selectedDate}.png`;
     link.href = canvas.toDataURL("image/png");
     link.click();
   });
