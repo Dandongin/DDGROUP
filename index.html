@@ -13,7 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 <script src="./config.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 
 <style>
 *{box-sizing:border-box}
@@ -2184,7 +2184,7 @@ function downloadMonthlyExcel(year, month){
       const chunk = namesArray.slice(i, i + 3);
       lines.push(chunk.join(", "));
     }
-    return lines.join("<br>");
+    return lines.join("\n");
   }
 
   db.collection("schedules").get().then((querySnapshot) => {
@@ -2242,25 +2242,26 @@ function downloadMonthlyExcel(year, month){
     }
 
     const maxRows = Math.max(leftDates.length, rightDates.length);
-    const cellStyle = "border:1px solid #000000; vertical-align:middle;";
 
-    let tableHtml = `<table border="1" style="border-collapse:collapse; text-align:center; font-family:맑은 고딕, Arial;">`;
-    
-    tableHtml += `
-      <tr>
-        <th colspan="6" style="${cellStyle} font-size:16px; font-weight:bold; background-color:#e2efda; height:40px;">
-          ${titleText} 단체 운항 현황
-        </th>
-      </tr>
-      <tr style="background-color:#f2f2f2; font-weight:bold; height:32px;">
-        <th style="${cellStyle} width:90px;">날짜</th>
-        <th style="${cellStyle} width:320px;">OUT</th>
-        <th style="${cellStyle} width:70px;">총인원</th>
-        <th style="${cellStyle} width:90px;">날짜</th>
-        <th style="${cellStyle} width:320px;">IN</th>
-        <th style="${cellStyle} width:70px;">총인원</th>
-      </tr>
-    `;
+    // 공통 테두리(모든 테두리, 검은색)
+    const borderAll = {
+      top: { style: "thin", color: { rgb: "000000" } },
+      bottom: { style: "thin", color: { rgb: "000000" } },
+      left: { style: "thin", color: { rgb: "000000" } },
+      right: { style: "thin", color: { rgb: "000000" } }
+    };
+    // 단체명(OUT/IN 명단) 칸만 왼쪽 맞춤, 나머지는 전부 가운데 맞춤
+    const centerStyle = { border: borderAll, alignment: { horizontal: "center", vertical: "center", wrapText: true } };
+    const leftStyle = { border: borderAll, alignment: { horizontal: "left", vertical: "center", wrapText: true } };
+    const titleStyle = { border: borderAll, alignment: { horizontal: "center", vertical: "center" }, font: { bold: true, sz: 16 }, fill: { fgColor: { rgb: "E2EFDA" } } };
+    const headerStyle = { border: borderAll, alignment: { horizontal: "center", vertical: "center" }, font: { bold: true }, fill: { fgColor: { rgb: "F2F2F2" } } };
+    const noteStyle = { border: borderAll, alignment: { horizontal: "center", vertical: "center" }, font: { bold: true, color: { rgb: "D32F2F" }, sz: 11 } };
+
+    const aoa = [];
+    aoa.push([`${titleText} 단체 운항 현황`, "", "", "", "", ""]);
+    aoa.push(["날짜", "OUT", "총인원", "날짜", "IN", "총인원"]);
+
+    const rowLineCounts = [1, 1]; // 제목, 헤더 행
 
     for (let i = 0; i < maxRows; i++) {
       const lDate = leftDates[i] || "";
@@ -2274,37 +2275,51 @@ function downloadMonthlyExcel(year, month){
       const rNamesDisp = (rDate && outGroups[rDate]) ? formatGroupNames(outGroups[rDate].names) : "";
       const rTotalDisp = (rDate && outGroups[rDate]) ? outGroups[rDate].total : "";
 
-      tableHtml += `
-        <tr>
-          <td style="${cellStyle} text-align:center; padding:5px;">${lDateDisp}</td>
-          <td style="${cellStyle} text-align:left; padding:5px 8px; white-space:pre-line;">${lNamesDisp}</td>
-          <td style="${cellStyle} text-align:center; padding:5px 8px;">${lTotalDisp}</td>
+      aoa.push([lDateDisp, lNamesDisp, lTotalDisp, rDateDisp, rNamesDisp, rTotalDisp]);
 
-          <td style="${cellStyle} text-align:center; padding:5px;">${rDateDisp}</td>
-          <td style="${cellStyle} text-align:left; padding:5px 8px; white-space:pre-line;">${rNamesDisp}</td>
-          <td style="${cellStyle} text-align:center; padding:5px 8px;">${rTotalDisp}</td>
-        </tr>
-      `;
+      const lLines = lNamesDisp ? lNamesDisp.split("\n").length : 1;
+      const rLines = rNamesDisp ? rNamesDisp.split("\n").length : 1;
+      rowLineCounts.push(Math.max(lLines, rLines, 1));
     }
 
-    tableHtml += `
-      <tr>
-        <td colspan="6" style="${cellStyle} text-align:center; font-size:11px; color:#d32f2f; font-weight:bold; height:30px;">
-          * 위 예약상황은 모객 중이므로 인원이 변동될 수 있습니다. (토요일 휴항 제외)
-        </td>
-      </tr>
-    </table>`;
+    const noteRowIdx = 2 + maxRows;
+    aoa.push(["* 위 예약상황은 모객 중이므로 인원이 변동될 수 있습니다. (토요일 휴항 제외)", "", "", "", "", ""]);
+    rowLineCounts.push(1);
 
-    const tempDiv = document.createElement("div");
-    tempDiv.innerHTML = tableHtml;
-    const tableEl = tempDiv.querySelector("table");
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
 
-    const wb = XLSX.utils.table_to_book(tableEl, { sheet: "월별단체현황" });
-    const ws = wb.Sheets["월별단체현황"];
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } },
+      { s: { r: noteRowIdx, c: 0 }, e: { r: noteRowIdx, c: 5 } }
+    ];
+
     ws['!cols'] = [
       { wch: 13 }, { wch: 45 }, { wch: 10 },
       { wch: 13 }, { wch: 45 }, { wch: 10 }
     ];
+
+    ws['!rows'] = rowLineCounts.map(lines => ({ hpx: Math.max(20, lines * 16) }));
+
+    for (let r = 0; r < aoa.length; r++) {
+      for (let c = 0; c < 6; c++) {
+        const addr = XLSX.utils.encode_cell({ r, c });
+        if (!ws[addr]) ws[addr] = { t: "s", v: "" };
+
+        if (r === 0) {
+          ws[addr].s = titleStyle;
+        } else if (r === 1) {
+          ws[addr].s = headerStyle;
+        } else if (r === noteRowIdx) {
+          ws[addr].s = noteStyle;
+        } else {
+          // 데이터 행: 단체명(1,4열)은 왼쪽 맞춤, 나머지는 가운데 맞춤
+          ws[addr].s = (c === 1 || c === 4) ? leftStyle : centerStyle;
+        }
+      }
+    }
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "월별단체현황");
 
     XLSX.writeFile(wb, `단동훼리_${year}년${mm}월_단체운항현황.xlsx`);
 
