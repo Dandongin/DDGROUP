@@ -73,6 +73,23 @@ th{background:#f1f4f7}
 
 .section-subtitle{font-size:13px; font-weight:bold; color:#1769aa; margin:8px 0 4px 0; border-left:3px solid #1769aa; padding-left:6px;}
 
+/* 국기 선택 버튼 */
+.flag-picker{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:4px;}
+.flag-option{display:flex; align-items:center; gap:6px; padding:8px 12px; border:2px solid #dde3ea; border-radius:8px; background:#fff; cursor:pointer; font-size:13px; font-weight:600; color:#374151;}
+.flag-option .flag-emoji{font-size:16px; line-height:1;}
+.flag-option:hover{border-color:#90caf9;}
+.flag-option.selected{border-color:#1769aa; background:#e3f2fd; color:#0d47a1;}
+
+/* 색상 스와치 선택 */
+.color-picker-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(78px, 1fr)); gap:8px; margin-top:4px;}
+.color-swatch{display:flex; flex-direction:column; align-items:center; gap:5px; padding:8px 4px 6px; border:2px solid transparent; border-radius:8px; cursor:pointer; background:#fff;}
+.color-swatch:hover{background:#f4f6f9;}
+.color-swatch.selected{border-color:#1769aa; background:#e8f0fb;}
+.color-swatch .swatch-chip{width:28px; height:28px; border-radius:50%; border:1px solid #00000022; box-shadow:inset 0 0 0 2px #ffffff55;}
+.color-swatch .swatch-check{position:relative; top:-38px; left:9px; font-size:13px; font-weight:900; color:#fff; text-shadow:0 0 2px #000, 0 0 2px #000; height:0; display:none;}
+.color-swatch.selected .swatch-check{display:block;}
+.color-swatch .swatch-label{font-size:10.5px; color:#5c6673; text-align:center; line-height:1.2;}
+
 .fc .fc-day-sat a { color: #0000ff !important; }
 .fc .fc-day-sun a { color: #d32f2f !important; }
   
@@ -386,7 +403,7 @@ th{background:#f1f4f7}
         <button type="button" onclick="showRidingMonthlyStats()">🚴 라이딩 당월</button>
         <button type="button" onclick="downloadMonthlyStatsImageDirect()">🖼️ 월 통계 이미지</button>
         <button type="button" onclick="triggerMonthlyExcelDownload()">🟩 월 통계 엑셀</button>
-        <button type="button" onclick="triggerStatsOrganizeExcelDownload()">📗 수대리 작업용</button>
+        <button type="button" onclick="triggerStatsOrganizeExcelDownload()">📗 통계 정리용</button>
         <button type="button" onclick="showNoticeModal()">📌 공지문</button>
       </div>
     </div>
@@ -418,29 +435,14 @@ th{background:#f1f4f7}
         <input type="text" id="eventTitle" placeholder="내용 입력">
       </div>
       <div>
-        <label style="font-weight:bold;">배경 색상 및 태그</label>
-        <select id="eventColor">
-          <option value="#fffde7">옅은 노란색</option>
-          <option value="#9e9e9e">회색</option>
-          <option value="#aed581">연두색</option>
-          <option value="#e1bee7">연보라색 (🇨🇳 오성홍기)</option>
-          <option value="#f57c00">주황색 (🇰🇷 태극기)</option>
-          <option value="#ffcdd2">연분홍색</option>
-          <option value="#f8bbd0">진분홍색</option>
-          <option value="#d1c4e9">라벤더색</option>
-          <option value="#c5cae9">연남색</option>
-          <option value="#bbdefb">하늘색</option>
-          <option value="#b2ebf2">민트블루색</option>
-          <option value="#b2dfdb">민트색</option>
-          <option value="#c8e6c9">연초록색</option>
-          <option value="#dcedc8">라임연두색</option>
-          <option value="#fff9c4">연노랑색</option>
-          <option value="#ffe0b2">연주황색</option>
-          <option value="#ffccbc">연코랄색</option>
-          <option value="#d7ccc8">연브라운색</option>
-          <option value="#cfd8dc">연블루그레이색</option>
-          <option value="#f0e6ff">연퍼플색</option>
-        </select>
+        <label style="font-weight:bold;">국기 표시</label>
+        <div class="flag-picker" id="flagPicker"></div>
+        <input type="hidden" id="eventFlag" value="">
+      </div>
+      <div>
+        <label style="font-weight:bold;">배경 색상</label>
+        <div class="color-picker-grid" id="colorPicker"></div>
+        <input type="hidden" id="eventColor" value="#fffde7">
       </div>
       <div style="display:flex; gap:10px; margin-top:10px;">
         <button class="primary" style="background:#d32f2f;" onclick="addMemoItem()">메모 추가</button>
@@ -1467,8 +1469,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 let txtColor = getMemoTextColor(evtColor);
                 let titleText = item.title || "메모";
 
-                if (evtColor === '#e1bee7' && !titleText.startsWith("🇨🇳")) titleText = `🇨🇳 ${titleText}`;
-                if (evtColor === '#f57c00' && !titleText.startsWith("🇰🇷")) titleText = `🇰🇷 ${titleText}`;
+                const flagEmoji = getMemoFlagEmoji(item, evtColor);
+                if (flagEmoji) titleText = `${flagEmoji} ${titleText}`;
 
                 events.push({
                   id: "ce_" + doc.id + "_" + item.id,
@@ -1563,6 +1565,84 @@ function getMemoTextColor(color){
   return luminance > 0.6 ? "#374151" : "#ffffff";
 }
 
+// 국기 태그(item.flag: 'kr' | 'cn' | '')에 해당하는 이모지를 반환.
+// 신규 방식(item.flag)이 없는 기존 메모는 예전처럼 색상 기준으로 국기를 판단(하위호환).
+function getMemoFlagEmoji(item, evtColor){
+  const flag = (item && item.flag !== undefined) ? item.flag : null;
+  if(flag === 'kr') return '🇰🇷';
+  if(flag === 'cn') return '🇨🇳';
+  if(flag === '') return '';
+  // 하위호환: flag 필드가 없는 기존 메모
+  if(evtColor === '#e1bee7') return '🇨🇳';
+  if(evtColor === '#f57c00') return '🇰🇷';
+  return '';
+}
+
+const MEMO_COLORS = [
+  { value:"#fffde7", label:"옅은 노란색" },
+  { value:"#9e9e9e", label:"회색" },
+  { value:"#aed581", label:"연두색" },
+  { value:"#e1bee7", label:"연보라색" },
+  { value:"#f57c00", label:"주황색" },
+  { value:"#ffcdd2", label:"연분홍색" },
+  { value:"#f8bbd0", label:"진분홍색" },
+  { value:"#d1c4e9", label:"라벤더색" },
+  { value:"#c5cae9", label:"연남색" },
+  { value:"#bbdefb", label:"하늘색" },
+  { value:"#b2ebf2", label:"민트블루색" },
+  { value:"#b2dfdb", label:"민트색" },
+  { value:"#c8e6c9", label:"연초록색" },
+  { value:"#dcedc8", label:"라임연두색" },
+  { value:"#fff9c4", label:"연노랑색" },
+  { value:"#ffe0b2", label:"연주황색" },
+  { value:"#ffccbc", label:"연코랄색" },
+  { value:"#d7ccc8", label:"연브라운색" },
+  { value:"#cfd8dc", label:"연블루그레이색" },
+  { value:"#f0e6ff", label:"연퍼플색" }
+];
+
+const MEMO_FLAGS = [
+  { value:"", label:"표시 안함", emoji:"" },
+  { value:"kr", label:"태극기", emoji:"🇰🇷" },
+  { value:"cn", label:"오성홍기", emoji:"🇨🇳" }
+];
+
+function renderColorPicker(selectedColor){
+  const el = document.getElementById("colorPicker");
+  if(!el) return;
+  el.innerHTML = MEMO_COLORS.map(c => `
+    <div class="color-swatch${c.value === selectedColor ? ' selected' : ''}" data-color="${c.value}" onclick="selectMemoColor('${c.value}')" title="${c.label}">
+      <span class="swatch-chip" style="background:${c.value};"></span>
+      <span class="swatch-check">✓</span>
+      <span class="swatch-label">${c.label}</span>
+    </div>
+  `).join('');
+}
+
+function selectMemoColor(color){
+  document.getElementById("eventColor").value = color;
+  document.querySelectorAll("#colorPicker .color-swatch").forEach(el => {
+    el.classList.toggle("selected", el.dataset.color === color);
+  });
+}
+
+function renderFlagPicker(selectedFlag){
+  const el = document.getElementById("flagPicker");
+  if(!el) return;
+  el.innerHTML = MEMO_FLAGS.map(f => `
+    <button type="button" class="flag-option${f.value === selectedFlag ? ' selected' : ''}" data-flag="${f.value}" onclick="selectFlag('${f.value}')">
+      ${f.emoji ? `<span class="flag-emoji">${f.emoji}</span>` : ''}<span>${f.label}</span>
+    </button>
+  `).join('');
+}
+
+function selectFlag(flag){
+  document.getElementById("eventFlag").value = flag;
+  document.querySelectorAll("#flagPicker .flag-option").forEach(el => {
+    el.classList.toggle("selected", el.dataset.flag === flag);
+  });
+}
+
 function renderEventMemoList(dateStr, items){
   const listEl = document.getElementById("eventMemoList");
   if(!listEl) return;
@@ -1570,19 +1650,26 @@ function renderEventMemoList(dateStr, items){
     listEl.innerHTML = `<div class="small" style="color:#9aa5b1;">등록된 메모가 없습니다.</div>`;
     return;
   }
-  listEl.innerHTML = items.map(item => `
+  listEl.innerHTML = items.map(item => {
+    const flagEmoji = getMemoFlagEmoji(item, item.color || '#fffde7');
+    return `
     <div style="display:flex; align-items:center; gap:8px; padding:6px 8px; border:1px solid #e4e8ed; border-radius:6px; margin-bottom:6px; background:#fff;">
       <span style="width:16px; height:16px; border-radius:4px; flex-shrink:0; background:${item.color || '#fffde7'}; border:1px solid #00000022;"></span>
+      ${flagEmoji ? `<span style="font-size:14px;">${flagEmoji}</span>` : ''}
       <span style="flex:1; font-size:13px; word-break:break-all;">${esc(item.title || '')}</span>
       <button type="button" class="danger" style="padding:4px 8px; font-size:11px;" onclick="deleteMemoItem('${dateStr}','${item.id}')">삭제</button>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 function loadEventDataForDate(dateStr){
   if(!dateStr) return;
   document.getElementById("eventTitle").value = "";
   document.getElementById("eventColor").value = "#fffde7";
+  document.getElementById("eventFlag").value = "";
+  renderColorPicker("#fffde7");
+  renderFlagPicker("");
   renderEventMemoList(dateStr, []);
   if(db){
     db.collection("custom_events").doc(dateStr).get().then(doc => {
@@ -1599,6 +1686,7 @@ function addMemoItem(){
   if(!dateStr){ alert("날짜를 선택해주세요."); return; }
   const title = document.getElementById("eventTitle").value.trim();
   const color = document.getElementById("eventColor").value;
+  const flag = document.getElementById("eventFlag").value;
 
   if(!title){ alert("내용을 입력해주세요."); return; }
   if(!db) return;
@@ -1606,10 +1694,12 @@ function addMemoItem(){
   const docRef = db.collection("custom_events").doc(dateStr);
   docRef.get().then(doc => {
     const items = doc.exists ? getMemoItemsFromDocData(doc.data()) : [];
-    const newItem = { id: "m_" + Date.now() + "_" + Math.random().toString(36).slice(2,7), title, color };
+    const newItem = { id: "m_" + Date.now() + "_" + Math.random().toString(36).slice(2,7), title, color, flag };
     items.push(newItem);
     docRef.set({ items, updatedAt: new Date() }).then(() => {
       document.getElementById("eventTitle").value = "";
+      document.getElementById("eventFlag").value = "";
+      renderFlagPicker("");
       renderEventMemoList(dateStr, items);
       if(calendar) calendar.refetchEvents();
     });
