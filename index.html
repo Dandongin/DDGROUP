@@ -386,6 +386,7 @@ th{background:#f1f4f7}
         <button type="button" onclick="showRidingMonthlyStats()">🚴 라이딩 당월</button>
         <button type="button" onclick="downloadMonthlyStatsImageDirect()">🖼️ 월 통계 이미지</button>
         <button type="button" onclick="triggerMonthlyExcelDownload()">🟩 월 통계 엑셀</button>
+        <button type="button" onclick="triggerStatsOrganizeExcelDownload()">📗 통계 정리용</button>
         <button type="button" onclick="showNoticeModal()">📌 공지문</button>
       </div>
     </div>
@@ -2436,7 +2437,9 @@ function computeMonthlyGroupData(year, month){
 }
 
 // [엑셀 다운로드] computeMonthlyGroupData 결과로 xlsx 파일 생성
-function buildExcelFromData(data){
+// options.fileNameOverride / options.sheetNameOverride 로 '통계 정리용' 등 동일한 형식의 별도 파일을 만들 수 있음
+function buildExcelFromData(data, options){
+  options = options || {};
   const { year, mm, titleText, leftDates, rightDates, outGroups, maxRows } = data;
 
   {
@@ -2530,9 +2533,9 @@ function buildExcelFromData(data){
     }
 
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "월별단체현황");
+    XLSX.utils.book_append_sheet(wb, ws, options.sheetNameOverride || "월별단체현황");
 
-    XLSX.writeFile(wb, `단동훼리_${year}년${mm}월_단체운항현황.xlsx`);
+    XLSX.writeFile(wb, options.fileNameOverride || `단동훼리_${year}년${mm}월_단체운항현황.xlsx`);
   }
 }
 
@@ -2609,6 +2612,29 @@ function triggerMonthlyExcelDownload(){
 
   const currentDate = calendar ? calendar.view.currentStart : new Date();
   downloadMonthlyExcel(currentDate.getFullYear(), currentDate.getMonth() + 1);
+}
+
+// "📗 통계 정리용" 버튼 → 월 통계 엑셀과 동일한 형식(날짜/이름/총인원, 월수금·화목일 구분)으로
+// 월초부터 월말까지 쭈욱 정리해서 볼 수 있는 엑셀을 별도 파일명으로 다운로드
+function triggerStatsOrganizeExcelDownload(){
+  const dropdown = document.getElementById("statsDropdown");
+  if (dropdown) dropdown.classList.remove("show");
+
+  if(!db){ alert("데이터베이스 연결이 없습니다."); return; }
+
+  const currentDate = calendar ? calendar.view.currentStart : new Date();
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth() + 1;
+
+  computeMonthlyGroupData(year, month).then(data => {
+    buildExcelFromData(data, {
+      fileNameOverride: `단동훼리_${year}년${data.mm}월_통계정리.xlsx`,
+      sheetNameOverride: "통계정리"
+    });
+  }).catch(e => {
+    console.error(e);
+    alert("다운로드 중 오류가 발생했습니다: " + (e && e.message ? e.message : e));
+  });
 }
 
 // "🖼️ 통계 이미지" 버튼 → 화면 밖에 A4 표를 잠시 그려서 캡처 후 바로 다운로드 (미리보기 없음)
