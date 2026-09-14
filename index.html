@@ -2665,21 +2665,19 @@ function buildStatsTableHtml(data){
 
 // "📗 통계 정리용" 버튼용 엑셀 생성
 // 리턴(복귀) 단체는 제외하고, 그 날짜에 실제로 "출발"하는 모든 단체를 포함
-// 왼쪽 열 = 월,수,금 / 오른쪽 열 = 화,목,일
-// 단체 하나당 [날짜] → [여행사명] → [인원] 순서로 각각 별도의 행에 기록
+// 왼쪽 3열(날짜/여행사명/인원) = 월,수,금 / 오른쪽 3열(날짜/여행사명/인원) = 화,목,일
+// 단체 하나당 한 행에 [날짜, 여행사명, 인원]을 가로로 나열
 function buildStatsOrganizeExcel(data){
   const { year, mm, titleText, leftDates, rightDates, departureGroups } = data;
 
-  // 날짜 순서대로, 그 날짜에 출발하는 모든 단체를 [날짜, 여행사명, 인원] 3행씩 풀어서 나열
+  // 날짜 순서대로, 그 날짜에 출발하는 모든 단체를 [날짜, 여행사명, 인원] 한 행씩 나열
   const flattenDepartures = (dates) => {
     const rows = [];
     dates.forEach(d => {
       const teams = departureGroups[d];
       if (teams && teams.length) {
         teams.forEach(team => {
-          rows.push(formatDateMDShort(d));
-          rows.push(team.name);
-          rows.push(team.count);
+          rows.push([formatDateMDShort(d), team.name, team.count]);
         });
       }
     });
@@ -2691,11 +2689,14 @@ function buildStatsOrganizeExcel(data){
   const maxLen = Math.max(leftRows.length, rightRows.length);
 
   const aoa = [];
-  aoa.push([`${titleText} 통계 정리`, ""]);
-  aoa.push(["월, 수, 금", "화, 목, 일"]);
-  const headerRowCount = 2;
+  aoa.push([`${titleText} 통계 정리`, "", "", "", "", ""]);
+  aoa.push(["월, 수, 금", "", "", "화, 목, 일", "", ""]);
+  aoa.push(["날짜", "여행사명", "인원", "날짜", "여행사명", "인원"]);
+  const headerRowCount = 3;
   for (let i = 0; i < maxLen; i++){
-    aoa.push([leftRows[i] !== undefined ? leftRows[i] : "", rightRows[i] !== undefined ? rightRows[i] : ""]);
+    const l = leftRows[i] || ["", "", ""];
+    const r = rightRows[i] || ["", "", ""];
+    aoa.push([...l, ...r]);
   }
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
@@ -2708,24 +2709,28 @@ function buildStatsOrganizeExcel(data){
   };
   const titleStyle = { border: borderAll, alignment: { horizontal: "center", vertical: "center" }, font: { bold: true, sz: 14 }, fill: { fgColor: { rgb: "E2EFDA" } } };
   const sectionStyle = { border: borderAll, alignment: { horizontal: "center", vertical: "center" }, font: { bold: true }, fill: { fgColor: { rgb: "D9E1F2" } } };
-  const dateStyle = { border: borderAll, alignment: { horizontal: "center", vertical: "center" }, font: { bold: true }, fill: { fgColor: { rgb: "F2F2F2" } } };
+  const headerStyle = { border: borderAll, alignment: { horizontal: "center", vertical: "center" }, font: { bold: true }, fill: { fgColor: { rgb: "F2F2F2" } } };
+  const dateStyle = { border: borderAll, alignment: { horizontal: "center", vertical: "center" } };
   const nameStyle = { border: borderAll, alignment: { horizontal: "left", vertical: "center" } };
   const countStyle = { border: borderAll, alignment: { horizontal: "center", vertical: "center" }, font: { color: { rgb: "1769AA" }, bold: true } };
 
   ws['!merges'] = [
-    { s: { r: 0, c: 0 }, e: { r: 0, c: 1 } }
+    { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } },
+    { s: { r: 1, c: 0 }, e: { r: 1, c: 2 } },
+    { s: { r: 1, c: 3 }, e: { r: 1, c: 5 } }
   ];
-  ws['!cols'] = [{ wch: 28 }, { wch: 28 }];
+  ws['!cols'] = [{ wch: 12 }, { wch: 24 }, { wch: 8 }, { wch: 12 }, { wch: 24 }, { wch: 8 }];
 
   for (let r = 0; r < aoa.length; r++){
-    for (let c = 0; c < 2; c++){
+    for (let c = 0; c < 6; c++){
       const addr = XLSX.utils.encode_cell({ r, c });
       if (!ws[addr]) ws[addr] = { t: "s", v: "" };
       if (r === 0) ws[addr].s = titleStyle;
       else if (r === 1) ws[addr].s = sectionStyle;
+      else if (r === 2) ws[addr].s = headerStyle;
       else {
-        const posInBlock = (r - headerRowCount) % 3; // 0=날짜, 1=여행사명, 2=인원
-        ws[addr].s = posInBlock === 0 ? dateStyle : (posInBlock === 1 ? nameStyle : countStyle);
+        const colInBlock = c % 3; // 0=날짜, 1=여행사명, 2=인원
+        ws[addr].s = colInBlock === 0 ? dateStyle : (colInBlock === 1 ? nameStyle : countStyle);
       }
     }
   }
