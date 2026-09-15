@@ -2344,6 +2344,10 @@ function runSimulation(shouldSave = true){
   if (outBoardingTeams.length === 0) {
     teamResultsHtml = `<div style="text-align:center; padding:20px; color:#666;">오늘 출국 승선 예정인 단체가 없습니다.</div>`;
   } else {
+    const boardDow = selectedDate ? new Date(selectedDate).getDay() : null;
+    const dowCircle = (boardDow === 1 || boardDow === 3 || boardDow === 5) ? '🔵🇰🇷'
+      : (boardDow === 2 || boardDow === 4 || boardDow === 0) ? '🔴🇨🇳' : '';
+
     outBoardingTeams.forEach(team => {
       const isReturn = team.isReturnOnTarget;
       let targetAllocations = [];
@@ -2369,7 +2373,7 @@ function runSimulation(shouldSave = true){
       else if (loungeTypeForTag === 'ONEWAY') loungeTag = `<span class="tag-lounge">🎤 라운지 편도</span>`;
 
       teamResultsHtml += `<div style="margin-bottom:16px; border-bottom:1px solid #e1e7ef; padding-bottom:12px;">
-        <h3 style="margin-bottom:4px; color:#1769aa;">🚩 ${esc(team.name)} (${teamBoardingPeople}명) <span class="tag-pattern">${patternLabel}</span> ${loungeTag} ${ridingTag} ${statusTag}${priceText}</h3>
+        <h3 style="margin-bottom:4px; color:#1769aa;">${dowCircle} ${esc(team.name)} (${teamBoardingPeople}명) <span class="tag-pattern">${patternLabel}</span> ${loungeTag} ${ridingTag} ${statusTag}${priceText}</h3>
         <div style="font-size:13px; font-weight:bold; color:#2e7d32; margin-bottom:6px;">🗓️ 여정 정보: ${team.itineraryStr || (isReturn ? `리턴일: ${formatShortDate(selectedDate)} (원출발: ${formatShortDate(team.regDate)})` : '')}</div>
         ${team.memo ? `<div class="memo-box"><b>✨📌 메모:</b> ${esc(team.memo)}</div>` : ''}`;
 
