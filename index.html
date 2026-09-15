@@ -2344,12 +2344,12 @@ function runSimulation(shouldSave = true){
   if (outBoardingTeams.length === 0) {
     teamResultsHtml = `<div style="text-align:center; padding:20px; color:#666;">오늘 출국 승선 예정인 단체가 없습니다.</div>`;
   } else {
-    const boardDow = selectedDate ? new Date(selectedDate).getDay() : null;
-    const dowCircle = (boardDow === 1 || boardDow === 3 || boardDow === 5) ? '🔵🇰🇷'
-      : (boardDow === 2 || boardDow === 4 || boardDow === 0) ? '🔴🇨🇳' : '';
-
     outBoardingTeams.forEach(team => {
       const isReturn = team.isReturnOnTarget;
+      const firstDepartDate = isReturn ? team.regDate : selectedDate;
+      const firstDepartDow = firstDepartDate ? new Date(firstDepartDate).getDay() : null;
+      const dowCircle = (firstDepartDow === 1 || firstDepartDow === 3 || firstDepartDow === 5) ? '🔵🇰🇷'
+        : (firstDepartDow === 2 || firstDepartDow === 4 || firstDepartDow === 0) ? '🔴🇨🇳' : '';
       let targetAllocations = [];
 
       if (isReturn) {
