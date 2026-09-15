@@ -2365,7 +2365,7 @@ function runSimulation(shouldSave = true){
       if(team.pattern === 'ONEWAY_OUT') patternLabel = "➡️ 출국 편도";
 
       const statusTag = isReturn 
-        ? `<span class="tag-linked">🔄 리턴 (${formatShortDate(team.regDate)} 등록)</span>`
+        ? `<span class="tag-linked">🔄 리턴 단체)</span>`
         : '';
       const ridingTag = team.isRiding ? `<span class="tag-riding">🚴 라이딩</span>` : '';
       let loungeTag = '';
