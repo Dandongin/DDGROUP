@@ -411,7 +411,7 @@ th{background:#f1f4f7}
   </div>
   <div style="display:flex; gap:8px;">
     <div class="stats-dropdown" id="statsDropdown">
-      <button type="button" style="background:#1769aa; color:white; padding:9px 15px; font-size:13px;" onclick="toggleStatsMenu(event)">📊 통계 ▾</button>
+      <button type="button" style="background:#1769aa; color:white; padding:9px 15px; font-size:13px;" onclick="toggleStatsMenu(event)">📊 메뉴 ▾</button>
       <div class="stats-dropdown-content">
         <button type="button" onclick="showMonthlyStats()">📅 당월 단체 요약</button>
         <button type="button" onclick="downloadMonthlyStatsImageDirect()">🖼️ 월 통계 이미지</button>
@@ -419,9 +419,10 @@ th{background:#f1f4f7}
         <button type="button" onclick="showLoungeStats()">🎤 라운지 당월</button>
         <button type="button" onclick="showRidingMonthlyStats()">🚴 라이딩 당월</button>
         <button type="button" onclick="showRidingStats()">🚴 라이딩 월별</button>
-
+        <button type="button" onclick="showNameVerifierModal()">🔍 명단 검증기</button>
         <button type="button" onclick="triggerStatsOrganizeExcelDownload()">📗 수대리 작업용</button>
         <button type="button" onclick="showNoticeModal()">📌 공지문</button>
+
       </div>
     </div>
     <button type="button" style="background:#d32f2f; color:white; padding:9px 15px; font-size:13px;" onclick="openEventModal()">메모 등록</button>
@@ -676,6 +677,25 @@ function openStatsModal(title, htmlContent, extraFooterHtml = "") {
 
 function closeStatsModal() {
   document.getElementById("statsModal").classList.add("hidden");
+}
+
+/* 명단 검증기 모달 팝업 */
+function showNameVerifierModal() {
+  const verifierUrl = "https://claude.ai/artifact/D1ssqBjhoNcW9xFZXLh3qX";
+  const htmlContent = `
+    <div style="text-align:center; padding:20px 10px;">
+      <p style="font-size:15px; color:#17324d; font-weight:bold; margin-bottom:10px;">🔍 명단 검증기 서비스</p>
+      <p style="font-size:13px; color:#555; margin-bottom:24px; line-height:1.5;">
+        아래 버튼을 누르면 명단 검증기 웹페이지로 연결됩니다.
+      </p>
+      <a href="${verifierUrl}" target="_blank" style="text-decoration:none;">
+        <button type="button" class="primary" style="padding:12px 24px; font-size:15px; background:#1769aa; cursor:pointer;">
+          🚀 명단 검증기 사이트 접속
+        </button>
+      </a>
+    </div>
+  `;
+  openStatsModal("명단 검증기", htmlContent);
 }
 
 let noticeZoomScale = 1;
