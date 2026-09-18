@@ -411,7 +411,7 @@ th{background:#f1f4f7}
   </div>
   <div style="display:flex; gap:8px;">
     <div class="stats-dropdown" id="statsDropdown">
-      <button type="button" style="background:#1769aa; color:white; padding:9px 15px; font-size:13px;" onclick="toggleStatsMenu(event)">📊 메뉴 ▾</button>
+      <button type="button" style="background:#1769aa; color:white; padding:9px 15px; font-size:13px;" onclick="toggleStatsMenu(event)">📊 통계 ▾</button>
       <div class="stats-dropdown-content">
         <button type="button" onclick="showMonthlyStats()">📅 당월 단체 요약</button>
         <button type="button" onclick="downloadMonthlyStatsImageDirect()">🖼️ 월 통계 이미지</button>
@@ -681,7 +681,7 @@ function closeStatsModal() {
 
 /* 명단 검증기 모달 팝업 */
 function showNameVerifierModal() {
-  const verifierUrl = "https://claude.ai/artifact/D1ssqBjhoNcW9xFZXLh3qX";
+  const verifierUrl = "https://dandongin.github.io/manifest-checker/";
   const htmlContent = `
     <div style="text-align:center; padding:20px 10px;">
       <p style="font-size:15px; color:#17324d; font-weight:bold; margin-bottom:10px;">🔍 명단 검증기 서비스</p>
