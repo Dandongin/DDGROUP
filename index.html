@@ -3088,7 +3088,7 @@ function buildCiqExcel(data){
       const dateColor = (skipName || i === 0) ? RED : (i === 6 ? BLUE : BLACK);
       const dateLabel = skipName ? `${dayNum} ${skipName}` : String(dayNum);
 
-      setS(base, c0, dateLabel, { font: { name: FONT, bold: true, sz: 10, color: { rgb: dateColor } },
+      setS(base, c0, dateLabel, { font: { name: FONT, bold: true, sz: 14, color: { rgb: dateColor } },
         alignment: { horizontal: "left", vertical: "top" }, border: dayBorder(0, 0) });
       setS(base, c0 + 1, "", { font: { name: FONT, sz: 10 }, border: dayBorder(0, 1) });
 
@@ -3106,13 +3106,13 @@ function buildCiqExcel(data){
           return;
         }
         if (skipName) {
-          setS(r, c0, `${label}: SKIP`, { font: { name: FONT, sz: 11, color: { rgb: RED } }, alignment: baseAlign, border: dayBorder(idx + 1, 0) });
+          setS(r, c0, `${label}: SKIP`, { font: { name: FONT, bold: true, sz: 11, color: { rgb: RED } }, alignment: baseAlign, border: dayBorder(idx + 1, 0) });
           setS(r, c0 + 1, "", { font: { name: FONT, sz: 11 }, border: dayBorder(idx + 1, 1) });
           return;
         }
 
         const k = info[def[1]], c = info[def[2]];
-        const bold = (k + c) >= CIQ_BOLD_THRESHOLD;
+        const bold = true;
 
         if (k > 0 && c > 0) {
           setS(r, c0, `${label}: K-${k},`, { font: { name: FONT, sz: 11, bold, color: { rgb: BLUE } }, alignment: baseAlign, border: dayBorder(idx + 1, 0) });
@@ -3124,7 +3124,7 @@ function buildCiqExcel(data){
           setS(r, c0, `${label}: C-${c}`, { font: { name: FONT, sz: 11, bold, color: { rgb: RED } }, alignment: baseAlign, border: dayBorder(idx + 1, 0) });
           setS(r, c0 + 1, "", { font: { name: FONT, sz: 11 }, border: dayBorder(idx + 1, 1) });
         } else {
-          setS(r, c0, `${label}:`, { font: { name: FONT, sz: 11, color: { rgb: BLACK } }, alignment: baseAlign, border: dayBorder(idx + 1, 0) });
+          setS(r, c0, `${label}:`, { font: { name: FONT, bold: true, sz: 11, color: { rgb: BLACK } }, alignment: baseAlign, border: dayBorder(idx + 1, 0) });
           setS(r, c0 + 1, "", { font: { name: FONT, sz: 11 }, border: dayBorder(idx + 1, 1) });
         }
       });
