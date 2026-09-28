@@ -2962,6 +2962,20 @@ function ciqAddDays(dateStr, n){
 function ciqDow(dateStr){
   return new Date(dateStr + "T00:00:00Z").getUTCDay();
 }
+// 한국 공휴일 조회 (캘린더와 동일한 API) -> { "YYYY-MM-DD": "공휴일명" }
+async function ciqFetchHolidays(year){
+  const map = {};
+  try {
+    const res = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/KR`);
+    const list = await res.json();
+    list.forEach(h => {
+      const name = h.localName || h.name;
+      if(!name) return;
+      map[h.date] = map[h.date] ? (map[h.date] + "/" + name) : name;
+    });
+  } catch(e) { console.warn("공휴일 조회 실패 (CIQ 엑셀에 공휴일 미표시):", e); }
+  return map;
+}
 
 // 날짜별 '최초 출국 합계'와 '리턴 합계'를 집계
 function computeCiqData(year, month){
@@ -3014,13 +3028,14 @@ function computeCiqData(year, month){
           outC: retIn[d] || 0
         };
       }
-      resolve({ year, month, mm, lastDay, days });
+      ciqFetchHolidays(year).then(holidays => resolve({ year, month, mm, lastDay, days, holidays }));
     }).catch(reject);
   });
 }
 
 function buildCiqExcel(data){
   const { year, month, mm, lastDay, days } = data;
+  const holidays = data.holidays || {};
 
   const FONT = "맑은 고딕";
   const BLUE = "0000FF", RED = "FF0000", BLACK = "000000";
@@ -3085,8 +3100,9 @@ function buildCiqExcel(data){
 
       const dateStr = `${year}-${mm}-${String(dayNum).padStart(2, '0')}`;
       const skipName = CIQ_SKIP_DATES[dateStr];
-      const dateColor = (skipName || i === 0) ? RED : (i === 6 ? BLUE : BLACK);
-      const dateLabel = skipName ? `${dayNum} ${skipName}` : String(dayNum);
+      const holName = holidays[dateStr];
+      const dateColor = (skipName || holName || i === 0) ? RED : (i === 6 ? BLUE : BLACK);
+      const dateLabel = skipName ? `${dayNum} ${skipName}` : (holName ? `${dayNum} ${holName}` : String(dayNum));
 
       setS(base, c0, dateLabel, { font: { name: FONT, bold: true, sz: 14, color: { rgb: dateColor } },
         alignment: { horizontal: "left", vertical: "top" }, border: dayBorder(0, 0) });
