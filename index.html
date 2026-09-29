@@ -1069,7 +1069,6 @@ function buildCostSumSection(title, color, bg, key) {
         const thousand = Math.round(won / 1000);
         krwCell = `<td style="padding:6px; border-bottom:1px solid #eee; text-align:right; white-space:nowrap; line-height:1.3;">
           <b style="color:#2e7d32; font-size:16px;">${thousand.toLocaleString()}</b>
-          <div style="font-size:10px; color:#889;">${avg.toLocaleString()} × ${rate.toLocaleString()} = ${Math.round(won).toLocaleString()}</div>
         </td>`;
       } else {
         krwCell = `<td style="padding:8px 6px; border-bottom:1px solid #eee; text-align:right; color:#aaa;">-</td>`;
@@ -1117,8 +1116,8 @@ function renderCostSum() {
 
   const html = `<div style="max-height:60vh; overflow-y:auto; padding-right:2px;">
     ${buildCostSumSection("🇰🇷 KR 단체", "#1769aa", "#e8f2fb", "kr")}
-    ${rateBar}
     ${buildCostSumSection("🇨🇳 CN 단체", "#c62828", "#fdecec", "cn")}
+    ${rateBar}
     <div style="font-size:11px; color:#889; text-align:center;">☆참고용입니다(FOC, 업글 등 상세 내용 제외)☆</div>
   </div>`;
 
