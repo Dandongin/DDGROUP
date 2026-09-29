@@ -1060,7 +1060,7 @@ function showCostSumStats() {
     renderCostSum();
   }).catch(e => {
     console.error(e);
-    openStatsModal("💰 Cost Sum", "<div style='color:red; text-align:center;'>통계 조회 중 오류가 발생했습니다.</div>");
+    openStatsModal("💰 Cost Summary", "<div style='color:red; text-align:center;'>통계 조회 중 오류가 발생했습니다.</div>");
   });
 }
 
@@ -1183,7 +1183,7 @@ function renderCostSum() {
   </div>
   <button type="button" class="success" onclick="downloadCostSumImage()">📸 이미지 다운로드</button>`;
 
-  openStatsModal("💰 Cost Sum", html, nav);
+  openStatsModal("💰 Cost Summary", html, nav);
   document.getElementById("statsModalBox").classList.add("cost-sum-modal-box");
 }
 
