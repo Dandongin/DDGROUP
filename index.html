@@ -1115,19 +1115,34 @@ function renderCostSum() {
   </div>`;
 
   const html = `<div style="max-height:60vh; overflow-y:auto; padding-right:2px;">
+    <div id="costSumCaptureArea" style="background:#ffffff; padding:6px;">
+    <div style="font-size:16px; font-weight:bold; text-align:center; margin-bottom:10px;">💰 Cost Summary ${costSumYear}년</div>
     ${buildCostSumSection("🇰🇷 KR 단체", "#1769aa", "#e8f2fb", "kr")}
     ${buildCostSumSection("🇨🇳 CN 단체", "#c62828", "#fdecec", "cn")}
     ${rateBar}
     <div style="font-size:11px; color:#889; text-align:center;">☆참고용입니다(FOC, 업글 등 상세 내용 제외)☆</div>
+    </div>
   </div>`;
 
   const nav = `<div style="margin-right:auto; display:flex; align-items:center; gap:6px;">
     <button type="button" class="secondary" onclick="changeCostSumYear(-1)" style="padding:6px 10px;">◀</button>
     <b style="font-size:14px; min-width:52px; text-align:center;">${costSumYear}년</b>
     <button type="button" class="secondary" onclick="changeCostSumYear(1)" style="padding:6px 10px;">▶</button>
-  </div>`;
+  </div>
+  <button type="button" class="success" onclick="downloadCostSumImage()">📸 이미지 다운로드</button>`;
 
   openStatsModal("💰 Cost Sum", html, nav);
+}
+
+function downloadCostSumImage() {
+  const area = document.getElementById("costSumCaptureArea");
+  if (!area) return;
+  html2canvas(area, { scale: 2, backgroundColor: "#ffffff" }).then(canvas => {
+    const link = document.createElement("a");
+    link.download = `Cost_Sum_${costSumYear}.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  });
 }
 
 function showMonthlyStats() {
