@@ -240,32 +240,37 @@ th{background:#f1f4f7}
 
 /* ===== Cost Sum 팝업 전용 스타일 ===== */
 .modal-box.cost-sum-modal-box { max-width: 520px; }
-.cs-section { border: 1px solid #e3e8ef; border-radius: 10px; overflow: hidden; margin-bottom: 12px; background: #fff; }
-.cs-title { padding: 9px 14px; font-weight: 700; font-size: 14px; color: var(--cs-color); background: var(--cs-bg); }
-.cs-rate { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 8px 14px; margin-bottom: 12px; background: #fffbea; border: 1px solid #f3e6b3; border-radius: 10px; font-size: 12.5px; color: #6b5b1a; }
+.cs-table-wrap { border: 1px solid #d5dde8; border-radius: 10px; overflow: hidden; background: #fff; }
+.cs-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.cs-table th { padding: 9px 8px; background: #eef2f7; color: #1e2b3a; font-size: 13px; font-weight: 700; text-align: right; white-space: nowrap; border-bottom: 1px solid #d5dde8; }
+.cs-table th:first-child { text-align: center; }
+.cs-table th:nth-child(2) { text-align: left; }
+.cs-table td { padding: 9px 8px; text-align: right; white-space: nowrap; }
+.cs-table td.cs-month { text-align: center; vertical-align: middle; background: #fff; color: #17324d; font-size: 15px; font-weight: 700; border-right: 1px solid #e3e8ef; border-bottom: 1px solid #d5dde8; }
+.cs-table td.cs-nat { text-align: left; font-weight: 700; color: #17324d; }
+.cs-table tr.cs-kr td:not(.cs-month) { background: #d9f0fc; }
+.cs-table tr.cs-cn td:not(.cs-month) { background: #fde3f0; }
+.cs-table tr.cs-last td:not(.cs-month) { border-bottom: 1px solid #d5dde8; }
+.cs-table tr:last-child td { border-bottom: none; }
+.cs-num { font-size: 16px; font-weight: 700; color: #17324d; }
+.cs-krw { font-size: 16px; font-weight: 700; color: #2e7d32; }
+.cs-detail-btn { display: block; width: 100%; margin: 10px 0; padding: 9px 12px; font-size: 13px; }
+.cs-detail { margin-bottom: 12px; border: 1px solid #d5dde8; border-radius: 10px; overflow: hidden; }
+.cs-d-row { display: flex; align-items: flex-start; gap: 10px; padding: 8px 12px; border-bottom: 1px solid #fff; }
+.cs-d-row:last-child { border-bottom: none; }
+.cs-d-row.kr { background: #d9f0fc; }
+.cs-d-row.cn { background: #fde3f0; }
+.cs-d-label { flex: 0 0 84px; font-size: 13px; font-weight: 700; color: #17324d; line-height: 1.7; }
+.cs-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.cs-chip { font-size: 12px; line-height: 1.6; padding: 0 8px; border-radius: 999px; background: #fff; color: #334155; white-space: nowrap; }
+.cs-chip i { font-style: normal; color: #7a8599; }
+.cs-rate { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 8px 14px; margin-bottom: 8px; background: #fffbea; border: 1px solid #f3e6b3; border-radius: 10px; font-size: 12.5px; color: #6b5b1a; }
 .cs-rate input { width: 80px; padding: 3px 6px; text-align: right; font-size: 13px; }
 .cs-rate .cs-warn { color: #c62828; font-size: 12px; }
-.cs-main { display: grid; grid-template-columns: 44px 1fr 1fr; align-items: center; gap: 8px; }
-.cs-section.cn .cs-main { grid-template-columns: 44px 1fr 1fr 1fr; }
-.cs-head { padding: 7px 14px; font-weight: 500; font-size: 13px; color: #000000; background: #f1f4f8; border-bottom: 1px solid #eef1f5; }
-.cs-head span { text-align: right; }
-.cs-head span:first-child { text-align: left; }
-.cs-row { padding: 9px 14px 8px; border-bottom: 1px solid #f0f2f6; }
-.cs-row:last-child { border-bottom: none; }
-.cs-month { font-weight: 700; font-size: 14px; color: #17324d; }
-.cs-people { text-align: right; font-size: 13px; color: #475569; }
-.cs-avg { text-align: right; font-weight: 700; font-size: 16px; color: var(--cs-color); }
-.cs-krw { text-align: right; font-weight: 700; font-size: 16px; color: #2e7d32; }
-.cs-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; padding-left: 52px; }
-.cs-chip { font-size: 11.5px; line-height: 1.5; padding: 0 8px; border-radius: 999px; background: var(--cs-bg); color: #334155; white-space: nowrap; }
-.cs-chip i { font-style: normal; color: #7a8599; }
 .cs-empty { padding: 18px; text-align: center; color: #888; font-size: 13px; }
 .cs-note { font-size: 12px; color: #97a0af; text-align: center; margin-top: 4px; }
 .cs-nav { margin-right: auto; display: flex; align-items: center; gap: 4px; }
 .cs-nav b { font-size: 14px; min-width: 52px; text-align: center; }
-@media (max-width: 480px) {
-  .cs-chips { padding-left: 0; }
-}
 
 /* 공지문 팝업 전용 스타일 */
 .notice-modal-box {
@@ -1055,7 +1060,7 @@ function showCostSumStats() {
     renderCostSum();
   }).catch(e => {
     console.error(e);
-    openStatsModal("💰 Cost Summary", "<div style='color:red; text-align:center;'>통계 조회 중 오류가 발생했습니다.</div>");
+    openStatsModal("💰 Cost Sum", "<div style='color:red; text-align:center;'>통계 조회 중 오류가 발생했습니다.</div>");
   });
 }
 
@@ -1070,58 +1075,87 @@ function changeCostSumRate(v) {
   renderCostSum();
 }
 
-function buildCostSumSection(title, color, bg, key, extraHtml = "") {
-  const isCn = key === "cn";
+let costSumDetailOpen = false;
+
+function calcCostSumMonth(map) {
+  if (!map || Object.keys(map).length === 0) return null;
+  const prices = Object.keys(map).map(Number).sort((a, b) => a - b);
+  let people = 0, amount = 0;
+  prices.forEach(pr => { people += map[pr]; amount += pr * map[pr]; });
+  return { prices, map, people, avg: Math.round(amount / people) };
+}
+
+function buildCostSumTable() {
   const rate = costSumRate;
   let body = "";
   let hasData = false;
 
   for (let m = 1; m <= 12; m++) {
-    const monthKey = `${costSumYear}-${String(m).padStart(2, "0")}`;
-    const map = costSumRows[monthKey] ? costSumRows[monthKey][key] : null;
-    if (!map || Object.keys(map).length === 0) continue;
+    const rec = costSumRows[`${costSumYear}-${String(m).padStart(2, "0")}`];
+    const kr = rec ? calcCostSumMonth(rec.kr) : null;
+    const cn = rec ? calcCostSumMonth(rec.cn) : null;
+    if (!kr && !cn) continue;
     hasData = true;
 
-    const prices = Object.keys(map).map(Number).sort((a, b) => a - b);
-    let totalPeople = 0, totalAmount = 0;
-    const chips = prices.map(pr => {
-      const pp = map[pr];
-      totalPeople += pp;
-      totalAmount += pr * pp;
-      return `<span class="cs-chip"><b>${pr.toLocaleString()}</b> <i>(${pp.toLocaleString()}명)</i></span>`;
-    }).join("");
-    const avg = Math.round(totalAmount / totalPeople);
+    const span = (kr ? 1 : 0) + (cn ? 1 : 0);
+    let monthCell = `<td class="cs-month" rowspan="${span}">${m}월</td>`;
 
-    let krwCell = "";
-    if (isCn) {
-      krwCell = rate
-        ? `<span class="cs-krw">${Math.round(avg * rate / 1000).toLocaleString()}</span>`
-        : `<span class="cs-krw" style="color:#aaa;">-</span>`;
+    if (kr) {
+      body += `<tr class="cs-kr${cn ? "" : " cs-last"}">${monthCell}
+        <td class="cs-nat">🇰🇷 KR</td>
+        <td>${kr.people.toLocaleString()}명</td>
+        <td class="cs-num">${kr.avg.toLocaleString()}</td>
+        <td class="cs-krw">${kr.avg.toLocaleString()}</td>
+      </tr>`;
+      monthCell = "";
     }
-
-    body += `<div class="cs-row">
-      <div class="cs-main">
-        <span class="cs-month">${m}월</span>
-        <span class="cs-people">${totalPeople.toLocaleString()}명</span>
-        <span class="cs-avg">${avg.toLocaleString()}</span>
+    if (cn) {
+      const krwCell = rate
+        ? `<td class="cs-krw">${Math.round(cn.avg * rate / 1000).toLocaleString()}</td>`
+        : `<td class="cs-krw" style="color:#aaa;">-</td>`;
+      body += `<tr class="cs-cn cs-last">${monthCell}
+        <td class="cs-nat">🇨🇳 CN</td>
+        <td>${cn.people.toLocaleString()}명</td>
+        <td class="cs-num">${cn.avg.toLocaleString()}</td>
         ${krwCell}
-      </div>
-      <div class="cs-chips">${chips}</div>
-    </div>`;
+      </tr>`;
+    }
   }
 
   if (!hasData) {
-    body = `<div class="cs-empty">${costSumYear}년 금액이 입력된 단체가 없습니다.</div>`;
+    body = `<tr><td colspan="5" class="cs-empty">${costSumYear}년 금액이 입력된 단체가 없습니다.</td></tr>`;
   }
 
-  return `<div class="cs-section ${key}" style="--cs-color:${color}; --cs-bg:${bg};">
-    <div class="cs-title">${title}</div>
-    ${extraHtml}
-    <div class="cs-main cs-head">
-      <span>월</span><span>총인원</span><span>평균</span>${isCn ? '<span>원화 환산</span>' : ''}
-    </div>
-    ${body}
-  </div>`;
+  return `<div class="cs-table-wrap"><table class="cs-table">
+    <thead><tr><th style="width:50px;">월</th><th>국적</th><th>총인원</th><th>평균</th><th>원화 환산</th></tr></thead>
+    <tbody>${body}</tbody>
+  </table></div>`;
+}
+
+function buildCostSumDetail() {
+  let items = "";
+  for (let m = 1; m <= 12; m++) {
+    const rec = costSumRows[`${costSumYear}-${String(m).padStart(2, "0")}`];
+    if (!rec) continue;
+    [["kr", "🇰🇷 KR"], ["cn", "🇨🇳 CN"]].forEach(([key, label]) => {
+      const info = calcCostSumMonth(rec[key]);
+      if (!info) return;
+      const chips = info.prices.map(pr =>
+        `<span class="cs-chip"><b>${pr.toLocaleString()}</b> <i>(${info.map[pr].toLocaleString()}명)</i></span>`
+      ).join("");
+      items += `<div class="cs-d-row ${key}"><div class="cs-d-label">${m}월 ${label}</div><div class="cs-chips">${chips}</div></div>`;
+    });
+  }
+  if (!items) items = `<div class="cs-empty">상세 내역이 없습니다.</div>`;
+  return `<div id="costSumDetail" class="cs-detail" style="display:${costSumDetailOpen ? "block" : "none"};">${items}</div>`;
+}
+
+function toggleCostSumDetail() {
+  costSumDetailOpen = !costSumDetailOpen;
+  const panel = document.getElementById("costSumDetail");
+  const btn = document.getElementById("costSumDetailBtn");
+  if (panel) panel.style.display = costSumDetailOpen ? "block" : "none";
+  if (btn) btn.textContent = costSumDetailOpen ? "▲ 상세보기 닫기" : "▼ 금액별 인원 상세보기";
 }
 
 function renderCostSum() {
@@ -1134,8 +1168,9 @@ function renderCostSum() {
 
   const html = `<div style="max-height:60vh; overflow-y:auto; padding-right:2px;">
     <div id="costSumCaptureArea" style="background:#ffffff; padding:4px;">
-    ${buildCostSumSection("🇰🇷 KR 단체", "#1769aa", "#eaf3fb", "kr")}
-    ${buildCostSumSection("🇨🇳 CN 단체", "#c62828", "#fdeeee", "cn")}
+    ${buildCostSumTable()}
+    <button type="button" id="costSumDetailBtn" class="secondary cs-detail-btn" data-html2canvas-ignore="true" onclick="toggleCostSumDetail()">${costSumDetailOpen ? "▲ 상세보기 닫기" : "▼ 금액별 인원 상세보기"}</button>
+    ${buildCostSumDetail()}
     ${rateBar}
     <div class="cs-note">☆참고용입니다(FOC, 업글 등 상세 내용 제외)☆</div>
     </div>
@@ -1148,7 +1183,7 @@ function renderCostSum() {
   </div>
   <button type="button" class="success" onclick="downloadCostSumImage()">📸 이미지 다운로드</button>`;
 
-  openStatsModal("💰 Cost Summary", html, nav);
+  openStatsModal("💰 Cost Sum", html, nav);
   document.getElementById("statsModalBox").classList.add("cost-sum-modal-box");
 }
 
