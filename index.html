@@ -419,7 +419,7 @@ th{background:#f1f4f7}
         <button type="button" onclick="showRidingStats()">🚴 라이딩 월별</button>
         <button type="button" onclick="downloadMonthlyStatsImageDirect()">🖼️ 월 통계 이미지</button>
         <button type="button" onclick="triggerMonthlyExcelDownload()">🟩 월 통계 엑셀</button>
-        <button type="button" onclick="showCostSumStats()">💰 Cost Summary</button>
+        <button type="button" onclick="showCostSumStats()">💰 Cost Sum</button>
         <button type="button" onclick="showNameVerifierModal()">🔍 명단 검증기</button>
         <button type="button" onclick="triggerStatsOrganizeExcelDownload()">📗 수대리 작업용</button>
         <button type="button" onclick="triggerCiqExcelDownload()">🛂 CIQ 제출용</button>
@@ -991,7 +991,7 @@ function showCostSumStats() {
   const currentDate = calendar ? calendar.view.currentStart : new Date();
   costSumYear = currentDate.getFullYear();
 
-  openStatsModal("💰 Cost Sum", "<div style='text-align:center; padding:20px;'>통계 데이터를 불러오는 중...</div>");
+  openStatsModal("💰 Cost Summary", "<div style='text-align:center; padding:20px;'>통계 데이터를 불러오는 중...</div>");
 
   const ratePromise = costSumRate ? Promise.resolve(costSumRate) : fetchCnyKrwRate();
 
@@ -1116,10 +1116,10 @@ function renderCostSum() {
   </div>`;
 
   const html = `<div style="max-height:60vh; overflow-y:auto; padding-right:2px;">
-    ${buildCostSumSection("🇰🇷 KR 단체 (월·수·금 출발)", "#1769aa", "#e8f2fb", "kr")}
+    ${buildCostSumSection("🇰🇷 KR 단체", "#1769aa", "#e8f2fb", "kr")}
     ${rateBar}
-    ${buildCostSumSection("🇨🇳 CN 단체 (화·목·일 출발)", "#c62828", "#fdecec", "cn")}
-    <div style="font-size:11px; color:#889; text-align:center;">평균 = Σ(금액 × 인원) ÷ 총인원 (소수점 반올림) / 원화 = 평균 × 환율 (천원 단위 반올림)</div>
+    ${buildCostSumSection("🇨🇳 CN 단체", "#c62828", "#fdecec", "cn")}
+    <div style="font-size:11px; color:#889; text-align:center;">☆참고용입니다(FOC, 업글 등 상세 내용 제외)☆</div>
   </div>`;
 
   const nav = `<div style="margin-right:auto; display:flex; align-items:center; gap:6px;">
@@ -1128,7 +1128,7 @@ function renderCostSum() {
     <button type="button" class="secondary" onclick="changeCostSumYear(1)" style="padding:6px 10px;">▶</button>
   </div>`;
 
-  openStatsModal("💰 Cost Sum (월별 평균 금액)", html, nav);
+  openStatsModal("💰 Cost Sum", html, nav);
 }
 
 function showMonthlyStats() {
