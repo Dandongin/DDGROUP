@@ -968,6 +968,20 @@ function initNoticeViewerEvents(viewportId = "noticeViewport") {
 /* ===== Cost Sum 통계 : 월별 금액 가중평균 (KR: 월·수·금 / CN: 화·목·일 출발) ===== */
 let costSumRows = null;   // { "YYYY-MM": { kr: {금액: 인원}, cn: {금액: 인원} } }
 let costSumYear = null;
+let costSumRate = null;   // 원화/인민폐 환율 (1 CNY = ? KRW)
+
+function fetchCnyKrwRate() {
+  const ctrl = (typeof AbortController !== "undefined") ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(() => ctrl.abort(), 5000) : null;
+  return fetch("https://open.er-api.com/v6/latest/CNY", ctrl ? { signal: ctrl.signal } : {})
+    .then(r => r.json())
+    .then(j => {
+      if (timer) clearTimeout(timer);
+      const v = j && j.rates ? Number(j.rates.KRW) : NaN;
+      return v > 0 ? Math.round(v * 100) / 100 : null;
+    })
+    .catch(() => { if (timer) clearTimeout(timer); return null; });
+}
 
 function showCostSumStats() {
   if (!db) {
@@ -979,7 +993,10 @@ function showCostSumStats() {
 
   openStatsModal("💰 Cost Sum", "<div style='text-align:center; padding:20px;'>통계 데이터를 불러오는 중...</div>");
 
-  db.collection("schedules").get().then(querySnapshot => {
+  const ratePromise = costSumRate ? Promise.resolve(costSumRate) : fetchCnyKrwRate();
+
+  Promise.all([db.collection("schedules").get(), ratePromise]).then(([querySnapshot, rate]) => {
+    if (rate) costSumRate = rate;
     const rows = {};
     querySnapshot.forEach(doc => {
       const regDate = doc.id;
@@ -1017,7 +1034,15 @@ function changeCostSumYear(delta) {
   renderCostSum();
 }
 
+function changeCostSumRate(v) {
+  const n = parseFloat(String(v).replace(/,/g, ""));
+  costSumRate = n > 0 ? n : null;
+  renderCostSum();
+}
+
 function buildCostSumSection(title, color, bg, key) {
+  const isCn = key === "cn";
+  const rate = costSumRate;
   let body = "";
   let hasData = false;
 
@@ -1037,16 +1062,32 @@ function buildCostSumSection(title, color, bg, key) {
     }).join("");
     const avg = Math.round(totalAmount / totalPeople);
 
+    let krwCell = "";
+    if (isCn) {
+      if (rate) {
+        const won = avg * rate;
+        const thousand = Math.round(won / 1000);
+        krwCell = `<td style="padding:6px; border-bottom:1px solid #eee; text-align:right; white-space:nowrap; line-height:1.3;">
+          <b style="color:#2e7d32; font-size:16px;">${thousand.toLocaleString()}</b>
+          <div style="font-size:10px; color:#889;">${avg.toLocaleString()} × ${rate.toLocaleString()} = ${Math.round(won).toLocaleString()}</div>
+        </td>`;
+      } else {
+        krwCell = `<td style="padding:8px 6px; border-bottom:1px solid #eee; text-align:right; color:#aaa;">-</td>`;
+      }
+    }
+
     body += `<tr>
       <td style="padding:8px 6px; border-bottom:1px solid #eee; text-align:center; font-weight:bold; white-space:nowrap;">${m}월</td>
-      <td style="padding:6px; border-bottom:1px solid #eee; text-align:left; line-height:1.9;">${chips}</td>
       <td style="padding:8px 6px; border-bottom:1px solid #eee; text-align:right; white-space:nowrap;">${totalPeople.toLocaleString()}명</td>
       <td style="padding:8px 6px; border-bottom:1px solid #eee; text-align:right; font-weight:bold; color:${color}; font-size:16px; white-space:nowrap;">${avg.toLocaleString()}</td>
+      ${krwCell}
+      <td style="padding:6px; border-bottom:1px solid #eee; text-align:left; line-height:1.9;">${chips}</td>
     </tr>`;
   }
 
+  const colCount = isCn ? 5 : 4;
   if (!hasData) {
-    body = `<tr><td colspan="4" style="padding:18px; text-align:center; color:#888; font-size:13px;">${costSumYear}년 금액이 입력된 단체가 없습니다.</td></tr>`;
+    body = `<tr><td colspan="${colCount}" style="padding:18px; text-align:center; color:#888; font-size:13px;">${costSumYear}년 금액이 입력된 단체가 없습니다.</td></tr>`;
   }
 
   return `<div style="margin-bottom:18px;">
@@ -1055,9 +1096,10 @@ function buildCostSumSection(title, color, bg, key) {
       <thead>
         <tr style="background:#f1f4f7; font-size:12px; color:#556;">
           <th style="padding:6px; border-bottom:1px solid #cbd5e1; width:44px;">월</th>
-          <th style="padding:6px; border-bottom:1px solid #cbd5e1; text-align:left;">금액 (인원)</th>
           <th style="padding:6px; border-bottom:1px solid #cbd5e1; text-align:right;">총인원</th>
           <th style="padding:6px; border-bottom:1px solid #cbd5e1; text-align:right;">평균</th>
+          ${isCn ? '<th style="padding:6px; border-bottom:1px solid #cbd5e1; text-align:right;">원화(천원)</th>' : ''}
+          <th style="padding:6px; border-bottom:1px solid #cbd5e1; text-align:left;">금액 (인원)</th>
         </tr>
       </thead>
       <tbody>${body}</tbody>
@@ -1066,10 +1108,18 @@ function buildCostSumSection(title, color, bg, key) {
 }
 
 function renderCostSum() {
+  const rateBar = `<div style="display:flex; align-items:center; gap:8px; background:#fff8e1; border:1px solid #ffe082; border-radius:6px; padding:8px 12px; margin-bottom:12px; font-size:13px;">
+    <span>💱 오늘 환율 (1위안 = </span>
+    <input type="number" step="0.01" min="0" value="${costSumRate ?? ''}" placeholder="직접 입력" onchange="changeCostSumRate(this.value)" style="width:90px; padding:4px 6px; text-align:right;">
+    <span>원)</span>
+    ${costSumRate ? '' : '<span style="color:#c62828; font-size:12px;">환율을 불러오지 못했습니다. 직접 입력해 주세요.</span>'}
+  </div>`;
+
   const html = `<div style="max-height:60vh; overflow-y:auto; padding-right:2px;">
     ${buildCostSumSection("🇰🇷 KR 단체 (월·수·금 출발)", "#1769aa", "#e8f2fb", "kr")}
+    ${rateBar}
     ${buildCostSumSection("🇨🇳 CN 단체 (화·목·일 출발)", "#c62828", "#fdecec", "cn")}
-    <div style="font-size:11px; color:#889; text-align:center;">평균 = Σ(금액 × 인원) ÷ 총인원 (소수점 반올림)</div>
+    <div style="font-size:11px; color:#889; text-align:center;">평균 = Σ(금액 × 인원) ÷ 총인원 (소수점 반올림) / 원화 = 평균 × 환율 (천원 단위 반올림)</div>
   </div>`;
 
   const nav = `<div style="margin-right:auto; display:flex; align-items:center; gap:6px;">
