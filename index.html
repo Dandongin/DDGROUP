@@ -1137,7 +1137,7 @@ function buildCostSumDetail() {
   for (let m = 1; m <= 12; m++) {
     const rec = costSumRows[`${costSumYear}-${String(m).padStart(2, "0")}`];
     if (!rec) continue;
-    [["kr", "🇰🇷 KR"], ["cn", "🇨🇳 CN"]].forEach(([key, label]) => {
+    [["kr", "🇰🇷 한국"], ["cn", "🇨🇳 중국"]].forEach(([key, label]) => {
       const info = calcCostSumMonth(rec[key]);
       if (!info) return;
       const chips = info.prices.map(pr =>
