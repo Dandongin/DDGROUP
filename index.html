@@ -1111,9 +1111,9 @@ function buildCostSumTable() {
     if (kr) {
       body += `<tr class="cs-kr${cn ? "" : " cs-last"}">${monthCell}
         <td class="cs-nat">🇰🇷 KR</td>
-        <td>${kr.people.toLocaleString()}명</td>
-        <td class="cs-num">${kr.avg.toLocaleString()}</td>
         <td class="cs-krw">${kr.avg.toLocaleString()}</td>
+        <td class="cs-num">${kr.avg.toLocaleString()}</td>
+        <td>${kr.people.toLocaleString()}명</td>
       </tr>`;
       monthCell = "";
     }
@@ -1123,9 +1123,9 @@ function buildCostSumTable() {
         : `<td class="cs-krw" style="color:#aaa;">-</td>`;
       body += `<tr class="cs-cn cs-last">${monthCell}
         <td class="cs-nat">🇨🇳 CN</td>
-        <td>${cn.people.toLocaleString()}명</td>
-        <td class="cs-num">${cn.avg.toLocaleString()}</td>
         ${krwCell}
+        <td class="cs-num">${cn.avg.toLocaleString()}</td>
+        <td>${cn.people.toLocaleString()}명</td>
       </tr>`;
     }
   }
@@ -1135,7 +1135,7 @@ function buildCostSumTable() {
   }
 
   return `<div class="cs-table-wrap"><table class="cs-table">
-    <thead><tr><th style="width:50px;">월</th><th>국적</th><th>총인원</th><th>인/평균</th><th>원화 환산</th></tr></thead>
+    <thead><tr><th style="width:50px;">월</th><th>국적</th><th>원화 환산</th><th>인/평균</th><th>총인원</th></tr></thead>
     <tbody>${body}</tbody>
   </table></div>`;
 }
