@@ -253,11 +253,11 @@ th{background:#f1f4f7}
 .cs-table th:first-child { text-align: center; }
 .cs-table th:nth-child(2) { text-align: left; }
 .cs-table td { padding: 9px 8px; text-align: right; white-space: nowrap; }
-.cs-table td.cs-month { text-align: center; vertical-align: middle; background: #fff; color: #17324d; font-size: 15px; font-weight: 700; border-right: 1px solid #e3e8ef; border-bottom: 1px solid #d5dde8; }
+.cs-table td.cs-month { text-align: center; vertical-align: middle; background: #dfe7f1; color: #17324d; font-size: 15px; font-weight: 700; border-right: 2px solid #8fa3ba; border-bottom: 2px solid #8fa3ba; }
 .cs-table td.cs-nat { text-align: left; font-weight: 700; color: #17324d; }
 .cs-table tr.cs-kr td:not(.cs-month) { background: #d9f0fc; }
 .cs-table tr.cs-cn td:not(.cs-month) { background: #fde3f0; }
-.cs-table tr.cs-last td:not(.cs-month) { border-bottom: 1px solid #d5dde8; }
+.cs-table tr.cs-last td:not(.cs-month) { border-bottom: 2px solid #8fa3ba; }
 .cs-table tr:last-child td { border-bottom: none; }
 .cs-num { font-size: 16px; font-weight: 700; color: #17324d; }
 .cs-krw { font-size: 16px; font-weight: 700; color: #2e7d32; }
@@ -1111,20 +1111,20 @@ function buildCostSumTable() {
     if (kr) {
       body += `<tr class="cs-kr${cn ? "" : " cs-last"}">${monthCell}
         <td class="cs-nat">🇰🇷 KR</td>
-        <td class="cs-krw">₩ ${kr.avg.toLocaleString()}</td>
-        <td class="cs-num">₩ ${kr.avg.toLocaleString()}</td>
+        <td class="cs-krw">₩${kr.avg.toLocaleString()}</td>
+        <td class="cs-num">₩${kr.avg.toLocaleString()}</td>
         <td>${kr.people.toLocaleString()}명</td>
       </tr>`;
       monthCell = "";
     }
     if (cn) {
       const krwCell = rate
-        ? `<td class="cs-krw">₩ ${Math.round(cn.avg * rate / 1000).toLocaleString()}</td>`
+        ? `<td class="cs-krw">₩${Math.round(cn.avg * rate / 1000).toLocaleString()}</td>`
         : `<td class="cs-krw" style="color:#aaa;">-</td>`;
       body += `<tr class="cs-cn cs-last">${monthCell}
         <td class="cs-nat">🇨🇳 CN</td>
         ${krwCell}
-        <td class="cs-num">¥ ${cn.avg.toLocaleString()}</td>
+        <td class="cs-num">¥${cn.avg.toLocaleString()}</td>
         <td>${cn.people.toLocaleString()}명</td>
       </tr>`;
     }
