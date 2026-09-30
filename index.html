@@ -1111,20 +1111,20 @@ function buildCostSumTable() {
     if (kr) {
       body += `<tr class="cs-kr${cn ? "" : " cs-last"}">${monthCell}
         <td class="cs-nat">🇰🇷 KR</td>
-        <td class="cs-krw">₩${kr.avg.toLocaleString()}</td>
-        <td class="cs-num">₩${kr.avg.toLocaleString()}</td>
+        <td class="cs-krw">₩ ${kr.avg.toLocaleString()}</td>
+        <td class="cs-num">₩ ${kr.avg.toLocaleString()}</td>
         <td>${kr.people.toLocaleString()}명</td>
       </tr>`;
       monthCell = "";
     }
     if (cn) {
       const krwCell = rate
-        ? `<td class="cs-krw">₩${Math.round(cn.avg * rate / 1000).toLocaleString()}</td>`
+        ? `<td class="cs-krw">₩ ${Math.round(cn.avg * rate / 1000).toLocaleString()}</td>`
         : `<td class="cs-krw" style="color:#aaa;">-</td>`;
       body += `<tr class="cs-cn cs-last">${monthCell}
         <td class="cs-nat">🇨🇳 CN</td>
         ${krwCell}
-        <td class="cs-num">¥${cn.avg.toLocaleString()}</td>
+        <td class="cs-num">¥ ${cn.avg.toLocaleString()}</td>
         <td>${cn.people.toLocaleString()}명</td>
       </tr>`;
     }
