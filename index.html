@@ -2624,7 +2624,7 @@ function runSimulation(shouldSave = true){
       }
 
       const teamBoardingPeople = targetAllocations.reduce((s, a) => s + (a.people || 0), 0);
-      const priceText = team.price ? ` | 💵 ${esc(team.price)}` : '';
+      const priceText = team.price ? ` |  ${esc(team.price)}` : '';
       let patternLabel = "🔄 왕복";
       if(team.pattern === 'ONEWAY_OUT') patternLabel = "➡️ 출국 편도";
 
