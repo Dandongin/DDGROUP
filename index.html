@@ -3472,7 +3472,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const doc = document.documentElement;
     const scrollable = doc.scrollHeight - window.innerHeight;
     const ratio = scrollable > 0 ? (window.pageYOffset || doc.scrollTop) / scrollable : 0;
-    btn.classList.toggle('show', scrollable > 0 && ratio >= 0.7);
+    btn.classList.toggle('show', scrollable > 0 && ratio >= 0.5);
   }
   window.addEventListener('scroll', updateVisibility, { passive: true });
   window.addEventListener('resize', updateVisibility);
