@@ -115,6 +115,7 @@ th{background:#f1f4f7}
 
 .fc .fc-day-sat a { color: #0000ff !important; }
 .fc .fc-day-sun a { color: #d32f2f !important; }
+.fc .kr-holiday .fc-daygrid-day-number { color: #d32f2f !important; }
   
 .fc-daygrid-day-frame { position: relative; }
 .lounge-emoji-badge {
@@ -442,6 +443,10 @@ th{background:#f1f4f7}
   .master-grid{grid-template-columns:1fr 1fr;}
   button{padding:7px 10px; font-size:12px;}
 }
+
+/* 최상단으로 바로 가기 버튼 (드래그 이동 가능) */
+#backToTopBtn{position:fixed; right:16px; bottom:24px; width:48px; height:48px; border-radius:50%; border:none; background:#17324d; color:#fff; font-size:22px; font-weight:bold; line-height:48px; text-align:center; padding:0; box-shadow:0 3px 10px rgba(0,0,0,.35); cursor:pointer; z-index:9999; opacity:0; visibility:hidden; transition:opacity .2s, visibility .2s; touch-action:none; user-select:none; -webkit-user-select:none;}
+#backToTopBtn.show{opacity:.92; visibility:visible;}
 </style>
 </head>
 <body>
@@ -672,6 +677,7 @@ function normalizePattern(p){
 function getLoungeType(specialNote){
   if (specialNote === 'LOUNGE_ROUND' || specialNote === 'RIDING_LOUNGE_ROUND') return 'ROUND';
   if (specialNote === 'LOUNGE_ONEWAY' || specialNote === 'RIDING_LOUNGE_ONEWAY') return 'ONEWAY';
+  if (specialNote === 'LOUNGE_RETURN') return 'RETURN';
   return null;
 }
 
@@ -1495,6 +1501,7 @@ function showLoungeStats() {
           name: t.name || "",
           people: people,
           isRound: loungeType === 'ROUND',
+          isReturnOnly: loungeType === 'RETURN',
           goDate: regDate,
           returnDate: returnDate
         });
@@ -1526,8 +1533,8 @@ function showLoungeStats() {
       html += `<tr>
         <td style="padding:8px; border-bottom:1px solid #eee; text-align:left; font-weight:bold;">${esc(team.name)}</td>
         <td style="padding:8px; border-bottom:1px solid #eee; text-align:center;">${team.people.toLocaleString()}명</td>
-        <td style="padding:8px; border-bottom:1px solid #eee; text-align:center;">${formatDateMDShort(team.goDate)}</td>
-        <td style="padding:8px; border-bottom:1px solid #eee; text-align:center;">${team.isRound ? formatDateMDShort(team.returnDate) : '-'}</td>
+        <td style="padding:8px; border-bottom:1px solid #eee; text-align:center;">${team.isReturnOnly ? '-' : formatDateMDShort(team.goDate)}</td>
+        <td style="padding:8px; border-bottom:1px solid #eee; text-align:center;">${(team.isRound || team.isReturnOnly) ? formatDateMDShort(team.returnDate) : '-'}</td>
       </tr>`;
     });
 
@@ -1561,6 +1568,8 @@ function downloadLoungeStatsImage() {
   });
 }
 
+const krHolidaySet = new Set();
+
 document.addEventListener('DOMContentLoaded', function() {
   const calendarEl = document.getElementById('calendar');
   if(!calendarEl) return;
@@ -1570,6 +1579,11 @@ document.addEventListener('DOMContentLoaded', function() {
     locale: 'ko',
     headerToolbar: { left: 'title', center: '', right: 'today prev,next' },
     eventOrder: 'order,start',
+    dayCellClassNames: function(arg) {
+      const d = arg.date;
+      const k = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+      return krHolidaySet.has(k) ? ['kr-holiday'] : [];
+    },
     dateClick: function(info) {
       closeEventSection();
       openDateSim(info.dateStr);
@@ -1588,6 +1602,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const year = fetchInfo.start.getFullYear();
             const res = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/KR`);
             const holidays = await res.json();
+            holidays.forEach(h => krHolidaySet.add(h.date));
+            document.querySelectorAll('.fc-daygrid-day').forEach(c => { if (krHolidaySet.has(c.getAttribute('data-date'))) c.classList.add('kr-holiday'); });
             successCallback(holidays.map(h => ({
               title: `🇰🇷 ${h.localName}`,
               start: h.date,
@@ -1698,8 +1714,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
                   const loungeTypeForDate = getLoungeType(t.specialNote);
                   if (loungeTypeForDate) {
-                    loungeDates.add(regDate);
-                    if (loungeTypeForDate === 'ROUND') loungeDates.add(returnDate);
+                    if (loungeTypeForDate !== 'RETURN') loungeDates.add(regDate);
+                    if (loungeTypeForDate === 'ROUND' || loungeTypeForDate === 'RETURN') loungeDates.add(returnDate);
                   }
                 });
               }
@@ -2176,6 +2192,7 @@ function addTeam(name="", pattern="ROUND", nights="", price="", memo="", isSplit
         <option value="" ${specialNote===''?'selected':''}>특이사항</option>
         <option value="LOUNGE_ROUND" ${specialNote==='LOUNGE_ROUND'?'selected':''}>라운지 왕복</option>
         <option value="LOUNGE_ONEWAY" ${specialNote==='LOUNGE_ONEWAY'?'selected':''}>라운지 편도</option>
+        <option value="LOUNGE_RETURN" ${specialNote==='LOUNGE_RETURN'?'selected':''}>라운지 리턴</option>
         <option value="RIDING" ${specialNote==='RIDING'?'selected':''}>🚴 라이딩 왕복</option>
         <option value="RIDING_LOUNGE_ROUND" ${specialNote==='RIDING_LOUNGE_ROUND'?'selected':''}>🚴왕복+🎤왕복</option>
         <option value="RIDING_LOUNGE_ONEWAY" ${specialNote==='RIDING_LOUNGE_ONEWAY'?'selected':''}>🚴왕복+🎤편도</option>
@@ -2302,6 +2319,7 @@ function restoreTeamUI(teamData){
         <option value="" ${specialNote===''?'selected':''}>특이사항</option>
         <option value="LOUNGE_ROUND" ${specialNote==='LOUNGE_ROUND'?'selected':''}>라운지 왕복</option>
         <option value="LOUNGE_ONEWAY" ${specialNote==='LOUNGE_ONEWAY'?'selected':''}>라운지 편도</option>
+        <option value="LOUNGE_RETURN" ${specialNote==='LOUNGE_RETURN'?'selected':''}>라운지 리턴</option>
         <option value="RIDING" ${specialNote==='RIDING'?'selected':''}>🚴 라이딩</option>
         <option value="RIDING_LOUNGE_ROUND" ${specialNote==='RIDING_LOUNGE_ROUND'?'selected':''}>🚴+🎤왕복</option>
         <option value="RIDING_LOUNGE_ONEWAY" ${specialNote==='RIDING_LOUNGE_ONEWAY'?'selected':''}>🚴+🎤편도</option>
@@ -2518,7 +2536,7 @@ function runSimulation(shouldSave = true){
   const todayOutTeams = todayTeams.filter(t => t.pattern === 'ROUND' || t.pattern === 'ONEWAY_OUT');
   const outBoardingTeams = [...todayOutTeams, ...linkedReturnTeams];
 
-  const isLoungeTeam = (t) => !!getLoungeType(t.specialNote);
+  const isLoungeTeam = (t) => { const lt = getLoungeType(t.specialNote); return !!lt && (lt !== 'RETURN' || !!t.isReturnOnTarget); };
   outBoardingTeams.sort((a, b) => (isLoungeTeam(a) ? 0 : 1) - (isLoungeTeam(b) ? 0 : 1));
 
   const groupTotalPeople = outBoardingTeams.reduce((s,t) => {
@@ -2636,6 +2654,7 @@ function runSimulation(shouldSave = true){
       const loungeTypeForTag = getLoungeType(team.specialNote);
       if (loungeTypeForTag === 'ROUND') loungeTag = `<span class="tag-lounge">🎤 라운지 왕복</span>`;
       else if (loungeTypeForTag === 'ONEWAY') loungeTag = `<span class="tag-lounge">🎤 라운지 편도</span>`;
+      else if (loungeTypeForTag === 'RETURN' && isReturn) loungeTag = `<span class="tag-lounge">🎤 라운지 리턴</span>`;
 
       teamResultsHtml += `<div style="margin-bottom:16px; border-bottom:1px solid #e1e7ef; padding-bottom:12px;">
         <h3 style="margin-bottom:4px; color:${teamNameColor};">${dowFlag} ${esc(team.name)} (${teamBoardingPeople}명) <span class="tag-pattern">${patternLabel}</span> ${loungeTag} ${ridingTag} ${statusTag}${priceText}</h3>
@@ -3443,6 +3462,68 @@ function downloadResultImage(){
     link.click();
   });
 }
+
+// 최상단 이동 버튼: 70% 이상 스크롤 시 표시 / 드래그로 위치 이동
+document.addEventListener('DOMContentLoaded', function() {
+  const btn = document.getElementById('backToTopBtn');
+  if (!btn) return;
+
+  function updateVisibility() {
+    const doc = document.documentElement;
+    const scrollable = doc.scrollHeight - window.innerHeight;
+    const ratio = scrollable > 0 ? (window.pageYOffset || doc.scrollTop) / scrollable : 0;
+    btn.classList.toggle('show', scrollable > 0 && ratio >= 0.7);
+  }
+  window.addEventListener('scroll', updateVisibility, { passive: true });
+  window.addEventListener('resize', updateVisibility);
+  updateVisibility();
+
+  function applyPos(left, top) {
+    const maxL = window.innerWidth - btn.offsetWidth;
+    const maxT = window.innerHeight - btn.offsetHeight;
+    btn.style.left = Math.min(Math.max(0, left), maxL) + 'px';
+    btn.style.top = Math.min(Math.max(0, top), maxT) + 'px';
+    btn.style.right = 'auto';
+    btn.style.bottom = 'auto';
+  }
+  try {
+    const saved = JSON.parse(localStorage.getItem('backToTopPos') || 'null');
+    if (saved) applyPos(saved.left, saved.top);
+  } catch (e) {}
+
+  let dragging = false, moved = false, startX = 0, startY = 0, baseL = 0, baseT = 0;
+  btn.addEventListener('pointerdown', function(e) {
+    dragging = true; moved = false;
+    startX = e.clientX; startY = e.clientY;
+    const r = btn.getBoundingClientRect();
+    baseL = r.left; baseT = r.top;
+    try { btn.setPointerCapture(e.pointerId); } catch (err) {}
+  });
+  btn.addEventListener('pointermove', function(e) {
+    if (!dragging) return;
+    const dx = e.clientX - startX, dy = e.clientY - startY;
+    if (!moved && Math.abs(dx) + Math.abs(dy) < 8) return;
+    moved = true;
+    applyPos(baseL + dx, baseT + dy);
+  });
+  function endDrag(e) {
+    if (!dragging) return;
+    dragging = false;
+    try { btn.releasePointerCapture(e.pointerId); } catch (err) {}
+    if (moved) {
+      const r = btn.getBoundingClientRect();
+      try { localStorage.setItem('backToTopPos', JSON.stringify({ left: r.left, top: r.top })); } catch (err) {}
+    } else if (e.type === 'pointerup') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }
+  btn.addEventListener('pointerup', endDrag);
+  btn.addEventListener('pointercancel', endDrag);
+  window.addEventListener('resize', function() {
+    if (btn.style.left) { const r = btn.getBoundingClientRect(); applyPos(r.left, r.top); }
+  });
+});
 </script>
+<button type="button" id="backToTopBtn" title="최상단으로 (드래그하여 위치 이동)" aria-label="최상단으로">↑</button>
 </body>
 </html>
