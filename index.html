@@ -448,11 +448,13 @@ th{background:#f1f4f7}
 #backToTopBtn{position:fixed; right:16px; bottom:24px; width:48px; height:48px; border-radius:50%; border:none; background:#17324d; color:#fff; font-size:22px; font-weight:bold; line-height:48px; text-align:center; padding:0; box-shadow:0 3px 10px rgba(0,0,0,.35); cursor:pointer; z-index:9999; opacity:0; visibility:hidden; transition:opacity .2s, visibility .2s; touch-action:none; user-select:none; -webkit-user-select:none;}
 #backToTopBtn.show{opacity:.92; visibility:visible;}
 /* ===== 전달 메모 (달력 상단 네온 버튼 / 열람 / 관리) ===== */
-.tm-chunk{display:flex !important; align-items:center; flex-wrap:wrap; gap:8px 12px;}
-.tm-bar{display:flex; flex-wrap:wrap; align-items:center; gap:8px;}
+.tm-chunk{display:flex !important; align-items:center; flex-wrap:nowrap; gap:10px; flex:1 1 auto; min-width:0;}
+.tm-chunk .fc-toolbar-title{white-space:nowrap; flex:0 0 auto;}
+.tm-bar{display:flex; flex-wrap:nowrap; align-items:center; gap:8px; flex:1 1 auto; min-width:0; overflow-x:auto; padding:8px 10px; margin:-8px 0; scrollbar-width:none;}
+.tm-bar::-webkit-scrollbar{display:none;}
 button.tm-btn{
   border:1.5px solid #ffe97a; background:#fffbd6; color:#6a5400; font-weight:800; font-size:13px;
-  padding:6px 14px; border-radius:999px; cursor:pointer; line-height:1.2; max-width:100%;
+  padding:6px 14px; border-radius:999px; cursor:pointer; line-height:1.2; max-width:100%; flex:0 0 auto; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   text-shadow:0 0 3px rgba(255,226,90,.9);
   box-shadow:0 0 6px #ffe97a, 0 0 14px rgba(255,233,122,.8), inset 0 0 8px rgba(255,233,122,.6);
   animation:tmNeon 1.3s ease-in-out infinite alternate;
@@ -464,13 +466,10 @@ button.tm-btn:hover{background:#fff6b8;}
 }
 @media (prefers-reduced-motion: reduce){ button.tm-btn{animation:none;} }
 @media (max-width: 768px){
-  .fc .fc-header-toolbar{flex-wrap:wrap; row-gap:8px;}
-  .fc .fc-header-toolbar .fc-toolbar-chunk.tm-chunk{display:contents !important;}
-  .fc .fc-header-toolbar .fc-toolbar-chunk:nth-child(2){display:none;}
-  .fc .fc-header-toolbar .fc-toolbar-title{order:1;}
-  .fc .fc-header-toolbar .fc-toolbar-chunk:last-child{order:2; flex-shrink:0; white-space:nowrap; margin-left:auto;}
-  .fc .fc-header-toolbar .tm-bar{order:3; flex:0 0 100%;}
-  button.tm-btn{font-size:12px; padding:5px 12px;}
+  .fc .fc-header-toolbar .fc-toolbar-chunk:last-child{flex:0 0 auto; white-space:nowrap;}
+  .fc .fc-header-toolbar .fc-toolbar-chunk:nth-child(2):empty{display:none;}
+  .tm-chunk{gap:6px;}
+  button.tm-btn{font-size:12px; padding:5px 10px;}
 }
 #tmViewModal{z-index:10002;}
 .tm-view-box{max-width:480px;}
