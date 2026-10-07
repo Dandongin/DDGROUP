@@ -447,7 +447,7 @@ th{background:#f1f4f7}
 /* 최상단으로 바로 가기 버튼 (드래그 이동 가능) */
 #backToTopBtn{position:fixed; right:16px; bottom:24px; width:48px; height:48px; border-radius:50%; border:none; background:#17324d; color:#fff; font-size:22px; font-weight:bold; line-height:48px; text-align:center; padding:0; box-shadow:0 3px 10px rgba(0,0,0,.35); cursor:pointer; z-index:9999; opacity:0; visibility:hidden; transition:opacity .2s, visibility .2s; touch-action:none; user-select:none; -webkit-user-select:none;}
 #backToTopBtn.show{opacity:.92; visibility:visible;}
-/* ===== 전달 메모 (달력 상단 네온 버튼 / 열람 / 관리) ===== */
+/* ===== 메모 전달 (달력 상단 네온 버튼 / 열람 / 관리) ===== */
 .tm-chunk{display:flex !important; align-items:center; flex-wrap:nowrap; gap:10px; flex:1 1 auto; min-width:0;}
 .tm-chunk .fc-toolbar-title{white-space:nowrap; flex:0 0 auto;}
 .tm-bar{display:flex; flex-wrap:nowrap; align-items:center; gap:8px; flex:1 1 auto; min-width:0; overflow-x:auto; padding:8px 10px; margin:-8px 0; scrollbar-width:none;}
@@ -517,7 +517,7 @@ button.tm-btn:hover{background:#fff6b8;}
         <button type="button" onclick="showNameVerifierModal()">🔍 명단 검증기</button>
         <button type="button" onclick="triggerStatsOrganizeExcelDownload()">📗 수대리 작업용</button>
         <button type="button" onclick="triggerCiqExcelDownload()">🛂 CIQ 제출용</button>
-        <button type="button" onclick="showTransferMemoAdmin()">📌 전달 메모</button>
+        <button type="button" onclick="showTransferMemoAdmin()">📌 메모 전달</button>
 
       </div>
     </div>
@@ -647,11 +647,11 @@ button.tm-btn:hover{background:#fff6b8;}
   </div>
 </div>
 
-<!-- 전달 메모 열람 모달 -->
+<!-- 메모 전달 열람 모달 -->
 <div id="tmViewModal" class="modal-overlay hidden">
   <div class="modal-box tm-view-box">
     <div class="modal-header">
-      <h2 id="tmViewTitle">전달 메모</h2>
+      <h2 id="tmViewTitle">메모 전달</h2>
     </div>
     <div class="modal-body" style="margin-bottom:12px;">
       <div id="tmViewPosted" class="tm-view-posted"></div>
@@ -3599,7 +3599,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 <script>
-/* ===== 전달 메모 (Firestore: transferMemos 컬렉션) ===== */
+/* ===== 메모 전달 (Firestore: transferMemos 컬렉션) ===== */
 const TM_COL = "transferMemos";
 let tmAllMemos = [];
 let tmViewId = null;
@@ -3744,7 +3744,7 @@ function tmDoConfirm(pw) {
   });
 }
 
-/* ---- 관리자 입력 화면 (통계 > 전달 메모) ---- */
+/* ---- 관리자 입력 화면 (통계 > 메모 전달) ---- */
 function showTransferMemoAdmin() {
   const today = tmToday();
   const html = `
@@ -3780,12 +3780,12 @@ function showTransferMemoAdmin() {
       </div>
       <div class="small">※ 내용 열람은 누구나 가능하며, 비밀번호는 '본인 확인' 시에만 사용됩니다. 본인 확인이 완료되면 해당 메모는 모든 사용자의 달력에서 사라집니다.</div>
       <div class="tm-admin-list">
-        <label class="tm-lb">등록된 전달 메모</label>
+        <label class="tm-lb">등록된 메모 전달</label>
         <div id="tmAdminList"></div>
       </div>
     </div>
   `;
-  openStatsModal("📝 전달 메모", html, `<button type="button" class="primary" onclick="tmSaveMemo()">등록</button>`);
+  openStatsModal("📝 메모 전달", html, `<button type="button" class="primary" onclick="tmSaveMemo()">등록</button>`);
   tmRefreshAdminList();
 }
 function tmTogglePw() {
@@ -3816,7 +3816,7 @@ function tmSaveMemo() {
     confirmed: false,
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
   }).then(function() {
-    alert("전달 메모가 등록되었습니다.");
+    alert("메모 전달가 등록되었습니다.");
     document.getElementById("tmInTitle").value = "";
     document.getElementById("tmInContent").value = "";
     document.getElementById("tmInPw").value = "1";
@@ -3839,7 +3839,7 @@ function tmRefreshAdminList() {
   if (!box) return;
   const list = tmAllMemos.slice().sort(function(a, b) { return (b.createdMs || 0) - (a.createdMs || 0); });
   if (!list.length) {
-    box.innerHTML = '<div class="small" style="padding:6px 0;">등록된 전달 메모가 없습니다.</div>';
+    box.innerHTML = '<div class="small" style="padding:6px 0;">등록된 메모 전달가 없습니다.</div>';
     return;
   }
   box.innerHTML = list.map(function(m) {
@@ -3855,7 +3855,7 @@ function tmRefreshAdminList() {
 }
 function tmDeleteMemo(id) {
   if (!db) return;
-  if (!confirm("이 전달 메모를 삭제하시겠습니까?")) return;
+  if (!confirm("이 메모 전달를 삭제하시겠습니까?")) return;
   db.collection(TM_COL).doc(id).delete().catch(function(err) {
     alert("삭제 중 오류가 발생했습니다: " + err);
   });
@@ -3882,7 +3882,7 @@ document.addEventListener('DOMContentLoaded', function() {
       });
       tmRender();
       tmRefreshAdminList();
-    }, function(err) { console.log("전달 메모 로드 오류:", err); });
+    }, function(err) { console.log("메모 전달 로드 오류:", err); });
   }
   setInterval(tmRender, 60000);
 });
