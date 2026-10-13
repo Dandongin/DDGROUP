@@ -748,7 +748,7 @@ function markRestaurantDates(restaurantDates) {
     const badge = document.createElement('span');
     badge.className = 'restaurant-badge' + (frame.querySelector('.lounge-emoji-badge') ? ' under-mic' : '');
     badge.title = '식당 왕복 단체 있음';
-    badge.textContent = '🍜';
+    badge.textContent = '🍴';
     frame.appendChild(badge);
   });
 }
@@ -2756,7 +2756,7 @@ function runSimulation(shouldSave = true){
       if (loungeTypeForTag === 'ROUND') loungeTag = `<span class="tag-lounge">🎤 라운지 왕복</span>`;
       else if (loungeTypeForTag === 'ONEWAY') loungeTag = `<span class="tag-lounge">🎤 라운지 편도</span>`;
       else if (loungeTypeForTag === 'RETURN' && isReturn) loungeTag = `<span class="tag-lounge">🎤 라운지 리턴</span>`;
-      const restaurantTag = team.specialNote === 'RESTAURANT_ROUND' ? `<span class="tag-restaurant">🍜 식당 왕복</span>` : '';
+      const restaurantTag = team.specialNote === 'RESTAURANT_ROUND' ? `<span class="tag-restaurant">🍴 식당 왕복</span>` : '';
 
       teamResultsHtml += `<div style="margin-bottom:16px; border-bottom:1px solid #e1e7ef; padding-bottom:12px;">
         <h3 style="margin-bottom:4px; color:${teamNameColor};">${dowFlag} ${esc(team.name)} (${teamBoardingPeople}명) <span class="tag-pattern">${patternLabel}</span> ${loungeTag} ${restaurantTag} ${ridingTag} ${statusTag}${priceText}</h3>
