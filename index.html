@@ -766,7 +766,7 @@ function markRestaurantDates(restaurantDates) {
     const badge = document.createElement('span');
     badge.className = 'restaurant-badge' + (frame.querySelector('.lounge-emoji-badge') ? ' under-mic' : '');
     badge.title = '식당 이용 단체 있음';
-    badge.textContent = 'R';
+    badge.textContent = '🍽️';
     frame.appendChild(badge);
   });
 }
@@ -838,7 +838,7 @@ let _spnOpenPanel = null;
 function spnLabel(r){
   const parts = [];
   if (r.lounge) parts.push('🎤' + ({ROUND:'왕복', ONEWAY:'편도', RETURN:'리턴'}[r.lounge]));
-  if (r.restaurant) parts.push('R식당' + ({ROUND:'왕복', ONEWAY:'편도', RETURN:'리턴'}[r.restaurant]));
+  if (r.restaurant) parts.push('🍽️식당' + ({ROUND:'왕복', ONEWAY:'편도', RETURN:'리턴'}[r.restaurant]));
   if (r.riding) parts.push('🚴라이딩');
   return parts.length ? parts.join(' ') : '특이사항';
 }
@@ -856,7 +856,7 @@ function buildSpecialNoteHTML(specialNote){
     <button type="button" class="spn-btn ${val?'has-val':''}" onclick="spnToggle(this)">${spnLabel(r)}</button>
     <div class="spn-panel hidden">
       ${G('lounge','🎤','라운지')}
-      ${G('restaurant','R','식당')}
+      ${G('restaurant','🍽️','식당')}
       <div class="spn-opt ${r.riding?'sel':''}" data-key="riding" onclick="spnToggleCheck(this)">🚴 라이딩 왕복</div>
     </div>
   </div>`;
