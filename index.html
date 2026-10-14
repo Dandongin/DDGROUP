@@ -455,7 +455,7 @@ th{background:#f1f4f7}
   header h1{font-size:16px;}
   .wrap{padding:0 10px; margin:10px auto;}
   .card{padding:12px; margin-bottom:12px;}
-  #calendar{padding:10px; width:111.12%; transform:scale(0.9); transform-origin:0 0;}
+  #calendar{padding:10px; zoom:0.9;}
   #calendar .fc-view-harness, #calendar .fc-scrollgrid, #calendar .fc-scrollgrid-sync-table, #calendar .fc-daygrid-body, #calendar .fc-col-header{width:100% !important;}
   #calendar .fc-daygrid-body, #calendar .fc-scrollgrid-sync-table{height:100% !important;}
   .fc .fc-toolbar-title{font-size:16px;}
@@ -768,7 +768,7 @@ function markRestaurantDates(restaurantDates) {
     const badge = document.createElement('span');
     badge.className = 'restaurant-badge' + (frame.querySelector('.lounge-emoji-badge') ? ' under-mic' : '');
     badge.title = '식당 이용 단체 있음';
-    badge.textContent = '®️';
+    badge.textContent = '🔪';
     frame.appendChild(badge);
   });
 }
@@ -840,7 +840,7 @@ let _spnOpenPanel = null;
 function spnLabel(r){
   const parts = [];
   if (r.lounge) parts.push('🎤' + ({ROUND:'왕복', ONEWAY:'편도', RETURN:'리턴'}[r.lounge]));
-  if (r.restaurant) parts.push('®️식당' + ({ROUND:'왕복', ONEWAY:'편도', RETURN:'리턴'}[r.restaurant]));
+  if (r.restaurant) parts.push('🔪식당' + ({ROUND:'왕복', ONEWAY:'편도', RETURN:'리턴'}[r.restaurant]));
   if (r.riding) parts.push('🚴라이딩');
   return parts.length ? parts.join(' ') : '특이사항';
 }
@@ -858,7 +858,7 @@ function buildSpecialNoteHTML(specialNote){
     <button type="button" class="spn-btn ${val?'has-val':''}" onclick="spnToggle(this)">${spnLabel(r)}</button>
     <div class="spn-panel hidden">
       ${G('lounge','🎤','라운지')}
-      ${G('restaurant','®️','식당')}
+      ${G('restaurant','🔪','식당')}
       <div class="spn-opt ${r.riding?'sel':''}" data-key="riding" onclick="spnToggleCheck(this)">🚴 라이딩 왕복</div>
     </div>
   </div>`;
@@ -2904,9 +2904,9 @@ function runSimulation(shouldSave = true){
       else if (loungeTypeForTag === 'RETURN' && isReturn) loungeTag = `<span class="tag-lounge">🎤 라운지 리턴</span>`;
       let restaurantTag = '';
       const restaurantTypeForTag = getRestaurantType(team.specialNote);
-      if (restaurantTypeForTag === 'ROUND') restaurantTag = `<span class="tag-restaurant">®️ 식당 왕복</span>`;
-      else if (restaurantTypeForTag === 'ONEWAY') restaurantTag = `<span class="tag-restaurant">®️ 식당 편도</span>`;
-      else if (restaurantTypeForTag === 'RETURN' && isReturn) restaurantTag = `<span class="tag-restaurant">®️ 식당 리턴</span>`;
+      if (restaurantTypeForTag === 'ROUND') restaurantTag = `<span class="tag-restaurant">🔪 식당 왕복</span>`;
+      else if (restaurantTypeForTag === 'ONEWAY') restaurantTag = `<span class="tag-restaurant">🔪 식당 편도</span>`;
+      else if (restaurantTypeForTag === 'RETURN' && isReturn) restaurantTag = `<span class="tag-restaurant">🔪 식당 리턴</span>`;
 
       teamResultsHtml += `<div style="margin-bottom:16px; border-bottom:1px solid #e1e7ef; padding-bottom:12px;">
         <h3 style="margin-bottom:4px; color:${teamNameColor};">${dowFlag} ${esc(team.name)} (${teamBoardingPeople}명) <span class="tag-pattern">${patternLabel}</span> ${loungeTag} ${restaurantTag} ${ridingTag} ${statusTag}${priceText}</h3>
@@ -4066,17 +4066,5 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 <button type="button" id="backToTopBtn" title="최상단으로 (드래그하여 위치 이동)" aria-label="최상단으로">↑</button>
-<script>
-/* 모바일 달력 90% 축소: 축소된 만큼 남는 하단 여백 보정 */
-(function(){
-  var cal = document.getElementById('calendar');
-  if (!cal || !window.ResizeObserver) return;
-  var mq = window.matchMedia('(max-width: 768px)');
-  function fix(){ cal.style.marginBottom = mq.matches ? (-cal.offsetHeight * 0.1) + 'px' : ''; }
-  new ResizeObserver(fix).observe(cal);
-  if (mq.addEventListener) mq.addEventListener('change', fix);
-  fix();
-})();
-</script>
 </body>
 </html>
