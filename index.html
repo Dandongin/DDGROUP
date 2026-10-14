@@ -133,6 +133,24 @@ th{background:#f1f4f7}
 .restaurant-badge.under-mic{top:14px;}
 .tag-restaurant{background:#fff8e1; color:#e65100; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:bold;}
 
+/* 특이사항 중첩 드롭다운 (라운지 > 왕복/편도/리턴, 식당·라이딩 중복 선택) */
+.spn-wrap{position:relative; display:inline-block; max-width:230px;}
+.spn-btn{width:auto; max-width:230px; padding:8px 10px; border:1px solid #ccd3dc; border-radius:7px; background:#fff; font-weight:bold; color:#e65100; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:left;}
+.spn-btn.has-val{background:#fff3e0; border-color:#ffb74d;}
+.spn-btn::after{content:" ▾"; font-size:11px; color:#999;}
+.spn-panel{position:fixed; z-index:30000; min-width:170px; max-height:70vh; overflow-y:auto; background:#fff; border:1px solid #ccd3dc; border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,.22); padding:4px;}
+.spn-item,.spn-opt{padding:9px 12px; border-radius:6px; cursor:pointer; font-weight:bold; font-size:14px; color:#333; display:flex; align-items:center; justify-content:space-between; gap:10px; user-select:none; -webkit-user-select:none;}
+.spn-item:hover,.spn-opt:hover{background:#f1f5f9;}
+.spn-item.on{color:#ad1457;}
+.spn-arrow{font-size:11px; color:#888; transition:transform .15s;}
+.spn-item.open .spn-arrow{transform:rotate(90deg);}
+.spn-sub{margin:2px 0 4px 14px; padding-left:6px; border-left:2px solid #f3c6d8;}
+.spn-sub .spn-opt{font-weight:normal;}
+.spn-opt::after{content:""; width:16px; height:16px; border:1.5px solid #bbb; border-radius:4px; flex:0 0 16px; box-sizing:border-box;}
+.spn-sub .spn-opt::after{border-radius:50%;}
+.spn-opt.sel{color:#e65100; font-weight:bold; background:#fff8f0;}
+.spn-opt.sel::after{content:"✔"; border-color:#e65100; background:#e65100; color:#fff; font-size:11px; line-height:13px; text-align:center;}
+
 /* 라이딩 블록 이벤트 스타일 */
 .fc-event.riding-block-event {
   text-align: left;
@@ -767,16 +785,150 @@ function normalizePattern(p){
   return p || 'ROUND';
 }
 
+// 특이사항 파싱: 라운지(왕복/편도/리턴) / 식당 왕복 / 라이딩 은 중복 적용 가능 (기존 저장값도 그대로 인식)
+function parseSpecialNote(specialNote){
+  const r = { lounge:'', restaurant:false, riding:false };
+  if (!specialNote) return r;
+  String(specialNote).split('+').forEach(tok => {
+    switch (tok.trim()) {
+      case 'LOUNGE_ROUND': r.lounge = 'ROUND'; break;
+      case 'LOUNGE_ONEWAY': r.lounge = 'ONEWAY'; break;
+      case 'LOUNGE_RETURN': r.lounge = 'RETURN'; break;
+      case 'RESTAURANT_ROUND': r.restaurant = true; break;
+      case 'RIDING': r.riding = true; break;
+      case 'RIDING_LOUNGE_ROUND': r.riding = true; r.lounge = 'ROUND'; break;
+      case 'RIDING_LOUNGE_ONEWAY': r.riding = true; r.lounge = 'ONEWAY'; break;
+    }
+  });
+  return r;
+}
+
+// 저장값 생성: 기존 값과 호환되도록 단일/기존 조합은 예전 값 그대로, 그 외 조합은 '+'로 연결
+function buildSpecialNote(r){
+  if (r.riding && r.lounge === 'ROUND' && !r.restaurant) return 'RIDING_LOUNGE_ROUND';
+  if (r.riding && r.lounge === 'ONEWAY' && !r.restaurant) return 'RIDING_LOUNGE_ONEWAY';
+  const a = [];
+  if (r.riding) a.push('RIDING');
+  if (r.lounge) a.push('LOUNGE_' + r.lounge);
+  if (r.restaurant) a.push('RESTAURANT_ROUND');
+  return a.join('+');
+}
+
 function getLoungeType(specialNote){
-  if (specialNote === 'LOUNGE_ROUND' || specialNote === 'RIDING_LOUNGE_ROUND') return 'ROUND';
-  if (specialNote === 'LOUNGE_ONEWAY' || specialNote === 'RIDING_LOUNGE_ONEWAY') return 'ONEWAY';
-  if (specialNote === 'LOUNGE_RETURN') return 'RETURN';
-  return null;
+  return parseSpecialNote(specialNote).lounge || null;
 }
 
 function isRidingNote(specialNote){
-  return specialNote === 'RIDING' || specialNote === 'RIDING_LOUNGE_ROUND' || specialNote === 'RIDING_LOUNGE_ONEWAY';
+  return parseSpecialNote(specialNote).riding;
 }
+
+function isRestaurantNote(specialNote){
+  return parseSpecialNote(specialNote).restaurant;
+}
+
+// ===== 특이사항 중첩 드롭다운 UI =====
+let _spnOpenPanel = null;
+
+function spnLabel(r){
+  const parts = [];
+  if (r.lounge) parts.push('🎤' + ({ROUND:'왕복', ONEWAY:'편도', RETURN:'리턴'}[r.lounge]));
+  if (r.restaurant) parts.push('🍴식당');
+  if (r.riding) parts.push('🚴라이딩');
+  return parts.length ? parts.join(' ') : '특이사항';
+}
+
+function buildSpecialNoteHTML(specialNote){
+  const r = parseSpecialNote(specialNote);
+  const val = buildSpecialNote(r);
+  const L = (v, t) => `<div class="spn-opt ${r.lounge===v?'sel':''}" data-lounge="${v}" onclick="spnPickLounge(this)">${t}</div>`;
+  return `<div class="spn-wrap" data-value="${esc(val)}">
+    <button type="button" class="spn-btn ${val?'has-val':''}" onclick="spnToggle(this)">${spnLabel(r)}</button>
+    <div class="spn-panel hidden">
+      <div class="spn-item ${r.lounge?'on open':''}" onclick="spnToggleSub(this)"><span>🎤 라운지</span><span class="spn-arrow">▶</span></div>
+      <div class="spn-sub ${r.lounge?'':'hidden'}">
+        ${L('ROUND','왕복')}${L('ONEWAY','편도')}${L('RETURN','리턴')}
+      </div>
+      <div class="spn-opt ${r.restaurant?'sel':''}" data-key="restaurant" onclick="spnToggleCheck(this)">🍴 식당 왕복</div>
+      <div class="spn-opt ${r.riding?'sel':''}" data-key="riding" onclick="spnToggleCheck(this)">🚴 라이딩 왕복</div>
+    </div>
+  </div>`;
+}
+
+function spnCloseAll(){
+  if (_spnOpenPanel) { _spnOpenPanel.classList.add('hidden'); _spnOpenPanel = null; }
+}
+
+function spnPosition(btn, panel){
+  const b = btn.getBoundingClientRect();
+  const pw = panel.offsetWidth, ph = panel.offsetHeight;
+  let left = Math.min(b.left, window.innerWidth - pw - 8);
+  if (left < 8) left = 8;
+  panel.style.left = left + 'px';
+  const below = window.innerHeight - b.bottom - 8;
+  if (ph > below && b.top > below) {
+    panel.style.top = 'auto';
+    panel.style.bottom = (window.innerHeight - b.top + 4) + 'px';
+    panel.style.maxHeight = Math.max(120, b.top - 12) + 'px';
+  } else {
+    panel.style.bottom = 'auto';
+    panel.style.top = (b.bottom + 4) + 'px';
+    panel.style.maxHeight = Math.max(120, below) + 'px';
+  }
+}
+
+function spnToggle(btn){
+  const panel = btn.closest('.spn-wrap').querySelector('.spn-panel');
+  const willOpen = panel.classList.contains('hidden');
+  spnCloseAll();
+  if (willOpen) {
+    panel.classList.remove('hidden');
+    spnPosition(btn, panel);
+    _spnOpenPanel = panel;
+  }
+}
+
+function spnToggleSub(head){
+  const sub = head.nextElementSibling;
+  const willOpen = sub.classList.contains('hidden');
+  sub.classList.toggle('hidden', !willOpen);
+  head.classList.toggle('open', willOpen);
+  const panel = head.closest('.spn-panel'), btn = head.closest('.spn-wrap').querySelector('.spn-btn');
+  spnPosition(btn, panel);
+}
+
+function spnRefresh(wrap){
+  const r = parseSpecialNote(wrap.dataset.value);
+  const btn = wrap.querySelector('.spn-btn');
+  btn.textContent = spnLabel(r);
+  btn.classList.toggle('has-val', !!wrap.dataset.value);
+  wrap.querySelectorAll('[data-lounge]').forEach(el => el.classList.toggle('sel', el.dataset.lounge === r.lounge));
+  wrap.querySelectorAll('[data-key]').forEach(el => el.classList.toggle('sel', !!r[el.dataset.key]));
+  wrap.querySelector('.spn-item').classList.toggle('on', !!r.lounge);
+}
+
+function spnPickLounge(opt){
+  const wrap = opt.closest('.spn-wrap');
+  const r = parseSpecialNote(wrap.dataset.value);
+  r.lounge = (r.lounge === opt.dataset.lounge) ? '' : opt.dataset.lounge;
+  wrap.dataset.value = buildSpecialNote(r);
+  spnRefresh(wrap);
+}
+
+function spnToggleCheck(opt){
+  const wrap = opt.closest('.spn-wrap');
+  const r = parseSpecialNote(wrap.dataset.value);
+  r[opt.dataset.key] = !r[opt.dataset.key];
+  wrap.dataset.value = buildSpecialNote(r);
+  spnRefresh(wrap);
+}
+
+document.addEventListener('click', function(e){
+  if (_spnOpenPanel && !e.target.closest('.spn-wrap')) spnCloseAll();
+});
+window.addEventListener('scroll', function(e){
+  if (_spnOpenPanel && !_spnOpenPanel.contains(e.target)) spnCloseAll();
+}, true);
+window.addEventListener('resize', spnCloseAll);
 
 function toggleMasterArea(){
   const content = document.getElementById("masterAreaContent");
@@ -1811,7 +1963,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (loungeTypeForDate !== 'RETURN') loungeDates.add(regDate);
                     if (loungeTypeForDate === 'ROUND' || loungeTypeForDate === 'RETURN') loungeDates.add(returnDate);
                   }
-                  if (t.specialNote === 'RESTAURANT_ROUND') {
+                  if (isRestaurantNote(t.specialNote)) {
                     restaurantDates.add(regDate);
                     restaurantDates.add(returnDate);
                   }
@@ -2287,16 +2439,7 @@ function addTeam(name="", pattern="ROUND", nights="", price="", memo="", isSplit
       
       <input type="text" class="teamPrice" placeholder="금액" value="${esc(price)}" style="max-width:90px;">
 
-      <select class="specialNoteSelect" style="max-width:120px; font-weight:bold; color:#e65100;">
-        <option value="" ${specialNote===''?'selected':''}>특이사항</option>
-        <option value="LOUNGE_ROUND" ${specialNote==='LOUNGE_ROUND'?'selected':''}>라운지 왕복</option>
-        <option value="RESTAURANT_ROUND" ${specialNote==='RESTAURANT_ROUND'?'selected':''}>식당 왕복</option>
-        <option value="LOUNGE_ONEWAY" ${specialNote==='LOUNGE_ONEWAY'?'selected':''}>라운지 출국</option>
-        <option value="LOUNGE_RETURN" ${specialNote==='LOUNGE_RETURN'?'selected':''}>라운지 리턴</option>
-        <option value="RIDING" ${specialNote==='RIDING'?'selected':''}>🚴 라이딩 왕복</option>
-        <option value="RIDING_LOUNGE_ROUND" ${specialNote==='RIDING_LOUNGE_ROUND'?'selected':''}>🚴왕복+🎤왕복</option>
-        <option value="RIDING_LOUNGE_ONEWAY" ${specialNote==='RIDING_LOUNGE_ONEWAY'?'selected':''}>🚴왕복+🎤편도</option>
-      </select>
+      ${buildSpecialNoteHTML(specialNote)}
 
       <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; margin:0; font-weight:bold; color:#1769aa;">
         <input type="checkbox" class="splitRoomCheck" onchange="toggleRoomSplitUI('${teamId}')" ${isSplitRoom?'checked':''}> 입/출국 분리
@@ -2415,16 +2558,7 @@ function restoreTeamUI(teamData){
       
       <input type="text" class="teamPrice" placeholder="금액" value="${esc(teamData.price||'')}" style="max-width:90px;">
 
-      <select class="specialNoteSelect" style="max-width:120px; font-weight:bold; color:#e65100;">
-        <option value="" ${specialNote===''?'selected':''}>특이사항</option>
-        <option value="LOUNGE_ROUND" ${specialNote==='LOUNGE_ROUND'?'selected':''}>라운지 왕복</option>
-        <option value="RESTAURANT_ROUND" ${specialNote==='RESTAURANT_ROUND'?'selected':''}>식당 왕복</option>
-        <option value="LOUNGE_ONEWAY" ${specialNote==='LOUNGE_ONEWAY'?'selected':''}>라운지 편도</option>
-        <option value="LOUNGE_RETURN" ${specialNote==='LOUNGE_RETURN'?'selected':''}>라운지 리턴</option>
-        <option value="RIDING" ${specialNote==='RIDING'?'selected':''}>🚴 라이딩</option>
-        <option value="RIDING_LOUNGE_ROUND" ${specialNote==='RIDING_LOUNGE_ROUND'?'selected':''}>🚴+🎤왕복</option>
-        <option value="RIDING_LOUNGE_ONEWAY" ${specialNote==='RIDING_LOUNGE_ONEWAY'?'selected':''}>🚴+🎤편도</option>
-      </select>
+      ${buildSpecialNoteHTML(specialNote)}
 
       <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; margin:0; font-weight:bold; color:#1769aa;">
         <input type="checkbox" class="splitRoomCheck" onchange="toggleRoomSplitUI('${teamId}')" ${isSplit?'checked':''}> 입/출국 객실 분리
@@ -2548,7 +2682,7 @@ function runSimulation(shouldSave = true){
     const price = card.querySelector(".teamPrice").value.trim();
     const memo = card.querySelector(".teamMemo").value.trim();
     const isSplitRoom = card.querySelector(".splitRoomCheck").checked;
-    const specialNote = card.querySelector(".specialNoteSelect").value;
+    const specialNote = card.querySelector(".spn-wrap").dataset.value || "";
     const isRiding = isRidingNote(specialNote);
 
     if (!name && !card.querySelector(".assignPeople")?.value) continue;
@@ -2756,7 +2890,7 @@ function runSimulation(shouldSave = true){
       if (loungeTypeForTag === 'ROUND') loungeTag = `<span class="tag-lounge">🎤 라운지 왕복</span>`;
       else if (loungeTypeForTag === 'ONEWAY') loungeTag = `<span class="tag-lounge">🎤 라운지 편도</span>`;
       else if (loungeTypeForTag === 'RETURN' && isReturn) loungeTag = `<span class="tag-lounge">🎤 라운지 리턴</span>`;
-      const restaurantTag = team.specialNote === 'RESTAURANT_ROUND' ? `<span class="tag-restaurant">🍴 식당 왕복</span>` : '';
+      const restaurantTag = isRestaurantNote(team.specialNote) ? `<span class="tag-restaurant">🍴 식당 왕복</span>` : '';
 
       teamResultsHtml += `<div style="margin-bottom:16px; border-bottom:1px solid #e1e7ef; padding-bottom:12px;">
         <h3 style="margin-bottom:4px; color:${teamNameColor};">${dowFlag} ${esc(team.name)} (${teamBoardingPeople}명) <span class="tag-pattern">${patternLabel}</span> ${loungeTag} ${restaurantTag} ${ridingTag} ${statusTag}${priceText}</h3>
