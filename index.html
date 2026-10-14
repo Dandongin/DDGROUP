@@ -765,7 +765,7 @@ function markRestaurantDates(restaurantDates) {
     const frame = cell.querySelector('.fc-daygrid-day-frame') || cell;
     const badge = document.createElement('span');
     badge.className = 'restaurant-badge' + (frame.querySelector('.lounge-emoji-badge') ? ' under-mic' : '');
-    badge.title = '식당 왕복 단체 있음';
+    badge.title = '식당 이용 단체 있음';
     badge.textContent = '🍴';
     frame.appendChild(badge);
   });
@@ -787,14 +787,16 @@ function normalizePattern(p){
 
 // 특이사항 파싱: 라운지(왕복/편도/리턴) / 식당 왕복 / 라이딩 은 중복 적용 가능 (기존 저장값도 그대로 인식)
 function parseSpecialNote(specialNote){
-  const r = { lounge:'', restaurant:false, riding:false };
+  const r = { lounge:'', restaurant:'', riding:false };
   if (!specialNote) return r;
   String(specialNote).split('+').forEach(tok => {
     switch (tok.trim()) {
       case 'LOUNGE_ROUND': r.lounge = 'ROUND'; break;
       case 'LOUNGE_ONEWAY': r.lounge = 'ONEWAY'; break;
       case 'LOUNGE_RETURN': r.lounge = 'RETURN'; break;
-      case 'RESTAURANT_ROUND': r.restaurant = true; break;
+      case 'RESTAURANT_ROUND': r.restaurant = 'ROUND'; break;
+      case 'RESTAURANT_ONEWAY': r.restaurant = 'ONEWAY'; break;
+      case 'RESTAURANT_RETURN': r.restaurant = 'RETURN'; break;
       case 'RIDING': r.riding = true; break;
       case 'RIDING_LOUNGE_ROUND': r.riding = true; r.lounge = 'ROUND'; break;
       case 'RIDING_LOUNGE_ONEWAY': r.riding = true; r.lounge = 'ONEWAY'; break;
@@ -810,7 +812,7 @@ function buildSpecialNote(r){
   const a = [];
   if (r.riding) a.push('RIDING');
   if (r.lounge) a.push('LOUNGE_' + r.lounge);
-  if (r.restaurant) a.push('RESTAURANT_ROUND');
+  if (r.restaurant) a.push('RESTAURANT_' + r.restaurant);
   return a.join('+');
 }
 
@@ -822,8 +824,12 @@ function isRidingNote(specialNote){
   return parseSpecialNote(specialNote).riding;
 }
 
+function getRestaurantType(specialNote){
+  return parseSpecialNote(specialNote).restaurant || null;
+}
+
 function isRestaurantNote(specialNote){
-  return parseSpecialNote(specialNote).restaurant;
+  return !!parseSpecialNote(specialNote).restaurant;
 }
 
 // ===== 특이사항 중첩 드롭다운 UI =====
@@ -832,7 +838,7 @@ let _spnOpenPanel = null;
 function spnLabel(r){
   const parts = [];
   if (r.lounge) parts.push('🎤' + ({ROUND:'왕복', ONEWAY:'편도', RETURN:'리턴'}[r.lounge]));
-  if (r.restaurant) parts.push('🍴식당');
+  if (r.restaurant) parts.push('🍴식당' + ({ROUND:'왕복', ONEWAY:'편도', RETURN:'리턴'}[r.restaurant]));
   if (r.riding) parts.push('🚴라이딩');
   return parts.length ? parts.join(' ') : '특이사항';
 }
@@ -840,15 +846,17 @@ function spnLabel(r){
 function buildSpecialNoteHTML(specialNote){
   const r = parseSpecialNote(specialNote);
   const val = buildSpecialNote(r);
-  const L = (v, t) => `<div class="spn-opt ${r.lounge===v?'sel':''}" data-lounge="${v}" onclick="spnPickLounge(this)">${t}</div>`;
+  const G = (group, icon, name) => {
+    const cur = r[group];
+    const O = (v, t) => `<div class="spn-opt ${cur===v?'sel':''}" data-group="${group}" data-val="${v}" onclick="spnPickGroup(this)">${t}</div>`;
+    return `<div class="spn-item ${cur?'on open':''}" data-group="${group}" onclick="spnToggleSub(this)"><span>${icon} ${name}</span><span class="spn-arrow">▶</span></div>
+      <div class="spn-sub ${cur?'':'hidden'}">${O('ROUND','왕복')}${O('ONEWAY','편도')}${O('RETURN','리턴')}</div>`;
+  };
   return `<div class="spn-wrap" data-value="${esc(val)}">
     <button type="button" class="spn-btn ${val?'has-val':''}" onclick="spnToggle(this)">${spnLabel(r)}</button>
     <div class="spn-panel hidden">
-      <div class="spn-item ${r.lounge?'on open':''}" onclick="spnToggleSub(this)"><span>🎤 라운지</span><span class="spn-arrow">▶</span></div>
-      <div class="spn-sub ${r.lounge?'':'hidden'}">
-        ${L('ROUND','왕복')}${L('ONEWAY','편도')}${L('RETURN','리턴')}
-      </div>
-      <div class="spn-opt ${r.restaurant?'sel':''}" data-key="restaurant" onclick="spnToggleCheck(this)">🍴 식당 왕복</div>
+      ${G('lounge','🎤','라운지')}
+      ${G('restaurant','🍴','식당')}
       <div class="spn-opt ${r.riding?'sel':''}" data-key="riding" onclick="spnToggleCheck(this)">🚴 라이딩 왕복</div>
     </div>
   </div>`;
@@ -901,15 +909,16 @@ function spnRefresh(wrap){
   const btn = wrap.querySelector('.spn-btn');
   btn.textContent = spnLabel(r);
   btn.classList.toggle('has-val', !!wrap.dataset.value);
-  wrap.querySelectorAll('[data-lounge]').forEach(el => el.classList.toggle('sel', el.dataset.lounge === r.lounge));
+  wrap.querySelectorAll('[data-group][data-val]').forEach(el => el.classList.toggle('sel', el.dataset.val === r[el.dataset.group]));
+  wrap.querySelectorAll('.spn-item[data-group]').forEach(el => el.classList.toggle('on', !!r[el.dataset.group]));
   wrap.querySelectorAll('[data-key]').forEach(el => el.classList.toggle('sel', !!r[el.dataset.key]));
-  wrap.querySelector('.spn-item').classList.toggle('on', !!r.lounge);
 }
 
-function spnPickLounge(opt){
+function spnPickGroup(opt){
   const wrap = opt.closest('.spn-wrap');
   const r = parseSpecialNote(wrap.dataset.value);
-  r.lounge = (r.lounge === opt.dataset.lounge) ? '' : opt.dataset.lounge;
+  const g = opt.dataset.group;
+  r[g] = (r[g] === opt.dataset.val) ? '' : opt.dataset.val;
   wrap.dataset.value = buildSpecialNote(r);
   spnRefresh(wrap);
 }
@@ -1963,9 +1972,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (loungeTypeForDate !== 'RETURN') loungeDates.add(regDate);
                     if (loungeTypeForDate === 'ROUND' || loungeTypeForDate === 'RETURN') loungeDates.add(returnDate);
                   }
-                  if (isRestaurantNote(t.specialNote)) {
-                    restaurantDates.add(regDate);
-                    restaurantDates.add(returnDate);
+                  const restaurantTypeForDate = getRestaurantType(t.specialNote);
+                  if (restaurantTypeForDate) {
+                    if (restaurantTypeForDate !== 'RETURN') restaurantDates.add(regDate);
+                    if (restaurantTypeForDate === 'ROUND' || restaurantTypeForDate === 'RETURN') restaurantDates.add(returnDate);
                   }
                 });
               }
@@ -2890,7 +2900,11 @@ function runSimulation(shouldSave = true){
       if (loungeTypeForTag === 'ROUND') loungeTag = `<span class="tag-lounge">🎤 라운지 왕복</span>`;
       else if (loungeTypeForTag === 'ONEWAY') loungeTag = `<span class="tag-lounge">🎤 라운지 편도</span>`;
       else if (loungeTypeForTag === 'RETURN' && isReturn) loungeTag = `<span class="tag-lounge">🎤 라운지 리턴</span>`;
-      const restaurantTag = isRestaurantNote(team.specialNote) ? `<span class="tag-restaurant">🍴 식당 왕복</span>` : '';
+      let restaurantTag = '';
+      const restaurantTypeForTag = getRestaurantType(team.specialNote);
+      if (restaurantTypeForTag === 'ROUND') restaurantTag = `<span class="tag-restaurant">🍴 식당 왕복</span>`;
+      else if (restaurantTypeForTag === 'ONEWAY') restaurantTag = `<span class="tag-restaurant">🍴 식당 편도</span>`;
+      else if (restaurantTypeForTag === 'RETURN' && isReturn) restaurantTag = `<span class="tag-restaurant">🍴 식당 리턴</span>`;
 
       teamResultsHtml += `<div style="margin-bottom:16px; border-bottom:1px solid #e1e7ef; padding-bottom:12px;">
         <h3 style="margin-bottom:4px; color:${teamNameColor};">${dowFlag} ${esc(team.name)} (${teamBoardingPeople}명) <span class="tag-pattern">${patternLabel}</span> ${loungeTag} ${restaurantTag} ${ridingTag} ${statusTag}${priceText}</h3>
