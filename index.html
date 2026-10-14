@@ -1733,6 +1733,7 @@ function showLoungeStats() {
 
   db.collection("schedules").get().then(querySnapshot => {
     let loungeTeams = [];
+    let restaurantTeams = [];
 
     querySnapshot.forEach(doc => {
       const regDate = doc.id;
@@ -1742,7 +1743,8 @@ function showLoungeStats() {
 
       data.teams.forEach(t => {
         const loungeType = getLoungeType(t.specialNote);
-        if (!loungeType) return;
+        const restaurantType = getRestaurantType(t.specialNote);
+        if (!loungeType && !restaurantType) return;
 
         const defaultNights = getDefaultNightsByDate(regDate);
         const nights = parseInt(t.nights || defaultNights, 10);
@@ -1753,25 +1755,40 @@ function showLoungeStats() {
           people = (t.outAllocations || []).reduce((sum, a) => sum + (parseInt(a.people, 10) || 0), 0);
         }
 
-        loungeTeams.push({
-          name: t.name || "",
-          people: people,
-          isRound: loungeType === 'ROUND',
-          isReturnOnly: loungeType === 'RETURN',
-          goDate: regDate,
-          returnDate: returnDate
-        });
+        if (loungeType) {
+          loungeTeams.push({
+            name: t.name || "",
+            people: people,
+            isRound: loungeType === 'ROUND',
+            isReturnOnly: loungeType === 'RETURN',
+            goDate: regDate,
+            returnDate: returnDate
+          });
+        }
+
+        if (restaurantType) {
+          restaurantTeams.push({
+            name: t.name || "",
+            people: people,
+            isRound: restaurantType === 'ROUND',
+            isReturnOnly: restaurantType === 'RETURN',
+            goDate: regDate,
+            returnDate: returnDate
+          });
+        }
       });
     });
 
     loungeTeams.sort((a, b) => a.goDate.localeCompare(b.goDate));
+    restaurantTeams.sort((a, b) => a.goDate.localeCompare(b.goDate));
 
-    if (loungeTeams.length === 0) {
+    if (loungeTeams.length === 0 && restaurantTeams.length === 0) {
       openStatsModal(`🎤 ${month}월 라운지 이용 단체`, "<div style='text-align:center; padding:20px; color:#666;'>이번 달 등록된 라운지 이용 단체가 없슴다.</div>");
       return;
     }
 
-    let html = `<div id="loungeCaptureArea" style="background:#fff; padding:10px; border-radius:8px;"><div style="max-height:350px; overflow-y:auto;"><table style="width:100%; border-collapse:collapse; font-size:14px;">
+    const buildTeamTable = (teams, footBg, footColor) => {
+      let tbl = `<table style="width:100%; border-collapse:collapse; font-size:14px;">
       <thead>
         <tr style="background:#f1f4f7;">
           <th style="padding:8px; border-bottom:2px solid #ccc; text-align:left;">단체명</th>
@@ -1782,27 +1799,38 @@ function showLoungeStats() {
       </thead>
       <tbody>`;
 
-    let grandPeople = 0;
+      let grandPeople = 0;
 
-    loungeTeams.forEach(team => {
-      grandPeople += team.people;
-      html += `<tr>
+      teams.forEach(team => {
+        grandPeople += team.people;
+        tbl += `<tr>
         <td style="padding:8px; border-bottom:1px solid #eee; text-align:left; font-weight:bold;">${esc(team.name)}</td>
         <td style="padding:8px; border-bottom:1px solid #eee; text-align:center;">${team.people.toLocaleString()}명</td>
         <td style="padding:8px; border-bottom:1px solid #eee; text-align:center;">${team.isReturnOnly ? '-' : formatDateMDShort(team.goDate)}</td>
         <td style="padding:8px; border-bottom:1px solid #eee; text-align:center;">${(team.isRound || team.isReturnOnly) ? formatDateMDShort(team.returnDate) : '-'}</td>
       </tr>`;
-    });
+      });
 
-    html += `</tbody>
+      tbl += `</tbody>
       <tfoot>
-        <tr style="background:#fce4ec; font-weight:bold;">
-          <td style="padding:10px; text-align:left; color:#ad1457;">합계 (${loungeTeams.length}팀)</td>
-          <td style="padding:10px; text-align:center; color:#ad1457;">${grandPeople.toLocaleString()}명</td>
+        <tr style="background:${footBg}; font-weight:bold;">
+          <td style="padding:10px; text-align:left; color:${footColor};">합계 (${teams.length}팀)</td>
+          <td style="padding:10px; text-align:center; color:${footColor};">${grandPeople.toLocaleString()}명</td>
           <td colspan="2"></td>
         </tr>
       </tfoot>
-    </table></div></div>`;
+    </table>`;
+      return tbl;
+    };
+
+    const emptySectionMsg = (label) => `<div style="text-align:center; padding:14px; color:#666;">이번 달 등록된 ${label} 이용 단체가 없습니다.</div>`;
+
+    let html = `<div id="loungeCaptureArea" style="background:#fff; padding:10px; border-radius:8px;"><div class="lounge-stat-scroll" style="max-height:60vh; overflow-y:auto;">`
+      + `<div style="font-weight:bold; font-size:15px; margin:0 0 6px; color:#ad1457;">🎤 라운지 이용 단체</div>`
+      + (loungeTeams.length > 0 ? buildTeamTable(loungeTeams, '#fce4ec', '#ad1457') : emptySectionMsg('라운지'))
+      + `<div style="font-weight:bold; font-size:15px; margin:20px 0 6px; color:#37474f;">®️ 식당 이용 단체</div>`
+      + (restaurantTeams.length > 0 ? buildTeamTable(restaurantTeams, '#eceff1', '#37474f') : emptySectionMsg('식당'))
+      + `</div></div>`;
 
     const extraDownloadBtn = `<button class="success" onclick="downloadLoungeStatsImage()" style="margin-right:auto;">📸 라운지 통계 이미지 다운로드</button>`;
 
@@ -1816,7 +1844,10 @@ function showLoungeStats() {
 function downloadLoungeStatsImage() {
   const area = document.getElementById("loungeCaptureArea");
   if (!area) return;
-  html2canvas(area, { scale: 2, backgroundColor: "#ffffff" }).then(canvas => {
+  html2canvas(area, { scale: 2, backgroundColor: "#ffffff", onclone: (doc) => {
+    const sc = doc.querySelector("#loungeCaptureArea .lounge-stat-scroll");
+    if (sc) { sc.style.maxHeight = "none"; sc.style.overflow = "visible"; }
+  } }).then(canvas => {
     const link = document.createElement("a");
     link.download = `라운지_통계_현황.png`;
     link.href = canvas.toDataURL("image/png");
