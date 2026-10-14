@@ -1864,6 +1864,7 @@ document.addEventListener('DOMContentLoaded', function() {
   calendar = new FullCalendar.Calendar(calendarEl, {
     initialView: 'dayGridMonth',
     locale: 'ko',
+    ...(window.matchMedia('(max-width: 768px)').matches ? { height: 'auto' } : {}),
     headerToolbar: { left: 'title', center: '', right: 'today prev,next' },
     eventOrder: 'order,start',
     dayCellClassNames: function(arg) {
