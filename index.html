@@ -566,6 +566,13 @@ button.tm-btn:hover{background:#fff6b8;}
         <input type="date" id="eventDate" onchange="loadEventDataForDate(this.value)">
       </div>
       <div>
+        <label style="font-weight:bold;">종료일 <span class="small" style="font-weight:normal;">(선택 · 입력 시 위 날짜부터 종료일까지 전체에 같은 메모 등록)</span></label>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input type="date" id="eventEndDate">
+          <button type="button" class="secondary" style="padding:6px 10px; font-size:12px; white-space:nowrap;" onclick="document.getElementById('eventEndDate').value=''">지우기</button>
+        </div>
+      </div>
+      <div>
         <label style="font-weight:bold;">등록된 메모 목록</label>
         <div id="eventMemoList"></div>
       </div>
@@ -584,7 +591,8 @@ button.tm-btn:hover{background:#fff6b8;}
         <input type="hidden" id="eventColor" value="#fffde7">
       </div>
       <div style="display:flex; gap:10px; margin-top:10px;">
-        <button class="primary" style="background:#d32f2f;" onclick="addMemoItem()">메모 추가</button>
+        <button class="primary" id="memoSubmitBtn" style="background:#d32f2f;" onclick="addMemoItem()">메모 추가</button>
+        <button class="secondary hidden" id="memoCancelEditBtn" type="button" onclick="cancelEditMemo()">수정 취소</button>
       </div>
     </div>
   </div>
@@ -2234,6 +2242,10 @@ function selectFlag(flag){
   });
 }
 
+let eventMemoCache = {};
+let editingMemoId = null;
+let editingMemoDate = null;
+
 function renderEventMemoList(dateStr, items){
   const listEl = document.getElementById("eventMemoList");
   if(!listEl) return;
@@ -2241,6 +2253,7 @@ function renderEventMemoList(dateStr, items){
     listEl.innerHTML = `<div class="small" style="color:#9aa5b1;">등록된 메모가 없습니다.</div>`;
     return;
   }
+  items.forEach(it => { eventMemoCache[it.id] = it; });
   listEl.innerHTML = items.map(item => {
     const flagEmoji = getMemoFlagEmoji(item, item.color || '#fffde7');
     return `
@@ -2248,6 +2261,7 @@ function renderEventMemoList(dateStr, items){
       <span style="width:16px; height:16px; border-radius:4px; flex-shrink:0; background:${item.color || '#fffde7'}; border:1px solid #00000022;"></span>
       ${flagEmoji ? `<span style="font-size:14px;">${flagEmoji}</span>` : ''}
       <span style="flex:1; font-size:13px; word-break:break-all;">${esc(item.title || '')}</span>
+      <button type="button" class="secondary" style="padding:4px 8px; font-size:11px;" onclick="startEditMemo('${dateStr}','${item.id}')">수정</button>
       <button type="button" class="danger" style="padding:4px 8px; font-size:11px;" onclick="deleteMemoItem('${dateStr}','${item.id}')">삭제</button>
     </div>
   `;
@@ -2256,6 +2270,7 @@ function renderEventMemoList(dateStr, items){
 
 function loadEventDataForDate(dateStr){
   if(!dateStr) return;
+  cancelEditMemo(true);
   document.getElementById("eventTitle").value = "";
   document.getElementById("eventColor").value = "#fffde7";
   document.getElementById("eventFlag").value = "";
@@ -2282,6 +2297,11 @@ function addMemoItem(){
   if(!title){ alert("내용을 입력해주세요."); return; }
   if(!db) return;
 
+  if(editingMemoId){ updateMemoItem(dateStr, title, color, flag); return; }
+
+  const endStr = (document.getElementById("eventEndDate").value || "").trim();
+  if(endStr){ addMemoRange(dateStr, endStr, title, color, flag); return; }
+
   const docRef = db.collection("custom_events").doc(dateStr);
   docRef.get().then(doc => {
     const items = doc.exists ? getMemoItemsFromDocData(doc.data()) : [];
@@ -2297,9 +2317,118 @@ function addMemoItem(){
   });
 }
 
+// 기간(시작일~종료일) 전체에 같은 메모를 한꺼번에 등록
+function addMemoRange(startStr, endStr, title, color, flag){
+  const start = new Date(startStr + "T00:00:00Z");
+  const end = new Date(endStr + "T00:00:00Z");
+  if(isNaN(start) || isNaN(end)){ alert("날짜 형식이 올바르지 않습니다."); return; }
+  if(end < start){ alert("종료일은 시작일보다 같거나 늦어야 합니다."); return; }
+
+  const dates = [];
+  for(let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)){
+    dates.push(d.toISOString().slice(0,10));
+    if(dates.length > 366){ alert("기간은 최대 366일까지 선택할 수 있습니다."); return; }
+  }
+  if(!confirm(`${startStr} ~ ${endStr} (${dates.length}일) 전체에 이 메모를 등록하시겠습니까?`)) return;
+
+  Promise.all(dates.map(ds => db.collection("custom_events").doc(ds).get())).then(snaps => {
+    const writes = snaps.map((snap, i) => {
+      const items = snap.exists ? getMemoItemsFromDocData(snap.data()) : [];
+      items.push({ id: "m_" + Date.now() + "_" + Math.random().toString(36).slice(2,7), title, color, flag });
+      return { ref: db.collection("custom_events").doc(dates[i]), items };
+    });
+    const commits = [];
+    for(let i = 0; i < writes.length; i += 400){
+      const batch = db.batch();
+      writes.slice(i, i + 400).forEach(w => batch.set(w.ref, { items: w.items, updatedAt: new Date() }));
+      commits.push(batch.commit());
+    }
+    return Promise.all(commits);
+  }).then(() => {
+    document.getElementById("eventTitle").value = "";
+    document.getElementById("eventEndDate").value = "";
+    document.getElementById("eventFlag").value = "";
+    renderFlagPicker("");
+    loadEventDataForDate(startStr);
+    if(calendar) calendar.refetchEvents();
+    alert(`${dates.length}일 분량의 메모가 등록되었습니다.`);
+  }).catch(err => {
+    console.error("기간 메모 등록 오류", err);
+    alert("기간 메모 등록 중 오류가 발생했습니다.");
+  });
+}
+
+// 이미 등록된 메모를 입력창으로 불러와 수정 모드로 전환
+function startEditMemo(dateStr, itemId){
+  const item = eventMemoCache[itemId];
+  if(!item) return;
+  editingMemoId = itemId;
+  editingMemoDate = dateStr;
+
+  const color = item.color || "#fffde7";
+  let flag = item.flag;
+  if(flag === undefined){
+    flag = (color === "#e1bee7") ? "cn" : (color === "#f57c00") ? "kr" : "";
+  }
+
+  document.getElementById("eventTitle").value = item.title || "";
+  document.getElementById("eventColor").value = color;
+  document.getElementById("eventFlag").value = flag;
+  renderColorPicker(color);
+  renderFlagPicker(flag);
+
+  const endEl = document.getElementById("eventEndDate");
+  endEl.value = "";
+  endEl.disabled = true;
+
+  const btn = document.getElementById("memoSubmitBtn");
+  btn.textContent = "수정 저장";
+  document.getElementById("memoCancelEditBtn").classList.remove("hidden");
+  document.getElementById("eventTitle").focus();
+}
+
+function cancelEditMemo(silent){
+  const wasEditing = !!editingMemoId;
+  editingMemoId = null;
+  editingMemoDate = null;
+  const btn = document.getElementById("memoSubmitBtn");
+  if(btn) btn.textContent = "메모 추가";
+  const cancelBtn = document.getElementById("memoCancelEditBtn");
+  if(cancelBtn) cancelBtn.classList.add("hidden");
+  const endEl = document.getElementById("eventEndDate");
+  if(endEl) endEl.disabled = false;
+  if(wasEditing && !silent){
+    document.getElementById("eventTitle").value = "";
+    document.getElementById("eventColor").value = "#fffde7";
+    document.getElementById("eventFlag").value = "";
+    renderColorPicker("#fffde7");
+    renderFlagPicker("");
+  }
+}
+
+// 수정 모드에서 '수정 저장' 시 해당 메모 항목만 갱신
+function updateMemoItem(dateStr, title, color, flag){
+  const targetDate = editingMemoDate || dateStr;
+  const itemId = editingMemoId;
+  const docRef = db.collection("custom_events").doc(targetDate);
+  docRef.get().then(doc => {
+    if(!doc.exists){ alert("수정할 메모를 찾을 수 없습니다."); cancelEditMemo(); return; }
+    const items = getMemoItemsFromDocData(doc.data());
+    const idx = items.findIndex(it => it.id === itemId);
+    if(idx < 0){ alert("수정할 메모를 찾을 수 없습니다."); cancelEditMemo(); return; }
+    items[idx] = { ...items[idx], id: itemId === "legacy" ? "legacy" : itemId, title, color, flag };
+    docRef.set({ items, updatedAt: new Date() }).then(() => {
+      cancelEditMemo();
+      renderEventMemoList(targetDate, items);
+      if(calendar) calendar.refetchEvents();
+    });
+  });
+}
+
 function deleteMemoItem(dateStr, itemId){
   if(!dateStr || !db) return;
   if(!confirm("이 메모를 삭제하시겠습니까?")) return;
+  if(editingMemoId === itemId) cancelEditMemo();
 
   const docRef = db.collection("custom_events").doc(dateStr);
   docRef.get().then(doc => {
@@ -2389,9 +2518,14 @@ async function openDateSim(dateStr){
 function closeSimSection(){ document.getElementById("simSection").classList.add("hidden"); }
 
 function resetMasterData(){
+  // 11~4월 비수기: 기본 70명(6인실 50 / 4인실 20), 5~10월 성수기: 기본 100명(6인실 70 / 4인실 30)
+  const month = parseInt(String(selectedDate || "").substring(5, 7), 10);
+  const isPeak = (month >= 5 && month <= 10) || isNaN(month);
+  const gen6 = isPeak ? 70 : 50;
+  const gen4 = isPeak ? 30 : 20;
   masterRooms = {
-    "6": { label: "6인실", totalRooms: 143, defaultCapPerRoom: 4, generalPeople: 70, generalCap: 3 },
-    "4": { label: "4인실", totalRooms: 124, defaultCapPerRoom: 4, generalPeople: 30, generalCap: 2 },
+    "6": { label: "6인실", totalRooms: 143, defaultCapPerRoom: 4, generalPeople: gen6, generalCap: 3 },
+    "4": { label: "4인실", totalRooms: 124, defaultCapPerRoom: 4, generalPeople: gen4, generalCap: 2 },
     "2": { label: "2인실", totalRooms: 15, defaultCapPerRoom: 2, generalPeople: "", generalCap: "" },
     "dadami24": { label: "다다미 24인실", totalRooms: 2, defaultCapPerRoom: 24, generalPeople: "", generalCap: "" },
     "dadami36": { label: "다다미 36인실", totalRooms: 1, defaultCapPerRoom: 36, generalPeople: "", generalCap: "" }
