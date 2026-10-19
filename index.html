@@ -635,6 +635,15 @@ button.tm-btn:hover{background:#fff6b8;}
         </button>
         <div id="masterAreaContent" class="hidden" style="margin-top:10px;">
           <div class="master-grid" id="masterRoomsContainer"></div>
+          <div style="margin-top:10px; padding:10px; background:#f0f4f8; border-radius:8px;">
+            <div style="font-weight:bold; font-size:13px; color:#17324d; margin-bottom:4px;">📅 월별 기본 일반 여객 설정 <span class="small" style="font-weight:normal;">(새 날짜를 열 때 해당 월 값이 기본으로 들어갑니다)</span></div>
+            <div id="monthlyDefaultsGrid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:6px;"></div>
+            <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;">
+              <button type="button" class="primary" style="padding:6px 12px; font-size:12px;" onclick="saveMonthlyDefaults()">월별 기본값 저장</button>
+              <button type="button" class="secondary" style="padding:6px 12px; font-size:12px;" onclick="resetMonthlyDefaultsToSeason()">초기값으로</button>
+              <button type="button" class="secondary" style="padding:6px 12px; font-size:12px;" onclick="applyMonthlyDefaultToCurrentDate()">이 날짜에 해당 월 기본값 적용</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -2517,12 +2526,120 @@ async function openDateSim(dateStr){
 
 function closeSimSection(){ document.getElementById("simSection").classList.add("hidden"); }
 
+/* ===== 월별 기본 일반 여객 (11~4월 비수기 70명: 6인실 50/4인실 20, 5~10월 성수기 100명: 6인실 70/4인실 30) ===== */
+const MONTHLY_DEFAULTS_KEY = "monthlyGeneralDefaults";
+function getSeasonalMonthlyDefaults(){
+  const o = {};
+  for(let m = 1; m <= 12; m++){
+    const peak = (m >= 5 && m <= 10);
+    o[m] = { g6: peak ? 70 : 50, g4: peak ? 30 : 20 };
+  }
+  return o;
+}
+let monthlyDefaults = getSeasonalMonthlyDefaults();
+
+function normalizeMonthlyDefaults(raw){
+  const base = getSeasonalMonthlyDefaults();
+  if(!raw) return base;
+  for(let m = 1; m <= 12; m++){
+    const r = raw[m] || raw[String(m)];
+    if(r){
+      const a = parseInt(r.g6, 10), b = parseInt(r.g4, 10);
+      if(!isNaN(a)) base[m].g6 = Math.max(0, a);
+      if(!isNaN(b)) base[m].g4 = Math.max(0, b);
+    }
+  }
+  return base;
+}
+
+function getMonthlyDefault(dateStr){
+  const month = parseInt(String(dateStr || "").substring(5, 7), 10);
+  return monthlyDefaults[month] || { g6: 70, g4: 30 };
+}
+
+function renderMonthlyDefaultsUI(){
+  const grid = document.getElementById("monthlyDefaultsGrid");
+  if(!grid) return;
+  let html = "";
+  for(let m = 1; m <= 12; m++){
+    const v = monthlyDefaults[m];
+    html += `
+      <div style="background:#fff; border:1px solid #dcdfe6; border-radius:6px; padding:6px;">
+        <div style="font-weight:bold; font-size:12px; margin-bottom:3px;">${m}월 <span id="md_total_${m}" class="small" style="font-weight:normal;">(합계 ${v.g6 + v.g4}명)</span></div>
+        <div style="display:flex; gap:4px; align-items:center;">
+          <span class="small">6인실</span><input type="number" min="0" id="md_g6_${m}" value="${v.g6}" oninput="updateMonthlyTotal(${m})" style="padding:4px;">
+        </div>
+        <div style="display:flex; gap:4px; align-items:center; margin-top:3px;">
+          <span class="small">4인실</span><input type="number" min="0" id="md_g4_${m}" value="${v.g4}" oninput="updateMonthlyTotal(${m})" style="padding:4px;">
+        </div>
+      </div>`;
+  }
+  grid.innerHTML = html;
+}
+
+function updateMonthlyTotal(m){
+  const a = parseInt(document.getElementById(`md_g6_${m}`).value, 10) || 0;
+  const b = parseInt(document.getElementById(`md_g4_${m}`).value, 10) || 0;
+  document.getElementById(`md_total_${m}`).innerText = `(합계 ${a + b}명)`;
+}
+
+function saveMonthlyDefaults(){
+  const raw = {};
+  for(let m = 1; m <= 12; m++){
+    raw[m] = {
+      g6: Math.max(0, parseInt(document.getElementById(`md_g6_${m}`).value, 10) || 0),
+      g4: Math.max(0, parseInt(document.getElementById(`md_g4_${m}`).value, 10) || 0)
+    };
+  }
+  monthlyDefaults = normalizeMonthlyDefaults(raw);
+  try { localStorage.setItem(MONTHLY_DEFAULTS_KEY, JSON.stringify(monthlyDefaults)); } catch(e) {}
+  if(db){
+    db.collection("settings").doc(MONTHLY_DEFAULTS_KEY).set({ months: monthlyDefaults, updatedAt: new Date() })
+      .then(() => alert("월별 기본값이 저장되었습니다.\n(이미 저장된 날짜는 그대로 유지되고, 새로 여는 날짜부터 적용됩니다.)"))
+      .catch(() => alert("서버 저장에 실패했습니다. 이 브라우저에만 저장되었습니다."));
+  } else {
+    alert("월별 기본값이 이 브라우저에 저장되었습니다.");
+  }
+}
+
+function resetMonthlyDefaultsToSeason(){
+  if(!confirm("월별 기본값을 초기값(11~4월 70명 / 5~10월 100명)으로 되돌릴까요?\n(저장 버튼을 눌러야 확정됩니다)")) return;
+  monthlyDefaults = getSeasonalMonthlyDefaults();
+  renderMonthlyDefaultsUI();
+}
+
+function applyMonthlyDefaultToCurrentDate(){
+  if(!selectedDate){ alert("먼저 달력에서 날짜를 선택해주세요."); return; }
+  const d = getMonthlyDefault(selectedDate);
+  masterRooms["6"].generalPeople = d.g6;
+  masterRooms["4"].generalPeople = d.g4;
+  initMasterRoomsUI();
+  runSimulation(false);
+  alert(`${selectedDate} 일반 여객을 ${d.g6 + d.g4}명(6인실 ${d.g6} / 4인실 ${d.g4})으로 적용했습니다.\n서버에 반영하려면 '기록 및 서버 저장'을 눌러주세요.`);
+}
+
+function loadMonthlyDefaults(){
+  try {
+    const cached = JSON.parse(localStorage.getItem(MONTHLY_DEFAULTS_KEY) || "null");
+    if(cached) monthlyDefaults = normalizeMonthlyDefaults(cached);
+  } catch(e) {}
+  renderMonthlyDefaultsUI();
+  if(db){
+    db.collection("settings").doc(MONTHLY_DEFAULTS_KEY).get().then(doc => {
+      if(doc.exists && doc.data().months){
+        monthlyDefaults = normalizeMonthlyDefaults(doc.data().months);
+        try { localStorage.setItem(MONTHLY_DEFAULTS_KEY, JSON.stringify(monthlyDefaults)); } catch(e) {}
+        renderMonthlyDefaultsUI();
+      }
+    }).catch(() => {});
+  }
+}
+document.addEventListener('DOMContentLoaded', loadMonthlyDefaults);
+
 function resetMasterData(){
-  // 11~4월 비수기: 기본 70명(6인실 50 / 4인실 20), 5~10월 성수기: 기본 100명(6인실 70 / 4인실 30)
-  const month = parseInt(String(selectedDate || "").substring(5, 7), 10);
-  const isPeak = (month >= 5 && month <= 10) || isNaN(month);
-  const gen6 = isPeak ? 70 : 50;
-  const gen4 = isPeak ? 30 : 20;
+  const md = getMonthlyDefault(selectedDate);
+  const gen6 = md.g6;
+  const gen4 = md.g4;
   masterRooms = {
     "6": { label: "6인실", totalRooms: 143, defaultCapPerRoom: 4, generalPeople: gen6, generalCap: 3 },
     "4": { label: "4인실", totalRooms: 124, defaultCapPerRoom: 4, generalPeople: gen4, generalCap: 2 },
